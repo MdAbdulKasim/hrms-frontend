@@ -8,12 +8,12 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   const menu = [
-    { label: "Home", href: "/home", icon: Home },
+    { label: "home", href: "home", icon: Home },
     { label: "Onboarding", href: "/onboarding", icon: Users },
     { label: "Feeds", href: "/feeds", icon: Bell },
-    { label: "Leave Tracking", href: "/leave-tracking", icon: Calendar },
+    { label: "Leave Tracker", href: "/leavetracker", icon: Calendar },
     { label: "Attendance", href: "/attendance", icon: Clock },
-    { label: "Time Tracking", href: "/time-tracking", icon: ClipboardList },
+    { label: "Time Tracking", href: "/timetracking", icon: ClipboardList },
     { label: "Profile", href: "/profile", icon: UserCircle },
   ];
 

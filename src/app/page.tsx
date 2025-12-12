@@ -1,9 +1,7 @@
-import DashboardLayout from "@/components/layout/DashboardLayout";
+
+import { redirect } from "next/navigation";
 
 export default function HomePage() {
-  return (
-    <DashboardLayout>
-      <h1 className="text-2xl font-semibold">Home Page Content</h1>
-    </DashboardLayout>
-  );
+ redirect('/home');
+ 
 }
