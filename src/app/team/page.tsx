@@ -1,11 +1,5 @@
-import Layout from "@/components/layout/Layout";
-import HRDashboard from "@/components/team";
+import { redirect } from "next/navigation";
 
-
-export default function team(){
-    return (
-        <Layout>
-        <HRDashboard/>  
-        </Layout>
-    )
+export default function TeamPage() {
+    redirect('/team/reportees');
 }

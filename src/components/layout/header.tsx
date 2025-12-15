@@ -1,36 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Settings, Bell, User } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
-type TabConfig = {
-  main: string[];
-  sub: string[];
+type SubTab = {
+  name: string;
+  path: string;
 };
 
-const tabConfigs: Record<string, TabConfig> = {
-  'My Space': {
-    main: ['My Space', 'Team', 'Organization'],
-    sub: ['Overview', 'Dashboard', 'Calendar']
+type MainTab = {
+  name: string;
+  path: string;
+  subTabs: SubTab[];
+};
+
+const navigationConfig: MainTab[] = [
+  {
+    name: 'My Space',
+    path: '/my-space',
+    subTabs: [
+      { name: 'Overview', path: '/my-space/overview' },
+      { name: 'Dashboard', path: '/my-space/dashboard' },
+      { name: 'Calendar', path: '/my-space/calendar' }
+    ]
   },
-  'Team': {
-    main: ['My Space', 'Team', 'Organization'],
-    sub: ['Reportees', 'HR Process']
+  {
+    name: 'Team',
+    path: '/team',
+    subTabs: [
+      { name: 'Reportees', path: '/team/reportees' },
+      { name: 'HR Process', path: '/team/hr-process' }
+    ]
   },
-  'Organization': {
-    main: ['My Space', 'Team', 'Organization'],
-    sub: ['Employee Tree', 'Department Tree']
+  {
+    name: 'Organization',
+    path: '/organization',
+    subTabs: [
+      { name: 'Employee Tree', path: '/organization/employee-tree' },
+      { name: 'Department Tree', path: '/organization/department-tree' }
+    ]
   }
-};
+];
 
 export default function NavigationHeader() {
-  const [activeMainTab, setActiveMainTab] = useState('My Space');
-  const [activeSubTab, setActiveSubTab] = useState('Overview');
+  const pathname = usePathname();
+  const [activeMainTab, setActiveMainTab] = useState(navigationConfig[0]);
 
-  const handleMainTabChange = (tab: string) => {
-    setActiveMainTab(tab);
-    setActiveSubTab(tabConfigs[tab].sub[0]);
-  };
-
-  const currentConfig = tabConfigs[activeMainTab];
+  // Sync active main tab with current path
+  useEffect(() => {
+    const matchedTab = navigationConfig.find(tab =>
+      pathname.startsWith(tab.path)
+    );
+    if (matchedTab) {
+      setActiveMainTab(matchedTab);
+    }
+  }, [pathname]);
 
   return (
     <div className="w-full bg-white">
@@ -39,19 +63,21 @@ export default function NavigationHeader() {
         <div className="flex items-center justify-between px-6 h-16">
           {/* Left Section - Main Navigation */}
           <div className="flex items-center gap-8">
-            {currentConfig.main.map((tab) => (
-              <button
-                key={tab}
-                onClick={() => handleMainTabChange(tab)}
-                className={`text-sm font-medium transition-colors px-4 py-2 rounded-md border ${
-                  activeMainTab === tab
+            {navigationConfig.map((tab) => {
+              const isActive = activeMainTab.name === tab.name;
+              return (
+                <button
+                  key={tab.name}
+                  onClick={() => setActiveMainTab(tab)}
+                  className={`text-sm font-medium transition-colors px-4 py-2 rounded-md border ${isActive
                     ? 'text-blue-600 border-blue-600 bg-blue-50'
                     : 'text-gray-500 border-gray-300 hover:text-gray-700 hover:border-gray-400'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
+                    }`}
+                >
+                  {tab.name}
+                </button>
+              );
+            })}
           </div>
 
           {/* Right Section - Search, Icons, Profile */}
@@ -93,19 +119,21 @@ export default function NavigationHeader() {
       {/* Sub Header */}
       <div className="border-b border-gray-200">
         <div className="flex items-center px-6 h-14 gap-8">
-          {currentConfig.sub.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveSubTab(tab)}
-              className={`text-sm font-medium transition-colors px-4 py-2 rounded-md border ${
-                activeSubTab === tab
-                  ? 'text-blue-600 border-blue-600 bg-blue-50'
-                  : 'text-gray-500 border-gray-300 hover:text-gray-700 hover:border-gray-400'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+          {activeMainTab.subTabs.map((tab) => {
+            const isActive = pathname === tab.path;
+            return (
+              <Link
+                key={tab.path}
+                href={tab.path}
+                className={`text-sm font-medium transition-colors px-4 py-2 border-b-2 ${isActive
+                    ? 'text-blue-600 border-blue-600'
+                    : 'text-blue-500 border-transparent hover:text-gray-700 hover:border-blue-50'
+                  }`}
+              >
+                {tab.name}
+              </Link>
+            );
+          })}
         </div>
       </div>
     </div>
