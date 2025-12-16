@@ -93,9 +93,12 @@ export default function NavigationHeader() {
             </div>
 
             {/* Settings Icon */}
-            <button className="p-2 hover:bg-blue-50 rounded-md transition-colors">
-              <Settings className="w-5 h-5 text-blue-600" />
-            </button>
+            <Link href="/settings/permissions">
+              <button className="p-2 hover:bg-blue-50 rounded-md">
+                <Settings className="w-5 h-5 text-blue-600" />
+              </button>
+            </Link>
+
 
             {/* Notification Bell with Badge */}
             <button className="p-2 hover:bg-blue-50 rounded-md transition-colors relative">
