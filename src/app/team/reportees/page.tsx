@@ -1,8 +1,13 @@
-export default function ReporteesPage() {
+
+
+import Layout from "@/components/layout/Layout";
+import EmployeeManagement from "@/components/team/reportees";
+
+
+export default function reportees(){
     return (
-        <div className="p-6">
-            <h1 className="text-2xl font-bold mb-4">Team - Reportees</h1>
-            <p>List of your reportees.</p>
-        </div>
-    );
+        <Layout>
+        <EmployeeManagement/>  
+        </Layout>
+    )
 }

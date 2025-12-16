@@ -8,7 +8,7 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   const menu = [
-    { label: "home", href: "home", icon: Home },
+    { label: "home", href: "/my-space/overview", icon: Home },
     { label: "Onboarding", href: "/onboarding", icon: Users },
     { label: "Feeds", href: "/feeds", icon: Bell },
     { label: "Leave Tracker", href: "/leavetracker", icon: Calendar },

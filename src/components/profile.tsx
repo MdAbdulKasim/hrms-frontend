@@ -1,325 +1,879 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
-import { 
-  Mail, Phone, MapPin, Briefcase, Calendar, Building, 
-  FileText, Edit2, Camera, UploadCloud, X, CheckCircle,
-  MoreHorizontal, Shield
-} from 'lucide-react';
-import Dashboard from './home';
+import React, { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { PenLine, Plus, Trash2 } from "lucide-react";
 
+// -----------------------------------------------------
+// TYPES FOR TABLE ROWS
+// -----------------------------------------------------
+export type WorkExperienceRow = {
+  companyName: string;
+  jobTitle: string;
+  fromDate: string;
+  toDate: string;
+  jobDescription: string;
+  relevant: string;
+};
 
-// --- Types ---
-interface LeaveBalance {
-  type: string;
-  used: number;
-  total: number;
-  color: string;
-}
+export type EducationRow = {
+  instituteName: string;
+  degree: string;
+  specialization: string;
+  dateOfCompletion: string;
+};
 
-interface Employee {
-  id: string;
+export type DependentRow = {
   name: string;
-  role: string;
-  avatar: string;
-  coverImage: string;
-  email: string;
-  phone: string;
-  location: string;
-  department: string;
-  joinDate: string;
-  manager: string;
-  leaves: LeaveBalance[];
-}
-
-// --- Initial Data ---
-const initialData: Employee = {
-  id: "EMP-2024-045",
-  name: "Alex Johnson",
-  role: "Senior Frontend Engineer",
-  avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex",
-  coverImage: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&q=80&w=2000",
-  email: "alex.johnson@techcorp.com",
-  phone: "+1 (555) 012-3456",
-  location: "San Francisco, CA",
-  department: "Engineering",
-  joinDate: "March 15, 2021",
-  manager: "Sarah Connor",
-  leaves: [
-    { type: 'Casual Leave', used: 4, total: 12, color: 'bg-blue-500' },
-    { type: 'Sick Leave', used: 2, total: 10, color: 'bg-rose-500' },
-    { type: 'Privilege Leave', used: 5, total: 15, color: 'bg-emerald-500' },
-  ]
+  relationship: string;
+  dob: string;
 };
 
-// --- REUSABLE COMPONENT: Modal ---
-const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title: string, children: React.ReactNode }) => {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl transform transition-all animate-[zoomIn_0.2s_ease-out] relative z-10 overflow-hidden border border-slate-100">
-        <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-slate-50/50">
-          <h3 className="text-lg font-bold text-slate-800">{title}</h3>
-          <button onClick={onClose} className="p-2 hover:bg-white hover:shadow-sm rounded-full text-slate-400 hover:text-slate-600 transition-all">
-            <X size={18} />
-          </button>
-        </div>
-        <div className="p-6">{children}</div>
-      </div>
-    </div>
-  );
-};
-
-// --- REUSABLE COMPONENT: InfoCard ---
-const InfoCard = ({ icon: Icon, label, value }: { icon: any, label: string, value: string }) => (
-  <div className="group flex items-center gap-4 p-4 bg-white rounded-2xl border border-slate-100 hover:border-blue-100 hover:shadow-lg hover:shadow-blue-500/5 transition-all duration-300">
-    <div className="p-3 bg-slate-50 text-slate-500 group-hover:bg-blue-600 group-hover:text-white rounded-xl transition-colors duration-300">
-      <Icon size={20} />
-    </div>
-    <div>
-      <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-0.5">{label}</p>
-      <p className="text-slate-800 font-semibold">{value}</p>
+// -----------------------------------------------------
+// Editable Row (for non-table fields)
+// -----------------------------------------------------
+const EditableRow = ({
+  label,
+  value,
+  editMode,
+  onChange,
+  type = "text",
+  isTextarea = false,
+}: {
+  label: string;
+  value: string;
+  editMode: boolean;
+  onChange: (v: string) => void;
+  type?: string;
+  isTextarea?: boolean;
+}) => (
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 py-3 border-b">
+    <div className="text-xs font-semibold text-gray-600">{label}</div>
+    <div className="col-span-2 text-sm">
+      {editMode ? (
+        isTextarea ? (
+          <Textarea 
+            value={value} 
+            onChange={(e) => onChange(e.target.value)}
+            rows={3}
+            className="w-full"
+          />
+        ) : (
+          <Input 
+            type={type}
+            value={value} 
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full"
+          />
+        )
+      ) : (
+        <span className="whitespace-pre-wrap">{value || "-"}</span>
+      )}
     </div>
   </div>
 );
 
-export default function ProfilePage() {
-  const [employee, setEmployee] = useState<Employee>(initialData);
-  const [activeTab, setActiveTab] = useState('overview');
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isLeaveOpen, setIsLeaveOpen] = useState(false);
-  const [editForm, setEditForm] = useState(initialData);
-
-  // Profile Picture Logic
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) setEmployee(prev => ({ ...prev, avatar: URL.createObjectURL(file) }));
-  };
-
-  // Leave Logic
-  const [leaveForm, setLeaveForm] = useState({ type: initialData.leaves[0].type, days: 1 });
-  const handleApplyLeave = () => {
-    setEmployee(prev => ({
-      ...prev,
-      leaves: prev.leaves.map(l => l.type === leaveForm.type ? { ...l, used: Math.min(l.used + leaveForm.days, l.total) } : l)
-    }));
-    setIsLeaveOpen(false);
-  };
+// -----------------------------------------------------
+// Editable Table Component (Reusable)
+// -----------------------------------------------------
+const EditableTable = <T extends object>({
+  title,
+  columns,
+  rows,
+  editMode,
+  onChange,
+  onAddRow,
+  onDeleteRow,
+}: {
+  title: string;
+  columns: (keyof T)[];
+  rows: T[];
+  editMode: boolean;
+  onChange: (rowIndex: number, field: keyof T, value: string) => void;
+  onAddRow: () => void;
+  onDeleteRow: (rowIndex: number) => void;
+}) => {
+  const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
 
   return (
-  
-    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 pb-20">
-      
-      {/* --- EDIT PROFILE MODAL --- */}
-      <Modal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} title="Edit Personal Details">
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">First Name</label>
-              <input type="text" value={editForm.name.split(' ')[0]} 
-                onChange={e => setEditForm({...editForm, name: `${e.target.value} ${editForm.name.split(' ')[1] || ''}`})}
-                className="w-full mt-1 p-3 bg-slate-50 border-transparent focus:bg-white focus:border-blue-500 border rounded-xl outline-none transition-all font-medium" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Last Name</label>
-              <input type="text" value={editForm.name.split(' ')[1] || ''} 
-                onChange={e => setEditForm({...editForm, name: `${editForm.name.split(' ')[0]} ${e.target.value}`})}
-                className="w-full mt-1 p-3 bg-slate-50 border-transparent focus:bg-white focus:border-blue-500 border rounded-xl outline-none transition-all font-medium" />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Role / Job Title</label>
-            <input type="text" value={editForm.role} onChange={e => setEditForm({...editForm, role: e.target.value})}
-              className="w-full mt-1 p-3 bg-slate-50 border-transparent focus:bg-white focus:border-blue-500 border rounded-xl outline-none transition-all font-medium" />
-          </div>
-          <button onClick={() => { setEmployee(editForm); setIsEditOpen(false); }} 
-            className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 transition-all mt-4">
-            Save Changes
-          </button>
-        </div>
-      </Modal>
-
-      {/* --- APPLY LEAVE MODAL --- */}
-      <Modal isOpen={isLeaveOpen} onClose={() => setIsLeaveOpen(false)} title="Request Time Off">
-        <div className="space-y-5">
-           <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 flex gap-3">
-              <div className="p-2 bg-blue-100 text-blue-600 rounded-lg h-fit"><Calendar size={20}/></div>
-              <div>
-                <p className="text-sm font-bold text-blue-900">Holiday Notice</p>
-                <p className="text-xs text-blue-700 mt-1">Check the team calendar before applying to ensure coverage.</p>
-              </div>
-           </div>
-           <div>
-             <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Select Leave Type</label>
-             <div className="grid grid-cols-3 gap-2 mt-2">
-                {employee.leaves.map(l => (
-                  <button key={l.type} onClick={() => setLeaveForm({...leaveForm, type: l.type})}
-                    className={`p-3 rounded-xl border text-sm font-medium transition-all ${leaveForm.type === l.type ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 hover:border-slate-300'}`}>
-                    {l.type.split(' ')[0]}
-                  </button>
+    <Card className="shadow-sm">
+      <CardHeader className="flex justify-between flex-row items-center">
+        <CardTitle className="text-sm font-semibold">{title}</CardTitle>
+        {editMode && (
+          <Button size="sm" variant="outline" onClick={onAddRow}>
+            <Plus size={14} className="mr-1" /> Add Row
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b bg-gray-50">
+                {columns.map((col, i) => (
+                  <th key={i} className="text-left p-3 text-xs font-semibold text-gray-600">
+                    {String(col)}
+                  </th>
                 ))}
-             </div>
-           </div>
-           <div>
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Number of Days</label>
-              <input type="range" min="1" max="14" value={leaveForm.days} onChange={e => setLeaveForm({...leaveForm, days: Number(e.target.value)})} 
-                className="w-full mt-2 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
-              <div className="flex justify-between text-xs text-slate-400 mt-1 font-medium"><span>1 Day</span><span>{leaveForm.days} Days Selected</span><span>14 Days</span></div>
-           </div>
-           <button onClick={handleApplyLeave} className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
-             <CheckCircle size={18} /> Submit Request
-           </button>
-        </div>
-      </Modal>
-
-      {/* --- MAIN CONTENT --- */}
-      <div className="max-w-7xl mx-auto px-6 relative z-10 pt-8 animate-[fadeIn_0.5s_ease-out]">
-        
-        {/* HEADER PROFILE */}
-        <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
-          
-          <div className="px-10 py-8">
-            <div className="flex flex-col lg:flex-row items-center lg:items-end gap-8">
-              
-              {/* Avatar */}
-              <div className="relative group shrink-0">
-                <div className="w-48 h-48 rounded-[2rem] border-4 border-slate-100 shadow-xl bg-white overflow-hidden relative rotate-0 hover:rotate-1 transition-all duration-300">
-                  <img src={employee.avatar} alt="Profile" className="w-full h-full object-cover"/>
-                  <div onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center text-white backdrop-blur-[2px]">
-                    <Camera size={32} />
-                  </div>
-                </div>
-                {/* Online Indicator */}
-                <div className="absolute bottom-3 -right-2 w-6 h-6 bg-emerald-500 border-[4px] border-white rounded-full">
-                  <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-75"></span>
-                </div>
-                <input type="file" ref={fileInputRef} onChange={handleImageChange} className="hidden" accept="image/*"/>
-              </div>
-
-              {/* Main Info */}
-              <div className="flex-1 w-full lg:w-auto text-center lg:text-left pt-4 lg:pt-0">
-                <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
-                  <div>
-                    <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">{employee.name}</h1>
-                    <p className="text-lg text-slate-500 font-medium mt-1 mb-4">{employee.role}</p>
-                    
-                    <div className="flex flex-wrap justify-center lg:justify-start gap-3">
-                      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-sm font-semibold border border-slate-100">
-                        <MapPin size={16} className="text-slate-400"/> {employee.location}
-                      </span>
-                      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-sm font-semibold border border-slate-100">
-                        <Building size={16} className="text-slate-400"/> {employee.department}
-                      </span>
-                      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-semibold border border-blue-100">
-                        <Shield size={16}/> Active Employee
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-3 w-full lg:w-auto mt-4 lg:mt-0">
-                    <button onClick={() => { setEditForm(employee); setIsEditOpen(true); }}
-                      className="flex-1 lg:flex-none items-center justify-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition-all shadow-lg shadow-slate-900/20">
-                      <Edit2 size={18} /> Edit Profile
-                    </button>
-                    <button className="p-3 border border-slate-200 hover:bg-slate-50 rounded-xl text-slate-600 transition-all">
-                      <MoreHorizontal size={20} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Navigation Tabs */}
-            <div className="flex gap-8 mt-12 border-b border-slate-200">
-              {['Overview', 'Personal', 'Teams', 'Payroll'].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab.toLowerCase())}
-                  className={`pb-4 px-2 text-sm font-bold tracking-wide transition-all relative ${
-                    activeTab === tab.toLowerCase() ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  {tab.toUpperCase()}
-                  {activeTab === tab.toLowerCase() && <span className="absolute bottom-0 left-0 w-full h-[3px] bg-blue-600 rounded-t-full shadow-lg shadow-blue-500/50"></span>}
-                </button>
+                {editMode && <th className="text-left p-3 text-xs font-semibold text-gray-600">Action</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={columns.length + 1} className="py-6 text-center text-gray-500 text-sm">
+                    No rows found.
+                  </td>
+                </tr>
+              )}
+              {rows.map((row, rowIndex) => (
+                <tr key={rowIndex} className="border-b hover:bg-gray-50">
+                  {columns.map((col, colIndex) => (
+                    <td key={colIndex} className="p-3 text-sm">
+                      {editMode ? (
+                        <Input
+                          value={(row[col] as string) || ""}
+                          onChange={(e) =>
+                            onChange(rowIndex, col, e.target.value)
+                          }
+                          className="w-full min-w-[120px]"
+                        />
+                      ) : (
+                        (row[col] as string) || "-"
+                      )}
+                    </td>
+                  ))}
+                  {editMode && (
+                    <td className="p-3">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => setDeleteIndex(rowIndex)}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </td>
+                  )}
+                </tr>
               ))}
-            </div>
-          </div>
+            </tbody>
+          </table>
         </div>
+      </CardContent>
 
-        {/* CONTENT GRID */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-          
-          {/* Left Column - Details */}
-          <div className="lg:col-span-2 space-y-8">
-            <div className="bg-white rounded-[2rem] p-8 shadow-xl shadow-slate-200/40 border border-slate-100">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-slate-800">Contact Information</h3>
-                <button className="text-sm font-bold text-blue-600 hover:text-blue-700">View All</button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <InfoCard icon={Mail} label="Work Email" value={employee.email} />
-                <InfoCard icon={Phone} label="Phone Number" value={employee.phone} />
-                <InfoCard icon={Briefcase} label="Reporting To" value={employee.manager} />
-                <InfoCard icon={FileText} label="Employee ID" value={employee.id} />
-              </div>
-            </div>
-          </div>
+      {/* Delete Confirmation Popup */}
+      <Dialog open={deleteIndex !== null} onOpenChange={() => setDeleteIndex(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Row?</DialogTitle>
+            <p className="text-sm text-gray-600 mt-2">
+              Are you sure you want to delete this row? This action cannot be undone.
+            </p>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteIndex(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (deleteIndex !== null) onDeleteRow(deleteIndex);
+                setDeleteIndex(null);
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+};
 
-          {/* Right Column - Stats & Leave */}
-          <div className="space-y-8">
-            <div className="bg-white rounded-[2rem] p-8 shadow-xl shadow-slate-200/40 border border-slate-100 relative overflow-hidden">
-              <div className="flex justify-between items-center mb-6 relative z-10">
-                 <h3 className="text-xl font-bold text-slate-800">Leave Balance</h3>
-                 <span className="text-xs font-bold px-3 py-1 bg-slate-100 text-slate-500 rounded-full">2024</span>
-              </div>
-              
-              <div className="space-y-6 relative z-10">
-                {employee.leaves.map((leave, idx) => (
-                  <div key={idx}>
-                    <div className="flex justify-between text-sm mb-2.5">
-                      <span className="font-bold text-slate-700">{leave.type}</span>
-                      <span className="font-semibold text-slate-400">{leave.used} / {leave.total}</span>
-                    </div>
-                    <div className="w-full bg-slate-50 rounded-full h-3 overflow-hidden border border-slate-100">
-                      <div 
-                        className={`h-full rounded-full ${leave.color} shadow-sm transition-all duration-1000 ease-out`} 
-                        style={{ width: `${(leave.used / leave.total) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+// -----------------------------------------------------
+// MAIN PROFILE PAGE
+// -----------------------------------------------------
+export default function ProfilePage() {
+  const [editMode, setEditMode] = useState(false);
 
-              {/* Decorative Background Blob */}
-              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
+  // --------------------------------------
+  // Profile fields
+  // --------------------------------------
+  const [profile, setProfile] = useState({
+    employeeId: "1",
+    firstName: "Mohamed",
+    lastName: "-",
+    nickName: "-",
+    email: "farhanbasheerfarhan399@gmail.com",
+    department: "Management",
+    designation: "Assistant Manager",
+    dob: "-",
+    gender: "Male",
+    seatingLocation: "FL_EXEC_1",
+    extension: "1",
+    shift: "General (09:00 AM - 06:00 PM)",
+    timezone: "(GMT+05:30)",
+    workPhoneNumber: "305-555-1212",
+    about: "",
+    tags: "",
+  });
 
-              <button 
-                onClick={() => setIsLeaveOpen(true)}
-                className="w-full mt-8 py-3.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-bold rounded-xl transition-all flex justify-center items-center gap-2 border border-blue-200"
-              >
-                <UploadCloud size={18} /> Apply for Leave
-              </button>
-            </div>
-            
-            {/* Promotion Card */}
-            <div className="group bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[2rem] p-8 text-white relative overflow-hidden shadow-xl shadow-indigo-500/20 cursor-pointer">
-              <div className="relative z-10 transition-transform duration-300 group-hover:-translate-y-1">
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg text-xs font-semibold mb-4">
-                   <Calendar size={12} /> Next Review: Dec 2024
-                </div>
-                <h3 className="text-2xl font-bold mb-2">Performance Review</h3>
-                <p className="text-indigo-100 text-sm leading-relaxed">Your annual appraisal is coming up. Ensure your goals are updated.</p>
-              </div>
-              <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all"></div>
-            </div>
+  // Work Information fields
+  const [workInfo, setWorkInfo] = useState({
+    location: "-",
+    zohoRole: "Admin",
+    employmentType: "Permanent",
+    employeeStatus: "Active",
+    sourceOfHire: "-",
+    dateOfJoining: "02-Feb-2004",
+    currentExperience: "21 year(s) 10 month(s)",
+    totalExperience: "27 year(s) 6 month(s)",
+  });
 
-          </div>
-        </div>
+  // Hierarchy Information
+  const [hierarchyInfo, setHierarchyInfo] = useState({
+    reportingManager: "-",
+  });
+
+  // Personal Details
+  const [personalDetails, setPersonalDetails] = useState({
+    dateOfBirth: "-",
+    age: "-",
+    maritalStatus: "-",
+    aboutMe: "-",
+    askMeAbout: "-",
+  });
+
+  // Identity Information
+  const [identityInfo, setIdentityInfo] = useState({
+    uan: "-",
+    pan: "**********",
+    aadhaar: "**********",
+  });
+
+  // Contact Details
+  const [contactDetails, setContactDetails] = useState({
+    personalMobileNumber: "-",
+    personalEmailAddress: "-",
+    presentAddress: "6422 Collins Ave,\n#APT 302,\nMiami Beach, Florida,\nUNITED STATES, 33141.",
+    permanentAddress: "-",
+  });
+
+  // Separation Information
+  const [separationInfo, setSeparationInfo] = useState({
+    dateOfExit: "-",
+  });
+
+  // System Fields
+  const [systemFields] = useState({
+    addedBy: "1 - mohamed -",
+    addedTime: "03-Dec-2025 12:08 PM",
+    modifiedBy: "1 - mohamed -",
+    modifiedTime: "03-Dec-2025 12:08 PM",
+    onboardingStatus: "-",
+  });
+
+  const updateField = (section: string, field: string, value: string) => {
+    switch (section) {
+      case "profile":
+        setProfile((prev) => ({ ...prev, [field]: value }));
+        break;
+      case "workInfo":
+        setWorkInfo((prev) => ({ ...prev, [field]: value }));
+        break;
+      case "hierarchyInfo":
+        setHierarchyInfo((prev) => ({ ...prev, [field]: value }));
+        break;
+      case "personalDetails":
+        setPersonalDetails((prev) => ({ ...prev, [field]: value }));
+        break;
+      case "identityInfo":
+        setIdentityInfo((prev) => ({ ...prev, [field]: value }));
+        break;
+      case "contactDetails":
+        setContactDetails((prev) => ({ ...prev, [field]: value }));
+        break;
+      case "separationInfo":
+        setSeparationInfo((prev) => ({ ...prev, [field]: value }));
+        break;
+    }
+  };
+
+  // --------------------------------------
+  // Work Experience Table
+  // --------------------------------------
+  const [workRows, setWorkRows] = useState<WorkExperienceRow[]>([
+    {
+      companyName: "Infomax",
+      jobTitle: "Assistant Manager",
+      fromDate: "30-Apr-1998",
+      toDate: "01-Jan-2004",
+      jobDescription: "-",
+      relevant: "Yes",
+    },
+  ]);
+
+  const workColumns: (keyof WorkExperienceRow)[] = [
+    "companyName",
+    "jobTitle",
+    "fromDate",
+    "toDate",
+    "jobDescription",
+    "relevant",
+  ];
+
+  const updateWorkRow = (
+    index: number,
+    field: keyof WorkExperienceRow,
+    value: string
+  ) => {
+    const updated = [...workRows];
+    updated[index][field] = value;
+    setWorkRows(updated);
+  };
+
+  const addWorkRow = () => {
+    setWorkRows([
+      ...workRows,
+      {
+        companyName: "",
+        jobTitle: "",
+        fromDate: "",
+        toDate: "",
+        jobDescription: "",
+        relevant: "",
+      },
+    ]);
+  };
+
+  const deleteWorkRow = (index: number) =>
+    setWorkRows(workRows.filter((_, i) => i !== index));
+
+  // --------------------------------------
+  // Education Table
+  // --------------------------------------
+  const [educationRows, setEducationRows] = useState<EducationRow[]>([
+    {
+      instituteName: "Pacifica University",
+      degree: "Doctorate",
+      specialization: "Software Development",
+      dateOfCompletion: "-",
+    },
+  ]);
+
+  const educationColumns: (keyof EducationRow)[] = [
+    "instituteName",
+    "degree",
+    "specialization",
+    "dateOfCompletion",
+  ];
+
+  const updateEducationRow = (
+    index: number,
+    field: keyof EducationRow,
+    value: string
+  ) => {
+    const updated = [...educationRows];
+    updated[index][field] = value;
+    setEducationRows(updated);
+  };
+
+  const addEducationRow = () => {
+    setEducationRows([
+      ...educationRows,
+      {
+        instituteName: "",
+        degree: "",
+        specialization: "",
+        dateOfCompletion: "",
+      },
+    ]);
+  };
+
+  const deleteEducationRow = (index: number) =>
+    setEducationRows(educationRows.filter((_, i) => i !== index));
+
+  // --------------------------------------
+  // Dependent Table
+  // --------------------------------------
+  const [dependentRows, setDependentRows] = useState<DependentRow[]>([]);
+
+  const dependentColumns: (keyof DependentRow)[] = ["name", "relationship", "dob"];
+
+  const updateDependentRow = (
+    index: number,
+    field: keyof DependentRow,
+    value: string
+  ) => {
+    const updated = [...dependentRows];
+    updated[index][field] = value;
+    setDependentRows(updated);
+  };
+
+  const addDependentRow = () => {
+    setDependentRows([
+      ...dependentRows,
+      { name: "", relationship: "", dob: "" },
+    ]);
+  };
+
+  const deleteDependentRow = (index: number) =>
+    setDependentRows(dependentRows.filter((_, i) => i !== index));
+
+  return (
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
+      {/* PAGE HEADER */}
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-semibold">Employee Profile</h1>
+        <Button onClick={() => setEditMode(!editMode)} className="bg-blue-600 hover:bg-blue-700 text-white">
+          <PenLine className="mr-2 h-4 w-4" />
+          {editMode ? "Save" : "Edit"}
+        </Button>
       </div>
+
+      {/* BASIC INFORMATION */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">Basic Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EditableRow
+            label="Employee ID"
+            value={profile.employeeId}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "employeeId", v)}
+          />
+          <EditableRow
+            label="First Name"
+            value={profile.firstName}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "firstName", v)}
+          />
+          <EditableRow
+            label="Last Name"
+            value={profile.lastName}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "lastName", v)}
+          />
+          <EditableRow
+            label="Nick Name"
+            value={profile.nickName}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "nickName", v)}
+          />
+          <EditableRow
+            label="Email"
+            value={profile.email}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "email", v)}
+            type="email"
+          />
+          <EditableRow
+            label="Department"
+            value={profile.department}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "department", v)}
+          />
+          <EditableRow
+            label="Designation"
+            value={profile.designation}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "designation", v)}
+          />
+          <EditableRow
+            label="Seating Location"
+            value={profile.seatingLocation}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "seatingLocation", v)}
+          />
+          <EditableRow
+            label="Extension"
+            value={profile.extension}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "extension", v)}
+          />
+          <EditableRow
+            label="Shift"
+            value={profile.shift}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "shift", v)}
+          />
+          <EditableRow
+            label="Time zone"
+            value={profile.timezone}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "timezone", v)}
+          />
+          <EditableRow
+            label="Work Phone Number"
+            value={profile.workPhoneNumber}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "workPhoneNumber", v)}
+            type="tel"
+          />
+        </CardContent>
+      </Card>
+
+      {/* ABOUT */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">About</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EditableRow
+            label="About"
+            value={profile.about}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "about", v)}
+            isTextarea={true}
+          />
+        </CardContent>
+      </Card>
+
+      {/* TAGS */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">Tags</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EditableRow
+            label="Tags"
+            value={profile.tags}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "tags", v)}
+          />
+        </CardContent>
+      </Card>
+
+      {/* WORK INFORMATION */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">Work Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EditableRow
+            label="Department"
+            value={profile.department}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "department", v)}
+          />
+          <EditableRow
+            label="Location"
+            value={workInfo.location}
+            editMode={editMode}
+            onChange={(v) => updateField("workInfo", "location", v)}
+          />
+          <EditableRow
+            label="Designation"
+            value={profile.designation}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "designation", v)}
+          />
+          <EditableRow
+            label="Zoho Role"
+            value={workInfo.zohoRole}
+            editMode={editMode}
+            onChange={(v) => updateField("workInfo", "zohoRole", v)}
+          />
+          <EditableRow
+            label="Employment Type"
+            value={workInfo.employmentType}
+            editMode={editMode}
+            onChange={(v) => updateField("workInfo", "employmentType", v)}
+          />
+          <EditableRow
+            label="Employee Status"
+            value={workInfo.employeeStatus}
+            editMode={editMode}
+            onChange={(v) => updateField("workInfo", "employeeStatus", v)}
+          />
+          <EditableRow
+            label="Source of Hire"
+            value={workInfo.sourceOfHire}
+            editMode={editMode}
+            onChange={(v) => updateField("workInfo", "sourceOfHire", v)}
+          />
+          <EditableRow
+            label="Date of Joining"
+            value={workInfo.dateOfJoining}
+            editMode={editMode}
+            onChange={(v) => updateField("workInfo", "dateOfJoining", v)}
+            type="date"
+          />
+          <EditableRow
+            label="Current Experience"
+            value={workInfo.currentExperience}
+            editMode={false}
+            onChange={() => {}}
+          />
+          <EditableRow
+            label="Total Experience"
+            value={workInfo.totalExperience}
+            editMode={false}
+            onChange={() => {}}
+          />
+        </CardContent>
+      </Card>
+
+      {/* HIERARCHY INFORMATION */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">Hierarchy Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EditableRow
+            label="Reporting Manager"
+            value={hierarchyInfo.reportingManager}
+            editMode={editMode}
+            onChange={(v) => updateField("hierarchyInfo", "reportingManager", v)}
+          />
+        </CardContent>
+      </Card>
+
+      {/* PERSONAL DETAILS */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">Personal Details</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EditableRow
+            label="Date of Birth"
+            value={personalDetails.dateOfBirth}
+            editMode={editMode}
+            onChange={(v) => updateField("personalDetails", "dateOfBirth", v)}
+            type="date"
+          />
+          <EditableRow
+            label="Age"
+            value={personalDetails.age}
+            editMode={editMode}
+            onChange={(v) => updateField("personalDetails", "age", v)}
+          />
+          <EditableRow
+            label="Gender"
+            value={profile.gender}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "gender", v)}
+          />
+          <EditableRow
+            label="Marital Status"
+            value={personalDetails.maritalStatus}
+            editMode={editMode}
+            onChange={(v) => updateField("personalDetails", "maritalStatus", v)}
+          />
+          <EditableRow
+            label="About Me"
+            value={personalDetails.aboutMe}
+            editMode={editMode}
+            onChange={(v) => updateField("personalDetails", "aboutMe", v)}
+            isTextarea={true}
+          />
+          <EditableRow
+            label="Ask me about/Expertise"
+            value={personalDetails.askMeAbout}
+            editMode={editMode}
+            onChange={(v) => updateField("personalDetails", "askMeAbout", v)}
+          />
+        </CardContent>
+      </Card>
+
+      {/* IDENTITY INFORMATION */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">Identity Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EditableRow
+            label="UAN"
+            value={identityInfo.uan}
+            editMode={editMode}
+            onChange={(v) => updateField("identityInfo", "uan", v)}
+          />
+          <EditableRow
+            label="PAN"
+            value={identityInfo.pan}
+            editMode={editMode}
+            onChange={(v) => updateField("identityInfo", "pan", v)}
+          />
+          <EditableRow
+            label="Aadhaar"
+            value={identityInfo.aadhaar}
+            editMode={editMode}
+            onChange={(v) => updateField("identityInfo", "aadhaar", v)}
+          />
+        </CardContent>
+      </Card>
+
+      {/* WORK EXPERIENCE TABLE */}
+      <EditableTable
+        title="Work Experience"
+        columns={workColumns}
+        rows={workRows}
+        editMode={editMode}
+        onChange={(i, field, value) =>
+          updateWorkRow(i, field as keyof WorkExperienceRow, value)
+        }
+        onAddRow={addWorkRow}
+        onDeleteRow={deleteWorkRow}
+      />
+
+      {/* EDUCATION DETAILS TABLE */}
+      <EditableTable
+        title="Education Details"
+        columns={educationColumns}
+        rows={educationRows}
+        editMode={editMode}
+        onChange={(i, field, value) =>
+          updateEducationRow(i, field as keyof EducationRow, value)
+        }
+        onAddRow={addEducationRow}
+        onDeleteRow={deleteEducationRow}
+      />
+
+      {/* DEPENDENT DETAILS TABLE */}
+      <EditableTable
+        title="Dependent Details"
+        columns={dependentColumns}
+        rows={dependentRows}
+        editMode={editMode}
+        onChange={(i, field, value) =>
+          updateDependentRow(i, field as keyof DependentRow, value)
+        }
+        onAddRow={addDependentRow}
+        onDeleteRow={deleteDependentRow}
+      />
+
+      {/* CONTACT DETAILS */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">Contact Details</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EditableRow
+            label="Work Phone Number"
+            value={profile.workPhoneNumber}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "workPhoneNumber", v)}
+            type="tel"
+          />
+          <EditableRow
+            label="Extension"
+            value={profile.extension}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "extension", v)}
+          />
+          <EditableRow
+            label="Seating Location"
+            value={profile.seatingLocation}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "seatingLocation", v)}
+          />
+          <EditableRow
+            label="Tags"
+            value={profile.tags}
+            editMode={editMode}
+            onChange={(v) => updateField("profile", "tags", v)}
+          />
+          <EditableRow
+            label="Personal Mobile Number"
+            value={contactDetails.personalMobileNumber}
+            editMode={editMode}
+            onChange={(v) => updateField("contactDetails", "personalMobileNumber", v)}
+            type="tel"
+          />
+          <EditableRow
+            label="Personal Email Address"
+            value={contactDetails.personalEmailAddress}
+            editMode={editMode}
+            onChange={(v) => updateField("contactDetails", "personalEmailAddress", v)}
+            type="email"
+          />
+          <EditableRow
+            label="Present Address"
+            value={contactDetails.presentAddress}
+            editMode={editMode}
+            onChange={(v) => updateField("contactDetails", "presentAddress", v)}
+            isTextarea={true}
+          />
+          <EditableRow
+            label="Permanent Address"
+            value={contactDetails.permanentAddress}
+            editMode={editMode}
+            onChange={(v) => updateField("contactDetails", "permanentAddress", v)}
+            isTextarea={true}
+          />
+        </CardContent>
+      </Card>
+
+      {/* SEPARATION INFORMATION */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">Separation Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EditableRow
+            label="Date of Exit"
+            value={separationInfo.dateOfExit}
+            editMode={editMode}
+            onChange={(v) => updateField("separationInfo", "dateOfExit", v)}
+            type="date"
+          />
+        </CardContent>
+      </Card>
+
+      {/* SYSTEM FIELDS */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">System Fields</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EditableRow
+            label="Added By"
+            value={systemFields.addedBy}
+            editMode={false}
+            onChange={() => {}}
+          />
+          <EditableRow
+            label="Added Time"
+            value={systemFields.addedTime}
+            editMode={false}
+            onChange={() => {}}
+          />
+          <EditableRow
+            label="Modified By"
+            value={systemFields.modifiedBy}
+            editMode={false}
+            onChange={() => {}}
+          />
+          <EditableRow
+            label="Modified Time"
+            value={systemFields.modifiedTime}
+            editMode={false}
+            onChange={() => {}}
+          />
+          <EditableRow
+            label="Onboarding Status"
+            value={systemFields.onboardingStatus}
+            editMode={false}
+            onChange={() => {}}
+          />
+        </CardContent>
+      </Card>
     </div>
-    
   );
 }

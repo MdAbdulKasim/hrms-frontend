@@ -2,7 +2,14 @@
 
 import React, { useState } from 'react';
 import { X, Plus, Play, Square, Target, Clock, Briefcase, CheckCircle } from 'lucide-react';
-
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 interface TimeEntry {
   project: string;
@@ -94,7 +101,6 @@ export default function TimeTrackingApp() {
   };
 
   return (
-    
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -105,7 +111,7 @@ export default function TimeTrackingApp() {
           </div>
           <button
             onClick={() => setIsDialogOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 border text-white rounded-lg"
           >
             <Plus size={20} />
             <span className="font-medium">Manual Entry</span>
@@ -134,8 +140,8 @@ export default function TimeTrackingApp() {
                   disabled={isTimerRunning}
                   className={`flex items-center gap-2 px-6 py-2.5 rounded-lg transition-colors ${
                     isTimerRunning 
-                      ? 'bg-gray-400 cursor-not-allowed' 
-                      : 'bg-gray-700 hover:bg-gray-800'
+                      ? 'bg-blue-400 cursor-not-allowed' 
+                      : 'bg-blue-600 hover:bg-blue-400'
                   } text-white`}
                 >
                   <Play size={18} />
@@ -219,11 +225,11 @@ export default function TimeTrackingApp() {
         {/* Progress Bar */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="font-semibold text-gray-900">Weekly Progress</h3>
-            <span className="text-sm text-gray-500">32.5h / 40h (81%)</span>
+            <h3 className="font-semibold text-blue-600">Weekly Progress</h3>
+            <span className="text-sm text-blue-600">32.5h / 40h (81%)</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-3">
-            <div className="bg-gray-900 h-3 rounded-full" style={{ width: '81%' }}></div>
+            <div className="bg-blue-600 h-3 rounded-full" style={{ width: '81%' }}></div>
           </div>
         </div>
 
@@ -262,100 +268,94 @@ export default function TimeTrackingApp() {
           </div>
         </div>
 
-        {/* Add Time Entry Dialog */}
-        {isDialogOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
-              <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h2 className="text-2xl font-bold text-gray-900">Add Time Entry</h2>
-                <button
-                  onClick={() => setIsDialogOpen(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+        {/* Add Time Entry Dialog - shadcn/ui */}
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add Time Entry</DialogTitle>
+              <DialogDescription>
+                Add a new time entry for your project work
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-5 py-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">Project</label>
+                <select
+                  value={selectedProject}
+                  onChange={(e) => setSelectedProject(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <X size={24} />
-                </button>
+                  <option value="">Select project</option>
+                  {projects.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
               </div>
 
-              <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">Task</label>
+                <select
+                  value={selectedTask}
+                  onChange={(e) => setSelectedTask(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select task</option>
+                  {tasks.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">Project</label>
-                  <select
-                    value={selectedProject}
-                    onChange={(e) => setSelectedProject(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select project</option>
-                    {projects.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">Date</label>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="dd/mm/yyyy"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">Task</label>
-                  <select
-                    value={selectedTask}
-                    onChange={(e) => setSelectedTask(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select task</option>
-                    {tasks.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-2">Date</label>
-                    <input
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="dd/mm/yyyy"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-2">Hours</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      value={hours}
-                      onChange={(e) => setHours(e.target.value)}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">Description</label>
-                  <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="What did you work on?"
-                    rows={4}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  <label className="block text-sm font-medium text-gray-900 mb-2">Hours</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={hours}
+                    onChange={(e) => setHours(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
-                <button
-                  onClick={() => setIsDialogOpen(false)}
-                  className="px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddEntry}
-                  className="px-6 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 font-medium transition-colors"
-                >
-                  Add Entry
-                </button>
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">Description</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="What did you work on?"
+                  rows={4}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
               </div>
             </div>
-          </div>
-        )}
+
+            <DialogFooter>
+              <button
+                onClick={() => setIsDialogOpen(false)}
+                className="px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddEntry}
+                className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+              >
+                Add Entry
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
-    
   );
 }

@@ -1,8 +1,13 @@
-export default function OverviewPage() {
+
+
+import Dashboard from "@/components/home";
+import Layout from "@/components/layout/Layout";
+
+
+export default function leave(){
     return (
-        <div className="p-6">
-            <h1 className="text-2xl font-bold mb-4">My Space - Overview</h1>
-            <p>Welcome to your generic overview.</p>
-        </div>
-    );
+        <Layout>
+        <Dashboard/>  
+        </Layout>
+    )
 }

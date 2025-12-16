@@ -1,9 +1,9 @@
 
-import Dashboard from "@/components/home";
 import Layout from "@/components/layout/Layout";
+import Dashboard from "@/components/myspace/dashboard";
 
 
-export default function leave(){
+export default function home(){
     return (
         <Layout>
         <Dashboard/>  

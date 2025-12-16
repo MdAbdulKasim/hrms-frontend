@@ -1,8 +1,15 @@
-export default function CalendarPage() {
+
+
+
+import Layout from "@/components/layout/Layout";
+import Calendar from "@/components/myspace/calender";
+
+
+
+export default function calender(){
     return (
-        <div className="p-6">
-            <h1 className="text-2xl font-bold mb-4">My Space - Calendar</h1>
-            <p>Your schedule for the week.</p>
-        </div>
-    );
+        <Layout>
+        <Calendar/>  
+        </Layout>
+    )
 }

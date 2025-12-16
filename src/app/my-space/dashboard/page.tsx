@@ -1,8 +1,14 @@
-export default function DashboardPage() {
+
+
+
+import Layout from "@/components/layout/Layout";
+import Dashboard from "@/components/myspace/dashboard";
+
+
+export default function dashboard(){
     return (
-        <div className="p-6">
-            <h1 className="text-2xl font-bold mb-4">My Space - Dashboard</h1>
-            <p>Here are your key metrics.</p>
-        </div>
-    );
+        <Layout>
+        <Dashboard/>  
+        </Layout>
+    )
 }
