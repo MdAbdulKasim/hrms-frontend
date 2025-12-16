@@ -1,8 +1,15 @@
-export default function DepartmentTreePage() {
+
+
+
+import Layout from "@/components/layout/Layout";
+import OrganizationChart from "@/components/organization/departmenttree";
+
+
+
+export default function leave(){
     return (
-        <div className="p-6">
-            <h1 className="text-2xl font-bold mb-4">Organization - Department Tree</h1>
-            <p>Visual representation of the department structure.</p>
-        </div>
-    );
+        <Layout>
+        <OrganizationChart/>  
+        </Layout>
+    )
 }

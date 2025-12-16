@@ -5,7 +5,7 @@ import {
   User, 
   Clock, 
   Sun, 
-  Calendar as CalendarIcon, 
+  Calendar, 
   AlertCircle, 
   Briefcase
 } from 'lucide-react';
@@ -48,6 +48,8 @@ const schedule: ScheduleDay[] = [
 const ProfileCard = () => {
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [seconds, setSeconds] = useState(0);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -70,10 +72,58 @@ const ProfileCard = () => {
     else { setSeconds(0); setIsCheckedIn(true); }
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setProfileImage(null);
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm p-6 flex flex-col items-center text-center border border-gray-100">
-      <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-gray-400">
-        <User size={40} />
+      <div className="relative group">
+        <input 
+          type="file" 
+          id="profile-upload" 
+          accept="image/*" 
+          onChange={handleImageUpload}
+          className="hidden"
+        />
+        <label 
+          htmlFor="profile-upload" 
+          className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-gray-400 cursor-pointer overflow-hidden hover:opacity-80 transition-opacity"
+        >
+          {profileImage ? (
+            <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+          ) : (
+            <User size={40} />
+          )}
+        </label>
+        <div className="absolute bottom-3 right-0 bg-blue-500 rounded-full p-1 cursor-pointer">
+          <label htmlFor="profile-upload" className="cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+            </svg>
+          </label>
+        </div>
+        {profileImage && (
+          <div 
+            onClick={handleRemoveImage}
+            className="absolute bottom-3 left-0 bg-red-500 rounded-full p-1 cursor-pointer hover:bg-red-600 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </div>
+        )}
       </div>
       <h2 className="text-gray-800 font-medium text-sm">1-farhan21ps13716</h2>
       <p className="text-gray-500 text-xs mt-1">CEO</p>
@@ -124,17 +174,6 @@ const ReporteesCard = () => {
 const ActivitiesSection = () => {
   return (
     <div className="space-y-4">
-      {/* Banner */}
-      <div className="bg-[#9333ea] rounded-xl p-6 text-white flex justify-between items-center shadow-sm">
-        <div>
-          <h2 className="font-semibold text-lg">Schedule a free demo</h2>
-          <p className="text-purple-100 text-sm mt-1">Get an expert walkthrough, tailored to your business needs.</p>
-        </div>
-        <button className="bg-[#ef4444] hover:bg-red-500 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
-          Request Demo
-        </button>
-      </div>
-
       {/* Greeting Card */}
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex justify-between items-center">
         <div className="flex items-center gap-4">
@@ -155,7 +194,7 @@ const ActivitiesSection = () => {
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex justify-between items-center">
         <div className="flex items-start gap-3">
           <div className="p-2 bg-orange-50 rounded-full text-orange-400">
-            <CalendarIcon size={20} />
+            <Calendar size={20} />
           </div>
           <div>
             <h4 className="font-semibold text-gray-700 text-sm">Check-in reminder</h4>

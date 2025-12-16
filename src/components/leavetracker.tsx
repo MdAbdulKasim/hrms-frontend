@@ -174,7 +174,7 @@ const LeaveTracker = () => {
           </div>
           <Button
             onClick={() => setIsDialogOpen(true)}
-            className="bg-gray-900 text-white hover:bg-gray-800"
+            className=" bg-blue-600 text-white hover:bg-blue-600"
           >
             <Plus className="w-5 h-5 mr-2" />
             Apply Leave
@@ -343,7 +343,7 @@ const LeaveTracker = () => {
             <Button
               type="button"
               onClick={handleSubmit}
-              className="bg-gray-600 hover:bg-gray-700"
+              className="bg-blue-600 hover:bg-blue-700"
             >
               Submit Request
             </Button>
