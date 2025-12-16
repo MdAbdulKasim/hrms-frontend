@@ -11,7 +11,7 @@ export default function LoginForm() {
   const handleLogin = () => {
     // Later you can add real authentication
     // For now, simply redirect to dashboard
-    router.push("/home");
+    router.push("/my-space/overview");
   };
 
   return (
