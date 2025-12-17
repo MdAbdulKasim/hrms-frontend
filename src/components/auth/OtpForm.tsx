@@ -1,11 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 export default function VerifyOTPPage() {
-  const router = useRouter();
-
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
 
   // references to 6 input fields
@@ -33,10 +30,10 @@ export default function VerifyOTPPage() {
   };
 
   const handleVerify = () => {
-     localStorage.setItem("isNewUser", "true");
     // For frontend testing: accept any 6-digit code
     if (otp.join("").length === 6) {
-      router.push("/home");
+      // OTP verified successfully, redirect to login page
+      window.location.href = "/auth/login";
     }
   };
 
@@ -70,7 +67,7 @@ export default function VerifyOTPPage() {
 
         {/* Resend OTP */}
         <p className="text-center text-sm text-gray-600 mb-4">
-          Didn’t receive code?{" "}
+          Didn't receive code?{" "}
           <button className="text-blue-600 font-medium hover:underline">
             Resend OTP
           </button>
@@ -92,7 +89,7 @@ export default function VerifyOTPPage() {
         {/* Back Button */}
         <button
           className="w-full mt-4 bg-gray-200 py-2 rounded-md hover:bg-gray-300"
-          onClick={() => router.push("/register")}
+          onClick={() => window.location.href = "/auth/register"}
         >
           Back
         </button>

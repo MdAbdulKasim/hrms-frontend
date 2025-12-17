@@ -200,23 +200,23 @@ const EmployeeOnboardingSystem: React.FC = () => {
     setCurrentView('list');
   };
 
-  // CHANGE 1: Changed "const EmployeeListView" to "const renderEmployeeListView"
   const renderEmployeeListView = () => (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
+        {/* Responsive Header: Stack vertically on mobile, row on desktop */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 md:gap-0">
           <h1 className="text-2xl font-bold">Employee Onboarding</h1>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3">
             <button
               onClick={() => setCurrentView('bulkImport')}
-              className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Upload className="w-4 h-4" />
               Bulk Import
             </button>
             <button
               onClick={() => setCurrentView('addCandidate')}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Plus className="w-4 h-4" />
               Add Candidate
@@ -226,7 +226,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full whitespace-nowrap">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-6 py-3 text-left">
@@ -311,12 +311,11 @@ const EmployeeOnboardingSystem: React.FC = () => {
     </div>
   );
 
-  // CHANGE 2: Changed "const AddCandidateView" to "const renderAddCandidateView"
   const renderAddCandidateView = () => (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Add Candidate</h1>
+          <h1 className="text-xl md:text-2xl font-bold">Add Candidate</h1>
           <button
             onClick={() => setCurrentView('list')}
             className="p-2 hover:bg-gray-200 rounded-full"
@@ -325,7 +324,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
           </button>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-8">
+        <div className="bg-white rounded-lg shadow p-4 md:p-8">
           <div className="flex items-center gap-2 mb-6">
             <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
               <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -335,7 +334,8 @@ const EmployeeOnboardingSystem: React.FC = () => {
             <h2 className="text-lg font-semibold">Candidate Details</h2>
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
+          {/* Responsive Grid: 1 column on mobile, 2 columns on medium screens and up */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Full Name
@@ -425,7 +425,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Team Position
               </label>
-              <div className="flex gap-4 mt-2">
+              <div className="flex flex-wrap gap-4 mt-2">
                 <label className="flex items-center gap-2">
                   <input
                     type="radio"
@@ -526,7 +526,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
           <button 
             onClick={handleAddCandidate}
-            className="mt-8 px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 flex items-center gap-2"
+            className="mt-8 px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 flex items-center justify-center w-full sm:w-auto gap-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -538,12 +538,11 @@ const EmployeeOnboardingSystem: React.FC = () => {
     </div>
   );
 
-  // CHANGE 3: Changed "const BulkImportView" to "const renderBulkImportView"
   const renderBulkImportView = () => (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Bulk Import</h1>
+          <h1 className="text-xl md:text-2xl font-bold">Bulk Import</h1>
           <button
             onClick={() => setCurrentView('list')}
             className="p-2 hover:bg-gray-200 rounded-full"
@@ -552,7 +551,8 @@ const EmployeeOnboardingSystem: React.FC = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        {/* Responsive Grid for options */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center gap-2 mb-4">
               <Download className="w-5 h-5 text-gray-600" />
@@ -561,12 +561,12 @@ const EmployeeOnboardingSystem: React.FC = () => {
             <p className="text-sm text-gray-600 mb-6">
               Download the template file and fill in employee details. Supported formats: CSV, Excel.
             </p>
-            <div className="flex gap-3">
-              <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2">
                 <FileText className="w-4 h-4" />
                 Download CSV
               </button>
-              <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+              <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2">
                 <FileSpreadsheet className="w-4 h-4" />
                 Download Excel
               </button>
@@ -583,7 +583,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
                   value="new"
                   checked={importType === 'new'}
                   onChange={(e) => setImportType(e.target.value)}
-                  className="mt-1 w-4 h-4 text-blue-600"
+                  className="mt-1 w-4 h-4 text-blue-600 shrink-0"
                 />
                 <div>
                   <div className="font-medium text-gray-900">New Employees</div>
@@ -599,7 +599,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
                   value="existing"
                   checked={importType === 'existing'}
                   onChange={(e) => setImportType(e.target.value)}
-                  className="mt-1 w-4 h-4 text-blue-600"
+                  className="mt-1 w-4 h-4 text-blue-600 shrink-0"
                 />
                 <div>
                   <div className="font-medium text-gray-900">Existing Employees</div>
@@ -618,7 +618,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
             <h2 className="text-lg font-semibold">Upload File</h2>
           </div>
 
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 md:p-12 text-center">
             <input
               type="file"
               id="fileUpload"
@@ -631,10 +631,10 @@ const EmployeeOnboardingSystem: React.FC = () => {
               <p className="text-gray-700 mb-2">Drop your file here or click to browse</p>
               <p className="text-sm text-gray-500">Supports CSV and Excel files</p>
               {uploadedFile && (
-                <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-3 inline-block">
-                  <p className="text-sm text-green-800 flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    {uploadedFile.name}
+                <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-3 inline-block max-w-full">
+                  <p className="text-sm text-green-800 flex items-center gap-2 truncate">
+                    <FileText className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{uploadedFile.name}</span>
                   </p>
                 </div>
               )}
@@ -642,7 +642,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
           </div>
 
           <div className="mt-6 bg-orange-50 border border-orange-200 rounded-lg p-4 flex items-start gap-2">
-            <div className="w-5 h-5 text-orange-600 mt-0.5">ⓘ</div>
+            <div className="w-5 h-5 text-orange-600 mt-0.5 shrink-0">ⓘ</div>
             <p className="text-sm text-orange-800">
               New employees will receive onboarding invitations via email after import.
             </p>
@@ -665,7 +665,6 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
   return (
     <>
-      {/* CHANGE 4: Calling them as functions (), not components < /> */}
       {currentView === 'list' && renderEmployeeListView()}
       {currentView === 'addCandidate' && renderAddCandidateView()}
       {currentView === 'bulkImport' && renderBulkImportView()}
