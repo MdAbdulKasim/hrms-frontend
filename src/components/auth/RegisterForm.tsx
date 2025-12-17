@@ -2,15 +2,88 @@
 
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 
+interface FormData {
+  fullName: string;
+  email: string;
+  phone: string;
+  password: string;
+}
+
+interface FormErrors {
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  password?: string;
+}
 
 export default function RegisterPage() {
   const [showPass, setShowPass] = useState(false);
-  const [userType, setUserType] = useState("Admin");
-  const router = useRouter();
+  const [formData, setFormData] = useState<FormData>({
+    fullName: "",
+    email: "",
+    phone: "",
+    password: ""
+  });
+  const [errors, setErrors] = useState<FormErrors>({});
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    // Clear error when user starts typing
+    if (errors[name as keyof FormErrors]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ""
+      }));
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+
+    if (!formData.fullName.trim()) {
+      newErrors.fullName = "Full name is required";
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = "Email is invalid";
+    }
+
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    }
+
+    if (!formData.password) {
+      newErrors.password = "Password is required";
+    } else if (formData.password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = () => {
+    if (validateForm()) {
+      // Store user data temporarily for registration completion after OTP
+      const userData = {
+        ...formData,
+        registeredAt: new Date().toISOString()
+      };
+      
+      // In production, send OTP to user's email here
+      // For now, just navigate to OTP verification page
+      
+      // Navigate to OTP verification page
+      window.location.href = "/auth/verify-otp";
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#e9f0f8] to-white p-4">
@@ -28,16 +101,24 @@ export default function RegisterPage() {
         <h2 className="text-xl font-semibold mb-2 text-gray-800">Create Account</h2>
         <p className="text-gray-500 mb-6">Register as Admin to get started</p>
 
-        <form className="space-y-4">
+        <div className="space-y-4">
 
           {/* Full Name */}
           <div>
             <label className="text-sm font-medium text-gray-700">Full Name</label>
             <input
               type="text"
+              name="fullName"
+              value={formData.fullName}
+              onChange={handleInputChange}
               placeholder="John Doe"
-              className="w-full mt-1 border rounded-md p-3 focus:ring-2 focus:ring-blue-500"
+              className={`w-full mt-1 border rounded-md p-3 focus:ring-2 focus:ring-blue-500 ${
+                errors.fullName ? "border-red-500" : ""
+              }`}
             />
+            {errors.fullName && (
+              <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>
+            )}
           </div>
 
           {/* Email */}
@@ -45,9 +126,17 @@ export default function RegisterPage() {
             <label className="text-sm font-medium text-gray-700">Email</label>
             <input
               type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
               placeholder="your@email.com"
-              className="w-full mt-1 border rounded-md p-3 focus:ring-2 focus:ring-blue-500"
+              className={`w-full mt-1 border rounded-md p-3 focus:ring-2 focus:ring-blue-500 ${
+                errors.email ? "border-red-500" : ""
+              }`}
             />
+            {errors.email && (
+              <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+            )}
           </div>
 
           {/* Phone Number */}
@@ -55,9 +144,17 @@ export default function RegisterPage() {
             <label className="text-sm font-medium text-gray-700">Phone</label>
             <input
               type="text"
+              name="phone"
+              value={formData.phone}
+              onChange={handleInputChange}
               placeholder="+1 (555) 000-0000"
-              className="w-full mt-1 border rounded-md p-3 focus:ring-2 focus:ring-blue-500"
+              className={`w-full mt-1 border rounded-md p-3 focus:ring-2 focus:ring-blue-500 ${
+                errors.phone ? "border-red-500" : ""
+              }`}
             />
+            {errors.phone && (
+              <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
+            )}
           </div>
 
           {/* Password */}
@@ -66,8 +163,13 @@ export default function RegisterPage() {
             <div className="relative mt-1">
               <input
                 type={showPass ? "text" : "password"}
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
                 placeholder="••••••••"
-                className="w-full border rounded-md p-3 pr-12 focus:ring-2 focus:ring-blue-500"
+                className={`w-full border rounded-md p-3 pr-12 focus:ring-2 focus:ring-blue-500 ${
+                  errors.password ? "border-red-500" : ""
+                }`}
               />
               <button
                 type="button"
@@ -77,51 +179,27 @@ export default function RegisterPage() {
                 {showPass ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
-          </div>
-
-          {/* User Type */}
-          <div>
-            <label className="text-sm font-medium text-gray-700">User Type</label>
-
-            <div className="space-y-2 mt-1">
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  value="Admin"
-                  checked={userType === "Admin"}
-                  onChange={() => setUserType("Admin")}
-                />
-                Admin
-              </label>
-
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  value="Employee"
-                  checked={userType === "Employee"}
-                  onChange={() => setUserType("Employee")}
-                />
-                Employee
-              </label>
-            </div>
+            {errors.password && (
+              <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+            )}
           </div>
 
           {/* Continue Button */}
           <button
             type="button"
+            onClick={handleSubmit}
             className="w-full bg-blue-600 text-white py-3 rounded-md font-medium hover:bg-blue-700 transition"
-            onClick={() => router.push("/auth/verify-otp")}
           >
             Continue →
           </button>
-        </form>
+        </div>
 
         {/* Login Link */}
         <p className="text-center text-sm text-gray-600 mt-4">
           Already have an account?{" "}
-          <Link href="/login" className="text-blue-600 font-medium">
+          <a href="/auth/login" className="text-blue-600 font-medium hover:underline">
             Sign In
-          </Link>
+          </a>
         </p>
       </div>
     </div>
