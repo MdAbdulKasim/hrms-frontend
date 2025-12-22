@@ -65,7 +65,7 @@ export default function LoginPage() {
 
       // 🔥 Redirect based on role
       if (userType === "admin") {
-        window.location.href = "/my-space/overview";
+        window.location.href = "/setup";
       } else {
         window.location.href = "/employee/my-space/overview";
       }
