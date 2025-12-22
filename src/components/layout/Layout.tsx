@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import NavigationHeader from './header';
 import Sidebar from './Sidebar';
+import { isSetupCompleted } from '@/components/setup/SetupWizard';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,6 +12,8 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
@@ -22,6 +26,18 @@ export default function Layout({ children }: LayoutProps) {
       setRole(savedRole);
     }
   }, []);
+
+  // Route protection - redirect to setup if not completed
+  useEffect(() => {
+    const allowedPaths = ['/setup', '/login', '/register', '/auth'];
+    const isAllowedPath = allowedPaths.some((path) => pathname.startsWith(path));
+    const setupComplete = isSetupCompleted();
+
+    // Redirect to setup if not completed and trying to access protected routes
+    if (!setupComplete && !isAllowedPath) {
+      router.push('/setup');
+    }
+  }, [pathname, router]);
 
   // Close mobile menu when window is resized to desktop
   useEffect(() => {

@@ -3,41 +3,67 @@
 import { Home, Users, Bell, Calendar, Clock, UserCircle, ClipboardList, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from 'react';
+import { isSetupCompleted } from '@/components/setup/SetupWizard';
 
 interface SidebarProps {
   isDesktopCollapsed: boolean;
   isMobileOpen: boolean;
   closeMobileMenu: () => void;
-  userRole?: 'admin' | 'employee'; // Add role prop
+  userRole?: 'admin' | 'employee';
 }
 
 export default function Sidebar({ 
   isDesktopCollapsed, 
   isMobileOpen, 
   closeMobileMenu,
-  userRole = 'admin' // Default to admin
+  userRole = 'admin'
 }: SidebarProps) {
   const pathname = usePathname();
+  const [setupComplete, setSetupComplete] = useState(false);
+
+  useEffect(() => {
+    setSetupComplete(isSetupCompleted());
+
+    const handleSetupStatusChange = () => {
+      setSetupComplete(isSetupCompleted());
+    };
+
+    window.addEventListener('setupStatusChanged', handleSetupStatusChange);
+    window.addEventListener('storage', handleSetupStatusChange);
+
+    return () => {
+      window.removeEventListener('setupStatusChanged', handleSetupStatusChange);
+      window.removeEventListener('storage', handleSetupStatusChange);
+    };
+  }, []);
+
+  const handleProtectedClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!setupComplete) {
+      e.preventDefault();
+      alert('Please complete the organization setup first!');
+    }
+  };
 
   // Admin menu with Onboarding
   const adminMenu = [
-    { label: "Home", href: "/my-space/overview", icon: Home },
-    { label: "Onboarding", href: "/onboarding", icon: Users },
-    { label: "Feeds", href: "/feeds", icon: Bell },
-    { label: "Leave Tracker", href: "/leavetracker", icon: Calendar },
-    { label: "Attendance", href: "/attendance", icon: Clock },
-    { label: "Time Tracking", href: "/timetracking", icon: ClipboardList },
-    { label: "Profile", href: "/profile", icon: UserCircle },
+    { label: "Home", href: "/my-space/overview", icon: Home, protected: true },
+    { label: "Onboarding", href: "/onboarding", icon: Users, protected: true },
+    { label: "Feeds", href: "/feeds", icon: Bell, protected: true },
+    { label: "Leave Tracker", href: "/leavetracker", icon: Calendar, protected: true },
+    { label: "Attendance", href: "/attendance", icon: Clock, protected: true },
+    { label: "Time Tracking", href: "/timetracking", icon: ClipboardList, protected: true },
+    { label: "Profile", href: "/profile", icon: UserCircle, protected: true },
   ];
 
   // Employee menu without Onboarding
   const employeeMenu = [
-    { label: "Home", href: "/my-space/overview", icon: Home },
-    { label: "Feeds", href: "/feeds", icon: Bell },
-    { label: "Leave Tracker", href: "/leavetracker", icon: Calendar },
-    { label: "Attendance", href: "/attendance", icon: Clock },
-    { label: "Time Tracking", href: "/timetracking", icon: ClipboardList },
-    { label: "Profile", href: "/profile", icon: UserCircle },
+    { label: "Home", href: "/my-space/overview", icon: Home, protected: true },
+    { label: "Feeds", href: "/feeds", icon: Bell, protected: true },
+    { label: "Leave Tracker", href: "/leavetracker", icon: Calendar, protected: true },
+    { label: "Attendance", href: "/attendance", icon: Clock, protected: true },
+    { label: "Time Tracking", href: "/timetracking", icon: ClipboardList, protected: true },
+    { label: "Profile", href: "/profile", icon: UserCircle, protected: true },
   ];
 
   // Select menu based on role
@@ -52,7 +78,7 @@ export default function Sidebar({
       <aside 
         className={`
           bg-white border-r border-slate-200 flex flex-col transition-all duration-300 ease-in-out z-50
-          fixed inset-y-0 left-0 h-[100dvh] w-[280px] max-w-[85vw] shadow-2xl
+          fixed inset-y-0 left-0 h-[100dvh] w-[280px] max-w-[85vw] shadow-3xl
           ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
           md:translate-x-0 md:static md:h-screen md:shadow-none md:w-64
           lg:${isDesktopCollapsed ? "w-20" : "w-72"}
@@ -86,8 +112,50 @@ export default function Sidebar({
           {menu.map((item) => {
             const Icon = item.icon;
             const active = pathname === item.href;
+            const isDisabled = item.protected && !setupComplete;
 
-            return (
+            return item.protected ? (
+              <a
+                key={item.href}
+                href={item.href}
+                onClick={(e) => {
+                  handleProtectedClick(e);
+                  if (setupComplete) closeMobileMenu();
+                }}
+                title={isDesktopCollapsed ? item.label : ""}
+                className={`
+                  relative group flex items-center gap-3.5 py-2.5 md:py-3 rounded-xl text-sm font-medium 
+                  transition-all duration-200 ease-in-out
+                  ${active 
+                    ? "bg-blue-50 text-blue-700 shadow-sm" 
+                    : isDisabled
+                    ? "text-slate-400 cursor-not-allowed opacity-50"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-0.5 md:hover:translate-x-1"
+                  }
+                  px-4
+                  ${isDesktopCollapsed ? "lg:justify-center lg:px-0" : "lg:px-5"}
+                `}
+                aria-disabled={isDisabled}
+              >
+                <Icon 
+                  className={`transition-all duration-300 shrink-0 ${isDisabled ? 'text-slate-400' : 'text-blue-600'} ${isDesktopCollapsed ? "lg:h-6 lg:w-6" : "h-5 w-5"} h-5 w-5 md:h-5 md:w-5`} 
+                />
+                
+                <span className={`whitespace-nowrap overflow-hidden transition-all duration-300 ${active ? "font-semibold md:font-bold" : "font-medium"} ${isDesktopCollapsed ? "lg:hidden" : "block"}`}>
+                  {item.label}
+                </span>
+
+                {isDisabled && !isDesktopCollapsed && (
+                  <svg className="ml-auto w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                )}
+                
+                {active && !isDesktopCollapsed && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 md:h-8 bg-blue-600 rounded-r-full hidden lg:block" />
+                )}
+              </a>
+            ) : (
               <Link
                 key={item.href}
                 href={item.href}
@@ -119,6 +187,14 @@ export default function Sidebar({
             );
           })}
         </nav>
+
+        {/* Setup Warning */}
+        {!setupComplete && (
+          <div className={`mx-3 mb-3 p-3 bg-orange-50 border border-orange-200 rounded-lg ${isDesktopCollapsed ? "lg:hidden" : ""}`}>
+            <p className="text-xs font-semibold text-orange-800 mb-1">Setup Required</p>
+            <p className="text-xs text-orange-700">Complete organization setup to unlock all features</p>
+          </div>
+        )}
         
         {/* Bottom User Profile */}
         <div className="p-3 md:p-4 border-t border-slate-100 mt-auto">
