@@ -30,7 +30,6 @@ export default function OrganizationSetupWizard({
 }) {
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [expandedStep, setExpandedStep] = useState<number | null>(null);
-  const [showHome, setShowHome] = useState(false);
   
   const [steps, setSteps] = useState<SetupStep[]>([
     { id: 1, title: 'Add Organization Details', completed: false },
@@ -66,7 +65,6 @@ export default function OrganizationSetupWizard({
   const completedCount = steps.filter(step => step.completed).length;
   const totalCount = steps.length;
   const progressPercentage = (completedCount / totalCount) * 100;
-  const allStepsCompleted = completedCount === totalCount;
 
   const markStepComplete = (stepId: number) => {
     setSteps(steps.map(step =>
@@ -89,27 +87,41 @@ export default function OrganizationSetupWizard({
 
   const handleCompleteSetup = () => {
     markStepComplete(4);
-    const data = { organization: orgData, locations, departments, designations };
-    onComplete?.(data);
-    setExpandedStep(null);
     
-    // Save setup completion status to localStorage
+    // Create complete setup data with completion flag
+    const completeData = {
+      organization: orgData,
+      locations,
+      departments,
+      designations,
+      allStepsCompleted: true,
+      completedAt: new Date().toISOString(),
+    };
+    
+    // Save to localStorage
     if (typeof window !== 'undefined') {
-      localStorage.setItem('setupCompleted', 'true');
+      try {
+        localStorage.setItem('organizationSetup', JSON.stringify(completeData));
+        localStorage.setItem('setupCompleted', 'true');
+        
+        // Dispatch events to notify other components
+        window.dispatchEvent(new Event('storage'));
+        window.dispatchEvent(new CustomEvent('setupStatusChanged'));
+        
+        // Call onComplete callback if provided
+        onComplete?.({ organization: orgData, locations, departments, designations });
+        
+        // Navigate to dashboard after a brief delay
+        setTimeout(() => {
+          window.location.href = '/my-space/overview';
+        }, 100);
+        
+      } catch (error) {
+        console.error('Failed to save organization setup:', error);
+        alert('Failed to complete setup. Please try again.');
+      }
     }
-    
-    // Show home after completing all steps
-    setShowHome(true);
   };
-
-  // Redirect to overview page when all steps are completed
-  if (showHome && allStepsCompleted) {
-    // Using Next.js router for redirection
-    if (typeof window !== 'undefined') {
-      window.location.href = '/my-space/overview';
-    }
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-3">
@@ -187,9 +199,9 @@ export default function OrganizationSetupWizard({
               >
                 <div className="flex items-center gap-3">
                   {step.completed ? (
-                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
+                    <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
                   ) : (
-                    <Circle className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                    <Circle className="w-5 h-5 text-blue-500 shrink-0" />
                   )}
                   <div>
                     <p className="text-gray-900 font-medium">
