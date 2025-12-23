@@ -102,7 +102,7 @@ export default function NavigationHeader({
   return (
     // UPDATED: Used a custom unique Hex color [#F2F5FA] (Premium Cool Gray)
     // You can replace [#F2F5FA] with any hex code like [#E6E6FA] (Lavender) or [#F0F8FF] (AliceBlue)
-    <div className="w-full bg-[#F2F5FA] z-30 sticky top-0">
+    <div className="w-full bg-white z-30 sticky top-0">
       {/* Main Header */}
       <div className="border-b border-gray-200">
         <div className="flex items-center justify-between px-4 md:px-6 h-16">

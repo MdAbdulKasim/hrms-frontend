@@ -267,7 +267,7 @@ const ActivitiesSection = () => {
 export default function Dashboard() {
   return (
     
-      <div className="min-h-screen bg-[#f3f4f6] p-4 md:p-8 font-sans">
+      <div className="min-h-screen bg-white p-4 md:p-8 font-sans">
         
         {/* Main Content Area */}
         <div className="max-w-7xl mx-auto">

@@ -23,7 +23,7 @@ const modules = [
 
 export default function RolePermissionsTable() {
   return (
-    <div className="overflow-hidden border rounded-xl">
+    <div className="border rounded-xl">
       <table className="w-full text-sm">
         <thead className="bg-gray-50 text-gray-600">
           <tr>
@@ -35,12 +35,12 @@ export default function RolePermissionsTable() {
         </thead>
 
         <tbody>
-          {modules.map((module) => (
+          {modules.map((module, idx) => (
             <tr key={module} className="border-t">
               <td className="p-4 font-medium">{module}</td>
 
-              {[1,2,3,4].map((i) => (
-                <PermissionCell key={i} />
+              {[1, 2, 3, 4].map((i) => (
+                <PermissionCell key={i} direction={idx >= modules.length - 3 ? "up" : "down"} />
               ))}
             </tr>
           ))}
@@ -50,7 +50,7 @@ export default function RolePermissionsTable() {
   );
 }
 
-function PermissionCell() {
+function PermissionCell({ direction = "down" }: { direction?: "up" | "down" }) {
   const [value, setValue] = useState("No Data");
 
   return (
@@ -59,6 +59,7 @@ function PermissionCell() {
         value={value}
         options={permissionOptions}
         onChange={setValue}
+        direction={direction}
       />
     </td>
   );
