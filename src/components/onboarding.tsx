@@ -27,6 +27,8 @@ interface CandidateForm {
   location: string;
   timeZone: string;
   mobileNumber: string;
+  employeeType: string;
+  employeeStatus: string;
 }
 
 type View = 'list' | 'addCandidate' | 'bulkImport';
@@ -38,6 +40,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
   const [showUAN, setShowUAN] = useState<{ [key: number]: boolean }>({});
   const [importType, setImportType] = useState('new');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  
+  // New state for row selection
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const [employees, setEmployees] = useState<Employee[]>([
     {
@@ -117,7 +122,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
     shift: '',
     location: '',
     timeZone: '',
-    mobileNumber: ''
+    mobileNumber: '',
+    employeeType: '',
+    employeeStatus: ''
   });
 
   const handleInputChange = (field: keyof CandidateForm, value: string) => {
@@ -168,11 +175,101 @@ const EmployeeOnboardingSystem: React.FC = () => {
         shift: '',
         location: '',
         timeZone: '',
-        mobileNumber: ''
+        mobileNumber: '',
+        employeeType: '',
+        employeeStatus: ''
       });
       
       setCurrentView('list');
     }
+  };
+
+  // --- SELECTION HANDLERS START ---
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      // Select all IDs
+      const allIds = employees.map(emp => emp.id);
+      setSelectedIds(allIds);
+    } else {
+      // Deselect all
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: number) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter(itemId => itemId !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
+    }
+  };
+  // --- SELECTION HANDLERS END ---
+
+  const handleDownloadTemplate = (format: 'csv' | 'excel') => {
+    let headers: string[] = [];
+
+    if (importType === 'new') {
+      headers = [
+        'Full Name',
+        'Email Address',
+        'Role',
+        'Reporting To',
+        'Department',
+        'Team Position',
+        'Shift',
+        'Location',
+        'Time Zone',
+        'Mobile Number',
+        'Employee Type',
+        'Employee Status'
+      ];
+    } else {
+      headers = [
+        'Employee ID',
+        'Full Name',
+        'Email ID',
+        'Official Email',
+        'Date of Joining',
+        'Total Experience',
+        'Date of Birth',
+        'Marital Status',
+        'PAN Number',
+        'UAN',
+        'Identity Proof',
+        'Role',
+        'Department',
+        'Reporting To',
+        'Team Position',
+        'Shift',
+        'Location',
+        'Employee Type',
+        'Employee Status',
+        'Mobile Number',
+        'Present Address',
+        'Previous Company Name',
+        'Job Title',
+        'From Date',
+        'To Date',
+        'Job Description',
+        'Institute Name',
+        'Degree',
+        'Diploma',
+        'Specialization',
+        'Date of Completion'
+      ];
+    }
+
+    const csvContent = headers.join(',');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+    link.href = url;
+    link.download = `${importType}_employee_template.${format === 'excel' ? 'csv' : 'csv'}`;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -203,7 +300,6 @@ const EmployeeOnboardingSystem: React.FC = () => {
   const renderEmployeeListView = () => (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Responsive Header: Stack vertically on mobile, row on desktop */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 md:gap-0">
           <h1 className="text-2xl font-bold">Employee Onboarding</h1>
           <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3">
@@ -230,7 +326,12 @@ const EmployeeOnboardingSystem: React.FC = () => {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-6 py-3 text-left">
-                    <input type="checkbox" className="rounded" />
+                    <input 
+                      type="checkbox" 
+                      className="rounded"
+                      checked={employees.length > 0 && selectedIds.length === employees.length}
+                      onChange={handleSelectAll}
+                    />
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     First name
@@ -268,7 +369,12 @@ const EmployeeOnboardingSystem: React.FC = () => {
                 {employees.map((employee) => (
                   <tr key={employee.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
-                      <input type="checkbox" className="rounded" />
+                      <input 
+                        type="checkbox" 
+                        className="rounded"
+                        checked={selectedIds.includes(employee.id)}
+                        onChange={() => handleSelectOne(employee.id)}
+                      />
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">{employee.firstName}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">{employee.lastName}</td>
@@ -334,7 +440,6 @@ const EmployeeOnboardingSystem: React.FC = () => {
             <h2 className="text-lg font-semibold">Candidate Details</h2>
           </div>
 
-          {/* Responsive Grid: 1 column on mobile, 2 columns on medium screens and up */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -416,6 +521,42 @@ const EmployeeOnboardingSystem: React.FC = () => {
                   <option value="Marketing">Marketing</option>
                   <option value="Sales">Sales</option>
                   <option value="HR">HR</option>
+                </select>
+                <ChevronDown className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Employee Type
+              </label>
+              <div className="relative">
+                <select
+                  value={candidateForm.employeeType}
+                  onChange={(e) => handleInputChange('employeeType', e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select type</option>
+                  <option value="Temporary">Temporary</option>
+                  <option value="Permanent">Permanent</option>
+                </select>
+                <ChevronDown className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Employee Status
+              </label>
+              <div className="relative">
+                <select
+                  value={candidateForm.employeeStatus}
+                  onChange={(e) => handleInputChange('employeeStatus', e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select status</option>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
                 </select>
                 <ChevronDown className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
               </div>
@@ -551,7 +692,6 @@ const EmployeeOnboardingSystem: React.FC = () => {
           </button>
         </div>
 
-        {/* Responsive Grid for options */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center gap-2 mb-4">
@@ -562,11 +702,17 @@ const EmployeeOnboardingSystem: React.FC = () => {
               Download the template file and fill in employee details. Supported formats: CSV, Excel.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
-              <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2">
+              <button 
+                onClick={() => handleDownloadTemplate('csv')}
+                className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2"
+              >
                 <FileText className="w-4 h-4" />
                 Download CSV
               </button>
-              <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2">
+              <button 
+                onClick={() => handleDownloadTemplate('excel')}
+                className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2"
+              >
                 <FileSpreadsheet className="w-4 h-4" />
                 Download Excel
               </button>

@@ -8,7 +8,7 @@ import LocationsStep from '@/components/setup/LocationStep';
 import DepartmentsStep from '@/components/setup/DepartmentSetup';
 import DesignationsStep from '@/components/setup/DesignationSetup';
 
-// Export the utility function to check if setup is completed
+// Check if setup is completed
 export const isSetupCompleted = (): boolean => {
   if (typeof window === 'undefined') return false;
   try {
