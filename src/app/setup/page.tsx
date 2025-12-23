@@ -1,12 +1,10 @@
 import Layout from "@/components/layout/Layout";
-import OrganizationSetupWizard from "@/components/setup/SetupWizard";   
+import UnifiedSetupPage from "@/components/setup/UnifiedSetupRouter";
 
 export default function SetupPage() {
   return (
-    
-        <Layout>
-      <OrganizationSetupWizard />
-      </Layout>
-
+    <Layout>
+      <UnifiedSetupPage />
+    </Layout>
   );
 }

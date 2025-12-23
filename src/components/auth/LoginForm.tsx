@@ -15,8 +15,6 @@ interface FormErrors {
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
-
-  // IMPORTANT: use lowercase roles
   const [userType, setUserType] = useState<"admin" | "employee">("admin");
 
   const [formData, setFormData] = useState<FormData>({
@@ -60,20 +58,17 @@ export default function LoginPage() {
 
   const handleLogin = () => {
     if (validateForm()) {
-      // 🔥 Save role to localStorage for Sidebar + Layout
+      // Save role to localStorage
       localStorage.setItem("role", userType);
 
-      // 🔥 Redirect based on role
-      if (userType === "admin") {
-        window.location.href = "/setup";
-      } else {
-        window.location.href = "/employee/my-space/overview";
-      }
+      // ✅ Both admin and employee go to /setup first
+      // The setup page will check if setup is completed and redirect accordingly
+      window.location.href = "/setup";
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-100 to-gray-200 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-r from-gray-100 to-gray-200 p-4">
       <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
 
         <div className="flex items-center gap-3 mb-6">
@@ -122,7 +117,6 @@ export default function LoginPage() {
                 }`}
               />
 
-              {/* PASSWORD TOGGLE */}
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}

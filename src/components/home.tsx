@@ -7,8 +7,10 @@ import {
   Sun, 
   Calendar, 
   AlertCircle, 
-  Briefcase
+  Briefcase,
+  X
 } from 'lucide-react';
+import ProfilePage from './profile/ProfilePage'; // Import ProfilePage from profile folder
 
 
 // --- Types ---
@@ -17,6 +19,7 @@ type Reportee = {
   name: string;
   roleId: string;
   status: string;
+  employeeId: string; // Add employeeId for profile lookup
 };
 
 type ScheduleDay = {
@@ -28,9 +31,9 @@ type ScheduleDay = {
 
 // --- Mock Data ---
 const reportees: Reportee[] = [
-  { id: '1', name: 'Michael Johnson', roleId: 'S19', status: 'Yet to check-in' },
-  { id: '2', name: 'Lilly Williams', roleId: 'S2', status: 'Yet to check-in' },
-  { id: '3', name: 'Christopher Brown', roleId: 'S20', status: 'Yet to check-in' },
+  { id: '1', name: 'Michael Johnson', roleId: 'S19', status: 'Yet to check-in', employeeId: 'S19' },
+  { id: '2', name: 'Lilly Williams', roleId: 'S2', status: 'Yet to check-in', employeeId: 'S2' },
+  { id: '3', name: 'Christopher Brown', roleId: 'S20', status: 'Yet to check-in', employeeId: 'S20' },
 ];
 
 const schedule: ScheduleDay[] = [
@@ -144,7 +147,8 @@ const ProfileCard = () => {
   );
 };
 
-const ReporteesCard = () => {
+// Modified ReporteesCard with click handler
+const ReporteesCard = ({ onEmployeeClick }: { onEmployeeClick: (employeeId: string, name: string) => void }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 flex flex-col h-full w-full">
       <h3 className="text-gray-700 font-semibold mb-4 text-sm">Reportees</h3>
@@ -157,7 +161,12 @@ const ReporteesCard = () => {
                </div>
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-gray-500 font-medium truncate">{person.roleId} - {person.name}</p>
+              <p 
+                className="text-xs text-gray-500 font-medium truncate hover:text-blue-600 cursor-pointer transition-colors"
+                onClick={() => onEmployeeClick(person.employeeId, person.name)}
+              >
+                {person.roleId} - <span className="hover:underline">{person.name}</span>
+              </p>
               <p className="text-[10px] text-red-400 mt-0.5">{person.status}</p>
             </div>
           </div>
@@ -224,9 +233,7 @@ const ActivitiesSection = () => {
            </div>
         </div>
         
-        {/* Responsive Timeline Container */}
         <div className="relative pt-4 pb-2 overflow-x-auto">
-          {/* Constrain width so timeline doesn't squash on mobile, forcing scroll */}
           <div className="min-w-[600px] relative"> 
             <div className="absolute top-[19px] left-0 w-full h-[2px] bg-gray-100 z-0"></div>
             <div className="grid grid-cols-7 gap-2 relative z-10">
@@ -265,28 +272,51 @@ const ActivitiesSection = () => {
 // --- Main Page Component ---
 
 export default function Dashboard() {
+  const [showProfile, setShowProfile] = useState(false);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+
+  const handleEmployeeClick = (employeeId: string, name: string) => {
+    setSelectedEmployeeId(employeeId);
+    setShowProfile(true);
+  };
+
+  const handleCloseProfile = () => {
+    setShowProfile(false);
+    setSelectedEmployeeId('');
+  };
+
+  // If profile is shown, render only the profile page
+  if (showProfile) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <ProfilePage 
+          employeeId={selectedEmployeeId} 
+          onBack={handleCloseProfile} 
+        />
+      </div>
+    );
+  }
+
+  // Otherwise render the dashboard
   return (
-    
-      <div className="min-h-screen bg-[#f3f4f6] p-4 md:p-8 font-sans">
-        
-        {/* Main Content Area */}
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            
-            {/* Left Column: Profile & Reportees */}
-            <div className="lg:col-span-1 flex flex-col gap-6">
-              <ProfileCard />
-              <ReporteesCard />
-            </div>
-
-            {/* Right Column: Activities & Schedule */}
-            <div className="lg:col-span-3">
-              <ActivitiesSection />
-            </div>
-
+    <div className="min-h-screen bg-[#f3f4f6] p-4 md:p-8 font-sans">
+      {/* Main Content Area */}
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          
+          {/* Left Column: Profile & Reportees */}
+          <div className="lg:col-span-1 flex flex-col gap-6">
+            <ProfileCard />
+            <ReporteesCard onEmployeeClick={handleEmployeeClick} />
           </div>
+
+          {/* Right Column: Activities & Schedule */}
+          <div className="lg:col-span-3">
+            <ActivitiesSection />
+          </div>
+
         </div>
       </div>
-   
+    </div>
   );
 }
