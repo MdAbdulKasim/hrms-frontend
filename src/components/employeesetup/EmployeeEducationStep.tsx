@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { Education } from './types';
+import { Education } from '../setup/types';
 
 interface EmployeeEducationStepProps {
   education: Education[];

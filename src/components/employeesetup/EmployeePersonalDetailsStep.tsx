@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { EmployeePersonalDetails } from './types';
+import { EmployeePersonalDetails } from '../setup/types';
 
 interface EmployeePersonalDetailsStepProps {
   personalDetails: EmployeePersonalDetails;

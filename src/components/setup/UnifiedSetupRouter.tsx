@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import OrganizationSetupWizard from '@/components/setup/SetupWizard';
-import EmployeeSetupWizard from '@/components/setup/EmployeeSetupWizard';
+import EmployeeSetupWizard from '@/components/employeesetup/EmployeeSetupWizard';
 import { isSetupCompleted } from '@/components/setup/SetupWizard';
 
 export default function UnifiedSetupPage() {

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { EmployeeIdentityInfo } from './types';
+import { EmployeeIdentityInfo } from '../setup/types';
 
 interface EmployeeIdentityInfoStepProps {
   identityInfo: EmployeeIdentityInfo;

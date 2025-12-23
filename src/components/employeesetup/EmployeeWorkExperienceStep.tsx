@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { WorkExperience } from './types';
+import { WorkExperience } from '../setup/types';
 
 interface EmployeeWorkExperienceStepProps {
   workExperience: WorkExperience[];

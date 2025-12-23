@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2, Circle } from 'lucide-react';
-import { SetupStep, EmployeeSetupData, EmployeePersonalDetails, EmployeeContactDetails, EmployeeIdentityInfo, WorkExperience, Education } from './types';
+import { SetupStep, EmployeeSetupData, EmployeePersonalDetails, EmployeeContactDetails, EmployeeIdentityInfo, WorkExperience, Education } from '../setup/types';
 import EmployeePersonalDetailsStep from './EmployeePersonalDetailsStep';
 import EmployeeContactDetailsStep from './EmployeeContactDetailsStep';
 import EmployeeIdentityInfoStep from './EmployeeIdentityInfoStep';
