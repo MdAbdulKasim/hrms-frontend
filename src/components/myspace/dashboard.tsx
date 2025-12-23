@@ -87,7 +87,7 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+    <div className="min-h-screen bg-white p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Top Row - Responsive Grid: 1 col mobile, 2 col tablet, 3 col desktop */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">

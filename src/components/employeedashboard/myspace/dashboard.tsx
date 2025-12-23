@@ -160,12 +160,6 @@ const Dashboard: React.FC = () => {
                 </div>
                 <h2 className="text-lg font-semibold truncate">Quick Links</h2>
               </div>
-              <button
-                onClick={() => setShowQuickLinkModal(true)}
-                className="text-blue-500 hover:text-blue-600 text-2xl leading-none px-2"
-              >
-                +
-              </button>
             </div>
             <div className="space-y-2">
               {quickLinks.map((link) => (
@@ -195,12 +189,6 @@ const Dashboard: React.FC = () => {
                 </div>
                 <h2 className="text-lg font-semibold truncate">Announcements</h2>
               </div>
-              <button
-                onClick={() => setShowAnnouncementModal(true)}
-                className="text-gray-400 hover:text-gray-600 text-2xl leading-none px-2"
-              >
-                +
-              </button>
             </div>
             <div className="space-y-4">
               {announcements.map((announcement) => (

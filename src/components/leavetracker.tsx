@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Plus, Calendar, Coffee, Gift, Clock, Heart, Users, AlertCircle } from 'lucide-react';
+import { Plus, Calendar, Coffee, Gift, Clock, Heart, Users, AlertCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,

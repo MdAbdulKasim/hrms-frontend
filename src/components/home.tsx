@@ -272,8 +272,19 @@ const ActivitiesSection = () => {
 // --- Main Page Component ---
 
 export default function Dashboard() {
-  const [showProfile, setShowProfile] = useState(false);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  return (
+    
+      <div className="min-h-screen bg-white p-4 md:p-8 font-sans">
+        
+        {/* Main Content Area */}
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            {/* Left Column: Profile & Reportees */}
+            <div className="lg:col-span-1 flex flex-col gap-6">
+              <ProfileCard />
+              <ReporteesCard />
+            </div>
 
   const handleEmployeeClick = (employeeId: string, name: string) => {
     setSelectedEmployeeId(employeeId);
