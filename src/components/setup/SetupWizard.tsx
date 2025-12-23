@@ -88,8 +88,7 @@ export default function OrganizationSetupWizard({
   const handleCompleteSetup = () => {
     markStepComplete(4);
     
-    const userRole = localStorage.getItem('role') || 'admin';
-    
+    // Create complete setup data with completion flag
     const completeData = {
       organization: orgData,
       locations,
@@ -99,28 +98,28 @@ export default function OrganizationSetupWizard({
       completedAt: new Date().toISOString(),
     };
     
-    try {
-      // Save to single organizationSetup key
-      localStorage.setItem('organizationSetup', JSON.stringify(completeData));
-      
-      // Trigger events
-      window.dispatchEvent(new Event('storage'));
-      window.dispatchEvent(new CustomEvent('setupStatusChanged'));
-      
-      onComplete?.(completeData);
-      
-      // Redirect based on role
-      setTimeout(() => {
-        if (userRole === 'admin') {
+    // Save to localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('organizationSetup', JSON.stringify(completeData));
+        localStorage.setItem('setupCompleted', 'true');
+        
+        // Dispatch events to notify other components
+        window.dispatchEvent(new Event('storage'));
+        window.dispatchEvent(new CustomEvent('setupStatusChanged'));
+        
+        // Call onComplete callback if provided
+        onComplete?.({ organization: orgData, locations, departments, designations });
+        
+        // Navigate to dashboard after a brief delay
+        setTimeout(() => {
           window.location.href = '/my-space/overview';
-        } else {
-          window.location.href = '/employee/my-space/overview';
-        }
-      }, 100);
-      
-    } catch (error) {
-      console.error('Failed to save setup data:', error);
-      alert('Failed to complete setup. Please try again.');
+        }, 100);
+        
+      } catch (error) {
+        console.error('Failed to save organization setup:', error);
+        alert('Failed to complete setup. Please try again.');
+      }
     }
   };
 
@@ -200,9 +199,9 @@ export default function OrganizationSetupWizard({
               >
                 <div className="flex items-center gap-3">
                   {step.completed ? (
-                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
+                    <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
                   ) : (
-                    <Circle className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                    <Circle className="w-5 h-5 text-blue-500 shrink-0" />
                   )}
                   <div>
                     <p className="text-gray-900 font-medium">
