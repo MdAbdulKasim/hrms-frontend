@@ -8,7 +8,7 @@ import LocationsStep from '@/components/setup/LocationStep';
 import DepartmentsStep from '@/components/setup/DepartmentSetup';
 import DesignationsStep from '@/components/setup/DesignationSetup';
 
-// Export the utility function to check if setup is completed
+// Check if setup is completed
 export const isSetupCompleted = (): boolean => {
   if (typeof window === 'undefined') return false;
   try {
@@ -30,7 +30,6 @@ export default function OrganizationSetupWizard({
 }) {
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [expandedStep, setExpandedStep] = useState<number | null>(null);
-  const [showHome, setShowHome] = useState(false);
   
   const [steps, setSteps] = useState<SetupStep[]>([
     { id: 1, title: 'Add Organization Details', completed: false },
@@ -66,7 +65,6 @@ export default function OrganizationSetupWizard({
   const completedCount = steps.filter(step => step.completed).length;
   const totalCount = steps.length;
   const progressPercentage = (completedCount / totalCount) * 100;
-  const allStepsCompleted = completedCount === totalCount;
 
   const markStepComplete = (stepId: number) => {
     setSteps(steps.map(step =>
@@ -89,27 +87,42 @@ export default function OrganizationSetupWizard({
 
   const handleCompleteSetup = () => {
     markStepComplete(4);
-    const data = { organization: orgData, locations, departments, designations };
-    onComplete?.(data);
-    setExpandedStep(null);
     
-    // Save setup completion status to localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('setupCompleted', 'true');
+    const userRole = localStorage.getItem('role') || 'admin';
+    
+    const completeData = {
+      organization: orgData,
+      locations,
+      departments,
+      designations,
+      allStepsCompleted: true,
+      completedAt: new Date().toISOString(),
+    };
+    
+    try {
+      // Save to single organizationSetup key
+      localStorage.setItem('organizationSetup', JSON.stringify(completeData));
+      
+      // Trigger events
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('setupStatusChanged'));
+      
+      onComplete?.(completeData);
+      
+      // Redirect based on role
+      setTimeout(() => {
+        if (userRole === 'admin') {
+          window.location.href = '/my-space/overview';
+        } else {
+          window.location.href = '/employee/my-space/overview';
+        }
+      }, 100);
+      
+    } catch (error) {
+      console.error('Failed to save setup data:', error);
+      alert('Failed to complete setup. Please try again.');
     }
-    
-    // Show home after completing all steps
-    setShowHome(true);
   };
-
-  // Redirect to overview page when all steps are completed
-  if (showHome && allStepsCompleted) {
-    // Using Next.js router for redirection
-    if (typeof window !== 'undefined') {
-      window.location.href = '/my-space/overview';
-    }
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-3">
