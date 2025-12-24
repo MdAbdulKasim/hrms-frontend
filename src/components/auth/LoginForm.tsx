@@ -93,9 +93,8 @@ export default function LoginPage() {
               value={formData.email}
               onChange={handleInputChange}
               placeholder="your@email.com"
-              className={`w-full mt-1 border rounded-md p-2 focus:ring-2 focus:ring-blue-500 ${
-                errors.email ? "border-red-500" : ""
-              }`}
+              className={`w-full mt-1 border rounded-md p-2 focus:ring-2 focus:ring-blue-500 ${errors.email ? "border-red-500" : ""
+                }`}
             />
             {errors.email && (
               <p className="text-red-500 text-xs mt-1">{errors.email}</p>
@@ -112,9 +111,8 @@ export default function LoginPage() {
                 value={formData.password}
                 onChange={handleInputChange}
                 placeholder="••••••••"
-                className={`w-full border rounded-md p-2 pr-10 focus:ring-2 focus:ring-blue-500 ${
-                  errors.password ? "border-red-500" : ""
-                }`}
+                className={`w-full border rounded-md p-2 pr-10 focus:ring-2 focus:ring-blue-500 ${errors.password ? "border-red-500" : ""
+                  }`}
               />
 
               <button
@@ -129,6 +127,15 @@ export default function LoginPage() {
             {errors.password && (
               <p className="text-red-500 text-xs mt-1">{errors.password}</p>
             )}
+
+            <div className="flex justify-end mt-1">
+              <a
+                href="/auth/forgot-password"
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline"
+              >
+                Forgot Password?
+              </a>
+            </div>
           </div>
 
           {/* USER TYPE SELECTION */}
