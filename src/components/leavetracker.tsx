@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, Plus, Calendar, Coffee, Gift, Clock, Heart, Users, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Plus, Calendar, Coffee, Gift, Clock, Heart, Users, AlertCircle, Settings } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-
+import { Input } from '@/components/ui/input'; // Assuming you have an Input component, otherwise standard input works
 
 interface LeaveType {
   id: string;
@@ -41,13 +41,27 @@ interface LeaveHistory {
 }
 
 const LeaveTracker = () => {
+  // Existing State
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedLeaveType, setSelectedLeaveType] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [reason, setReason] = useState('');
 
-  const leaveTypes: LeaveType[] = [
+  // NEW: State for "Create Leave Type" Dialog
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newLeaveData, setNewLeaveData] = useState({
+    name: '',
+    total: '',
+    booked: '',
+    available: ''
+  });
+
+  // Role state
+  const [userRole, setUserRole] = useState<string>('');
+
+  // NEW: Converted static array to State so we can add to it
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([
     {
       id: 'casual',
       name: 'Casual Leave',
@@ -108,7 +122,15 @@ const LeaveTracker = () => {
       color: 'text-red-600',
       bgColor: 'bg-red-100'
     }
-  ];
+  ]);
+
+  // Get user role from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const role = localStorage.getItem('role') || '';
+      setUserRole(role);
+    }
+  }, []);
 
   const leaveHistory: LeaveHistory[] = [
     {
@@ -145,6 +167,7 @@ const LeaveTracker = () => {
     }
   ];
 
+  // Existing Apply Leave Handler
   const handleSubmit = () => {
     console.log({ selectedLeaveType, fromDate, toDate, reason });
     setIsDialogOpen(false);
@@ -162,23 +185,59 @@ const LeaveTracker = () => {
     setReason('');
   };
 
+  // NEW: Handler for Creating a new Leave Type
+  const handleCreateLeaveSubmit = () => {
+    if (!newLeaveData.name || !newLeaveData.total) return;
+
+    const newType: LeaveType = {
+      id: newLeaveData.name.toLowerCase().replace(/\s/g, '-'),
+      name: newLeaveData.name,
+      total: Number(newLeaveData.total),
+      available: Number(newLeaveData.available),
+      booked: Number(newLeaveData.booked),
+      // Assigning a default icon and color for custom types
+      icon: <Settings className="w-5 h-5" />, 
+      color: 'text-indigo-600',
+      bgColor: 'bg-indigo-100'
+    };
+
+    setLeaveTypes([...leaveTypes, newType]);
+    
+    // Reset and Close
+    setNewLeaveData({ name: '', total: '', booked: '', available: '' });
+    setIsCreateDialogOpen(false);
+  };
+
   return (
-    // Changed p-8 to p-4 md:p-8 to save space on mobile
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header - Changed to flex-col on mobile, row on sm+ */}
+        {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start gap-4 sm:gap-0 mb-6 sm:mb-8">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Leave Tracker</h1>
             <p className="text-gray-600 mt-1">Manage and track your leaves</p>
           </div>
-          <Button
-            onClick={() => setIsDialogOpen(true)}
-            className="w-full sm:w-auto bg-blue-600 text-white hover:bg-blue-600"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Apply Leave
-          </Button>
+          
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            {/* NEW: Create Leave Type Button - Only for Admin */}
+            {userRole === 'admin' && (
+              <Button
+                onClick={() => setIsCreateDialogOpen(true)}
+               className="w-full sm:w-auto bg-blue-600 text-white hover:bg-blue-600"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Create Leave 
+              </Button>
+            )}
+
+            <Button
+              onClick={() => setIsDialogOpen(true)}
+              className="w-full sm:w-auto bg-blue-600 text-white hover:bg-blue-600"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Apply Leave
+            </Button>
+          </div>
         </div>
 
         {/* Leave Cards Grid */}
@@ -252,16 +311,14 @@ const LeaveTracker = () => {
         </div>
       </div>
 
-      {/* Apply Leave Dialog */}
+      {/* Existing Apply Leave Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        {/* Added overflow-y-auto and max-h for small height screens */}
         <DialogContent className="w-[95%] sm:max-w-[600px] max-h-[90vh] overflow-y-auto rounded-lg">
           <DialogHeader>
             <DialogTitle className="text-xl sm:text-2xl font-bold">Apply for Leave</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4 sm:space-y-6 py-4">
-            {/* Leave Type Select */}
             <div className="space-y-2">
               <label htmlFor="leave-type" className="text-sm sm:text-base font-semibold block">
                 Leave Type
@@ -271,17 +328,14 @@ const LeaveTracker = () => {
                   <SelectValue placeholder="Select leave type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="casual">Casual Leave (8 available)</SelectItem>
-                  <SelectItem value="earned">Earned Leave (15 available)</SelectItem>
-                  <SelectItem value="lwp">Leave Without Pay (0 available)</SelectItem>
-                  <SelectItem value="paternity">Paternity Leave (5 available)</SelectItem>
-                  <SelectItem value="sabbatical">Sabbatical (30 available)</SelectItem>
-                  <SelectItem value="sick">Sick Leave (10 available)</SelectItem>
+                  {/* Dynamically render options based on state */}
+                  {leaveTypes.map(type => (
+                    <SelectItem key={type.id} value={type.id}>{type.name} ({type.available} available)</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Date Inputs - Stacked on mobile, side-by-side on sm+ */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label htmlFor="from-date" className="text-sm sm:text-base font-semibold block">
@@ -317,7 +371,6 @@ const LeaveTracker = () => {
               </div>
             </div>
 
-            {/* Reason Textarea */}
             <div className="space-y-2">
               <label htmlFor="reason" className="text-sm sm:text-base font-semibold block">
                 Reason
@@ -352,6 +405,80 @@ const LeaveTracker = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* NEW: Create Leave Type Dialog - Only for Admin */}
+      {userRole === 'admin' && (
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogContent className="w-[95%] sm:max-w-[500px] rounded-lg">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold">Create New Leave Type</DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold block">Leave Type Name</label>
+                <input 
+                  type="text" 
+                  value={newLeaveData.name}
+                  onChange={(e) => setNewLeaveData({...newLeaveData, name: e.target.value})}
+                  placeholder="e.g. Remote Work"
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-semibold block">Total Days</label>
+                <input 
+                  type="number" 
+                  value={newLeaveData.total}
+                  onChange={(e) => setNewLeaveData({...newLeaveData, total: e.target.value})}
+                  placeholder="0"
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold block">Booked Days</label>
+                  <input 
+                    type="number" 
+                    value={newLeaveData.booked}
+                    onChange={(e) => setNewLeaveData({...newLeaveData, booked: e.target.value})}
+                    placeholder="0"
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold block">Available Days</label>
+                  <input 
+                    type="number" 
+                    value={newLeaveData.available}
+                    onChange={(e) => setNewLeaveData({...newLeaveData, available: e.target.value})}
+                    placeholder="0"
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setIsCreateDialogOpen(false)}
+                className="w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreateLeaveSubmit}
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+              >
+                Create Leave Type
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
