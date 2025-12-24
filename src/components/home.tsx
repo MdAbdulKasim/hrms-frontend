@@ -297,7 +297,7 @@ export default function Dashboard() {
 
   // Otherwise render the dashboard
   return (
-    <div className="min-h-screen bg-[#f3f4f6] p-4 md:p-8 font-sans">
+    <div className="min-h-screen bg-white p-4 md:p-8 font-sans">
       {/* Main Content Area */}
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
