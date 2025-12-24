@@ -113,7 +113,7 @@ export default function OrgChart() {
 
   return (
     // Changed: Added overflow handling for both axis and removed fixed height constraint for mobile
-    <div className="min-h-screen bg-gray-50 p-4 md:p-10 font-sans md:overflow-x-auto">
+    <div className="min-h-screen bg-white p-4 md:p-10 font-sans md:overflow-x-auto">
       {/* Changed: flex-col for mobile, flex-row for desktop */}
       <div className="flex flex-col md:flex-row md:items-start items-center">
         {columns.map((col, colIndex) => {

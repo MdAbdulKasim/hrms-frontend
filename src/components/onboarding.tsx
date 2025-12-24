@@ -680,7 +680,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
   );
 
   const renderBulkImportView = () => (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+    <div className="min-h-screen bg-white p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-xl md:text-2xl font-bold">Bulk Import</h1>
