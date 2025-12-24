@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
-import { Search, Grid, List, LayoutGrid, Filter, X, ChevronDown } from 'lucide-react';
+import { Search, Grid, List, LayoutGrid, Filter, X, ChevronDown, ArrowLeft } from 'lucide-react';
+import ProfilePage from '../profile/ProfilePage';
 
 // Employee data type
 interface Employee {
@@ -196,6 +197,10 @@ const EmployeeManagement = () => {
   const [showFilter, setShowFilter] = useState(false);
   const [filterDepartment, setFilterDepartment] = useState('All Departments');
   const [filterDesignation, setFilterDesignation] = useState('All Designations');
+  
+  // Profile navigation state
+  const [showProfile, setShowProfile] = useState(false);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
 
   // Filter employees
   const filteredEmployees = employees.filter(emp => {
@@ -232,14 +237,40 @@ const EmployeeManagement = () => {
     return groups;
   };
 
+  // Handle employee click
+  const handleEmployeeClick = (employeeId: string) => {
+    setSelectedEmployeeId(employeeId);
+    setShowProfile(true);
+  };
+
+  const handleCloseProfile = () => {
+    setShowProfile(false);
+    setSelectedEmployeeId('');
+  };
+
+  // If profile is shown, render only the profile page
+  if (showProfile) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <ProfilePage 
+          employeeId={selectedEmployeeId} 
+          onBack={handleCloseProfile} 
+        />
+      </div>
+    );
+  }
+
   const EmployeeCard = ({ employee }: { employee: Employee }) => (
     <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
       <div className="flex items-start gap-3">
-        <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-2xl flex-shrink-0">
+        <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-2xl shrink-0">
           {employee.image}
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-900 text-sm truncate">
+          <h3 
+            onClick={() => handleEmployeeClick(employee.id)}
+            className="font-semibold text-gray-900 text-sm truncate cursor-pointer hover:text-blue-600 transition-colors"
+          >
             {employee.id} - {employee.name}
           </h3>
           <p className="text-sm text-gray-600 mt-1 truncate">{employee.designation}</p>
@@ -476,7 +507,7 @@ const EmployeeManagement = () => {
         {viewMode === 'kanban' && (
           <div className="flex gap-4 overflow-x-auto pb-4 snap-x">
             {Object.entries(groupEmployees()).map(([groupName, groupEmployees]) => (
-              <div key={groupName} className="flex-shrink-0 w-80 snap-center md:snap-align-none">
+              <div key={groupName} className="shrink-0 w-80 snap-center md:snap-align-none">
                 <div className="bg-gray-100 rounded-lg p-4 h-full">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-gray-900">{groupName}</h3>

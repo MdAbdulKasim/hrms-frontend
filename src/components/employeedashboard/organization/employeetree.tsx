@@ -193,7 +193,7 @@ export default function OrgChart() {
                             md:top-1/2 md:left-full md:translate-x-0 md:-translate-y-1/2 md:flex-row
                         `}>
                            {/* Line 1 */}
-                           <div className="bg-blue-500 w-[2px] h-6 md:w-8 md:h-[2px]"></div>
+                           <div className="bg-blue-500 w-0.5 h-6 md:w-8 md:h-0.5"></div>
                            
                            {/* Badge */}
                            {node.count !== undefined && (

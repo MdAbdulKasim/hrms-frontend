@@ -151,7 +151,7 @@ const ReporteesCard = () => {
       <div className="flex-1 space-y-5">
         {reportees.map((person) => (
           <div key={person.id} className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-gray-200 rounded-full flex-shrink-0 overflow-hidden">
+            <div className="w-10 h-10 bg-gray-200 rounded-full shrink-0 overflow-hidden">
                <div className="w-full h-full flex items-center justify-center bg-slate-300 text-slate-500">
                  <User size={16} />
                </div>
@@ -176,7 +176,7 @@ const ActivitiesSection = () => {
       {/* Greeting Card */}
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 flex flex-shrink-0 items-center justify-center bg-blue-50 rounded-lg">
+          <div className="w-10 h-10 flex shrink-0 items-center justify-center bg-blue-50 rounded-lg">
              <Briefcase className="text-blue-600" size={20} />
           </div>
           <div>
@@ -192,7 +192,7 @@ const ActivitiesSection = () => {
       {/* Check-in Reminder */}
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-start gap-3">
-          <div className="p-2 bg-orange-50 rounded-full text-orange-400 flex-shrink-0">
+          <div className="p-2 bg-orange-50 rounded-full text-orange-400 shrink-0">
             <Calendar size={20} />
           </div>
           <div>
@@ -209,7 +209,7 @@ const ActivitiesSection = () => {
       {/* Work Schedule Timeline */}
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 overflow-hidden">
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-blue-50 rounded-full text-blue-400 flex-shrink-0">
+          <div className="p-2 bg-blue-50 rounded-full text-blue-400 shrink-0">
             <Clock size={20} />
           </div>
           <div>
@@ -228,11 +228,11 @@ const ActivitiesSection = () => {
         <div className="relative pt-4 pb-2 overflow-x-auto">
           {/* Constrain width so timeline doesn't squash on mobile, forcing scroll */}
           <div className="min-w-[600px] relative"> 
-            <div className="absolute top-[19px] left-0 w-full h-[2px] bg-gray-100 z-0"></div>
+            <div className="absolute top-[19px] left-0 w-full h-0.5 bg-gray-100 z-0"></div>
             <div className="grid grid-cols-7 gap-2 relative z-10">
               {schedule.map((item, index) => (
                 <div key={index} className="flex flex-col items-center">
-                  <div className={`w-2.5 h-2.5 rounded-full mb-3 flex-shrink-0 ${item.isToday ? 'bg-blue-500 ring-4 ring-blue-100' : 'bg-gray-300'}`}></div>
+                  <div className={`w-2.5 h-2.5 rounded-full mb-3 shrink-0 ${item.isToday ? 'bg-blue-500 ring-4 ring-blue-100' : 'bg-gray-300'}`}></div>
                   <div className="text-center">
                     <p className={`text-xs ${item.isToday ? 'text-gray-800 font-bold' : 'text-gray-500'}`}>
                       {item.day} <span className="text-gray-800">{item.date}</span>
@@ -253,7 +253,7 @@ const ActivitiesSection = () => {
 
       {/* Bottom Alert */}
       <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-start sm:items-center gap-3">
-        <div className="p-1.5 bg-yellow-50 rounded-full text-yellow-500 flex-shrink-0">
+        <div className="p-1.5 bg-yellow-50 rounded-full text-yellow-500 shrink-0">
            <AlertCircle size={18} />
         </div>
         <p className="text-gray-700 text-sm leading-tight sm:leading-normal pt-0.5 sm:pt-0">You are yet to submit your time logs today!</p>

@@ -7,6 +7,8 @@ import ProfileTab from './tabs/ProfileTab';
 import PeersTab from './tabs/PeersTab';
 import LeaveTab from './tabs/LeaveTab';
 import AttendanceTab from './tabs/AttendanceTab';
+import DepartmentTab from './tabs/DepartmentTab';
+import TimeTrackingTab from './tabs/TimeTrackingTab';
 import { Employee, Education, Peer, LeaveBalance, AttendanceRecord } from './types';
 
 // Mock data - replace with actual API calls
@@ -67,6 +69,25 @@ const mockEmployeeData: Record<string, Employee> = {
     designation: 'Administration',
     department: 'Administration',
   },
+  'S3': {
+    ...mockEmployee,
+    id: '202479000000292294',
+    employeeId: 'S3',
+    firstName: 'Clarkson',
+    lastName: 'Walter',
+    designation: 'Administration',
+    department: 'Administration',
+  },
+  '1': {
+    ...mockEmployee,
+    id: '202479000000292295',
+    employeeId: '1',
+    firstName: 'fathima',
+    lastName: '',
+    designation: 'CEO',
+    department: 'CEO',
+    reportingManager: '', // CEO has no manager
+  },
 };
 
 const mockEducation: Education[] = [
@@ -114,23 +135,87 @@ const mockLeaveBalances: LeaveBalance[] = [
 
 const mockAttendanceRecords: AttendanceRecord[] = [];
 
+// Department members data
+const mockDepartmentMembers = {
+  ceo: [
+    {
+      id: '1',
+      employeeId: '1',
+      name: 'fathima',
+      checkInStatus: 'Yet to check-in',
+      profileImage: '/api/placeholder/40/40',
+    }
+  ],
+  administration: [
+    {
+      id: '2',
+      employeeId: 'S2',
+      name: 'Lilly Williams',
+      phone: '239-201-1816',
+      checkInStatus: 'Yet to check-in',
+      profileImage: '/api/placeholder/40/40',
+    },
+    {
+      id: '3',
+      employeeId: 'S3',
+      name: 'Clarkson Walter',
+      phone: '239-204-5678',
+      checkInStatus: 'Yet to check-in',
+      profileImage: '/api/placeholder/40/40',
+    },
+    {
+      id: '4',
+      employeeId: 'S19',
+      name: 'Michael Johnson',
+      phone: '239-221-8049',
+      checkInStatus: 'Yet to check-in',
+      profileImage: '/api/placeholder/40/40',
+    },
+    {
+      id: '5',
+      employeeId: 'S20',
+      name: 'Christopher Brown',
+      phone: '239-222-4567',
+      checkInStatus: 'Yet to check-in',
+      profileImage: '/api/placeholder/40/40',
+    },
+  ]
+};
+
 interface ProfilePageProps {
   employeeId?: string;
   onBack?: () => void;
 }
 
-export default function ProfilePage({ employeeId, onBack }: ProfilePageProps) {
+export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: ProfilePageProps) {
   const [activeTab, setActiveTab] = useState('profile');
+  const [currentEmployeeId, setCurrentEmployeeId] = useState(initialEmployeeId || 'S19');
   const [employee, setEmployee] = useState<Employee>(mockEmployee);
 
-  // Load employee data based on employeeId
+  // Load employee data based on currentEmployeeId
   useEffect(() => {
-    if (employeeId && mockEmployeeData[employeeId]) {
-      setEmployee(mockEmployeeData[employeeId]);
+    if (currentEmployeeId && mockEmployeeData[currentEmployeeId]) {
+      setEmployee(mockEmployeeData[currentEmployeeId]);
     } else {
       setEmployee(mockEmployee);
     }
-  }, [employeeId]);
+  }, [currentEmployeeId]);
+
+  // Handle clicking on another employee
+  const handleEmployeeClick = (employeeId: string) => {
+    setCurrentEmployeeId(employeeId);
+    setActiveTab('profile'); // Reset to profile tab when viewing a new employee
+  };
+
+  // Handle back button click
+  const handleBackClick = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      // Fallback: use browser back if no onBack prop provided
+      window.history.back();
+    }
+  };
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -147,6 +232,7 @@ export default function ProfilePage({ employeeId, onBack }: ProfilePageProps) {
           <PeersTab
             peers={mockPeers}
             managerName={employee.reportingManager}
+            onEmployeeClick={handleEmployeeClick}
           />
         );
       case 'leave':
@@ -160,65 +246,17 @@ export default function ProfilePage({ employeeId, onBack }: ProfilePageProps) {
         return (
           <AttendanceTab records={mockAttendanceRecords} />
         );
-      case 'time-logs':
-        return (
-          <div className="p-6 flex flex-col items-center justify-center min-h-96">
-            <img src="/api/placeholder/200/200" alt="No data" className="w-48 h-48 mb-4" />
-            <p className="text-gray-500">No time logs added for today</p>
-          </div>
-        );
-      case 'career-history':
-        return (
-          <div className="p-6">
-            <p className="text-gray-500">Career History content coming soon...</p>
-          </div>
-        );
+      case 'time-tracking':
+        return <TimeTrackingTab />;
       case 'department':
         return (
-          <div className="p-6">
-            <div className="flex gap-4 mb-6">
-              <select className="border rounded px-4 py-2">
-                <option>Management</option>
-              </select>
-              <select className="border rounded px-4 py-2">
-                <option>Unspecified location</option>
-              </select>
-              <span className="text-gray-600 py-2">-</span>
-              <span className="py-2 font-medium">5 Members</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white border rounded-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold">CEO</h3>
-                  <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm">1</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <img src="/api/placeholder/40/40" alt="CEO" className="w-10 h-10 rounded-full" />
-                  <div>
-                    <p className="font-medium">1 - fathima</p>
-                    <p className="text-sm text-red-500">Yet to check-in</p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white border rounded-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold">Administration</h3>
-                  <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm">4</span>
-                </div>
-                <div className="space-y-3">
-                  {mockPeers.slice(0, 3).map((peer) => (
-                    <div key={peer.id} className="flex items-center gap-3">
-                      <img src="/api/placeholder/40/40" alt={peer.name} className="w-10 h-10 rounded-full" />
-                      <div>
-                        <p className="font-medium">{peer.employeeId} - {peer.name}</p>
-                        <p className="text-sm text-red-500">{peer.checkInStatus}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+          <DepartmentTab
+            department="Management"
+            location="Unspecified location"
+            ceoMembers={mockDepartmentMembers.ceo}
+            administrationMembers={mockDepartmentMembers.administration}
+            onEmployeeClick={handleEmployeeClick}
+          />
         );
       default:
         return null;
@@ -230,7 +268,7 @@ export default function ProfilePage({ employeeId, onBack }: ProfilePageProps) {
       {/* Back Button */}
       <div className="bg-white border-b px-6 py-4">
         <button 
-          onClick={onBack}
+          onClick={handleBackClick}
           className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -239,7 +277,7 @@ export default function ProfilePage({ employeeId, onBack }: ProfilePageProps) {
       </div>
 
       {/* Profile Header */}
-      <ProfileHeader employee={employee} />
+      <ProfileHeader employee={employee} onEmployeeClick={handleEmployeeClick} />
 
       {/* Tabs */}
       <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />

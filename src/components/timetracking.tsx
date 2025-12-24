@@ -196,7 +196,7 @@ export default function TimeTrackingApp() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center shrink-0">
                 <Target size={20} className="text-gray-600" />
               </div>
               <p className="text-sm text-gray-500">Weekly Target</p>
@@ -206,7 +206,7 @@ export default function TimeTrackingApp() {
 
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center shrink-0">
                 <Clock size={20} className="text-green-600" />
               </div>
               <p className="text-sm text-gray-500">Hours Logged</p>
@@ -216,7 +216,7 @@ export default function TimeTrackingApp() {
 
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
                 <Briefcase size={20} className="text-blue-600" />
               </div>
               <p className="text-sm text-gray-500">Billable</p>
@@ -226,7 +226,7 @@ export default function TimeTrackingApp() {
 
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center shrink-0">
                 <CheckCircle size={20} className="text-gray-600" />
               </div>
               <p className="text-sm text-gray-500">Non-Billable</p>

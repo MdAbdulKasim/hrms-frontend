@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import {
-  User,
-  Clock,
-  Sun,
-  Calendar,
-  AlertCircle,
+import { 
+  User, 
+  Clock, 
+  Sun, 
+  Calendar, 
+  AlertCircle, 
   Briefcase,
   X
 } from 'lucide-react';
@@ -57,9 +57,9 @@ const ProfileCard = () => {
     let interval: NodeJS.Timeout | null = null;
     if (isCheckedIn) {
       interval = setInterval(() => { setSeconds((prev) => prev + 1); }, 1000);
-    }
+    } 
     return () => { if (interval) clearInterval(interval); };
-  }, [isCheckedIn]);
+  }, [isCheckedIn]); 
 
   const formatTime = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -70,7 +70,7 @@ const ProfileCard = () => {
   };
 
   const handleToggleCheckIn = () => {
-    if (isCheckedIn) { setIsCheckedIn(false); }
+    if (isCheckedIn) { setIsCheckedIn(false); } 
     else { setSeconds(0); setIsCheckedIn(true); }
   };
 
@@ -92,15 +92,15 @@ const ProfileCard = () => {
   return (
     <div className="bg-white rounded-xl shadow-sm p-6 flex flex-col items-center text-center border border-gray-100 w-full">
       <div className="relative group">
-        <input
-          type="file"
-          id="profile-upload"
-          accept="image/*"
+        <input 
+          type="file" 
+          id="profile-upload" 
+          accept="image/*" 
           onChange={handleImageUpload}
           className="hidden"
         />
-        <label
-          htmlFor="profile-upload"
+        <label 
+          htmlFor="profile-upload" 
           className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-gray-400 cursor-pointer overflow-hidden hover:opacity-80 transition-opacity"
         >
           {profileImage ? (
@@ -117,7 +117,7 @@ const ProfileCard = () => {
           </label>
         </div>
         {profileImage && (
-          <div
+          <div 
             onClick={handleRemoveImage}
             className="absolute bottom-3 left-0 bg-red-500 rounded-full p-1 cursor-pointer hover:bg-red-600 transition-colors z-10"
           >
@@ -135,10 +135,11 @@ const ProfileCard = () => {
       <div className={`bg-gray-100 px-4 py-2 rounded-md mt-3 font-mono font-medium tracking-wider w-full sm:w-auto ${isCheckedIn ? 'text-gray-900' : 'text-gray-600'}`}>
         {formatTime(seconds)}
       </div>
-      <button
+      <button 
         onClick={handleToggleCheckIn}
-        className={`mt-4 w-full py-2 border rounded-md transition-colors text-sm font-medium ${isCheckedIn ? 'border-red-500 text-red-500 hover:bg-red-50' : 'border-green-500 text-green-500 hover:bg-green-50'
-          }`}
+        className={`mt-4 w-full py-2 border rounded-md transition-colors text-sm font-medium ${
+          isCheckedIn ? 'border-red-500 text-red-500 hover:bg-red-50' : 'border-green-500 text-green-500 hover:bg-green-50'
+        }`}
       >
         {isCheckedIn ? 'Check-out' : 'Check-in'}
       </button>
@@ -154,17 +155,17 @@ const ReporteesCard = ({ onEmployeeClick }: { onEmployeeClick: (employeeId: stri
       <div className="flex-1 space-y-5">
         {reportees.map((person) => (
           <div key={person.id} className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-gray-200 rounded-full flex-shrink-0 overflow-hidden">
-              <div className="w-full h-full flex items-center justify-center bg-slate-300 text-slate-500">
-                <User size={16} />
-              </div>
+            <div className="w-10 h-10 bg-gray-200 rounded-full shrink-0 overflow-hidden">
+               <div className="w-full h-full flex items-center justify-center bg-slate-300 text-slate-500">
+                 <User size={16} />
+               </div>
             </div>
             <div className="min-w-0">
-              <p
+              <p 
                 className="text-xs text-gray-500 font-medium truncate hover:text-blue-600 cursor-pointer transition-colors"
                 onClick={() => onEmployeeClick(person.employeeId, person.name)}
               >
-                {person.roleId} - <span className="hover:underline">{person.name}</span>
+                {person.roleId} - <span className="hover:text-blue-600">{person.name}</span>
               </p>
               <p className="text-[10px] text-red-400 mt-0.5">{person.status}</p>
             </div>
@@ -172,7 +173,7 @@ const ReporteesCard = ({ onEmployeeClick }: { onEmployeeClick: (employeeId: stri
         ))}
       </div>
       <button className="text-blue-500 text-xs font-medium mt-4 text-left hover:underline">
-
+       
       </button>
     </div>
   );
@@ -184,8 +185,8 @@ const ActivitiesSection = () => {
       {/* Greeting Card */}
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 flex flex-shrink-0 items-center justify-center bg-blue-50 rounded-lg">
-            <Briefcase className="text-blue-600" size={20} />
+          <div className="w-10 h-10 flex shrink-0 items-center justify-center bg-blue-50 rounded-lg">
+             <Briefcase className="text-blue-600" size={20} />
           </div>
           <div>
             <h3 className="text-gray-800 font-medium">Good Afternoon <span className="text-gray-500 font-normal block sm:inline">farhan21ps13716</span></h3>
@@ -200,7 +201,7 @@ const ActivitiesSection = () => {
       {/* Check-in Reminder */}
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-start gap-3">
-          <div className="p-2 bg-orange-50 rounded-full text-orange-400 flex-shrink-0">
+          <div className="p-2 bg-orange-50 rounded-full text-orange-400 shrink-0">
             <Calendar size={20} />
           </div>
           <div>
@@ -217,7 +218,7 @@ const ActivitiesSection = () => {
       {/* Work Schedule Timeline */}
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 overflow-hidden">
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-blue-50 rounded-full text-blue-400 flex-shrink-0">
+          <div className="p-2 bg-blue-50 rounded-full text-blue-400 shrink-0">
             <Clock size={20} />
           </div>
           <div>
@@ -226,26 +227,27 @@ const ActivitiesSection = () => {
           </div>
         </div>
         <div className="mb-8">
-          <div className="border-l-2 border-gray-200 pl-4 py-1">
-            <span className="text-gray-500 text-xs font-semibold uppercase tracking-wide">General</span>
-            <p className="text-gray-400 text-sm mt-0.5">9:00 AM - 6:00 PM</p>
-          </div>
+           <div className="border-l-2 border-gray-200 pl-4 py-1">
+             <span className="text-gray-500 text-xs font-semibold uppercase tracking-wide">General</span>
+             <p className="text-gray-400 text-sm mt-0.5">9:00 AM - 6:00 PM</p>
+           </div>
         </div>
-
+        
         <div className="relative pt-4 pb-2 overflow-x-auto">
-          <div className="min-w-[600px] relative">
-            <div className="absolute top-[19px] left-0 w-full h-[2px] bg-gray-100 z-0"></div>
+          <div className="min-w-[600px] relative"> 
+            <div className="absolute top-[19px] left-0 w-full h-0.5 bg-gray-100 z-0"></div>
             <div className="grid grid-cols-7 gap-2 relative z-10">
               {schedule.map((item, index) => (
                 <div key={index} className="flex flex-col items-center">
-                  <div className={`w-2.5 h-2.5 rounded-full mb-3 flex-shrink-0 ${item.isToday ? 'bg-blue-500 ring-4 ring-blue-100' : 'bg-gray-300'}`}></div>
+                  <div className={`w-2.5 h-2.5 rounded-full mb-3 shrink-0 ${item.isToday ? 'bg-blue-500 ring-4 ring-blue-100' : 'bg-gray-300'}`}></div>
                   <div className="text-center">
                     <p className={`text-xs ${item.isToday ? 'text-gray-800 font-bold' : 'text-gray-500'}`}>
                       {item.day} <span className="text-gray-800">{item.date}</span>
                     </p>
-                    <p className={`text-[10px] mt-1 ${item.status === 'Weekend' ? 'text-yellow-600' :
-                        item.status === 'Absent' ? 'text-red-500' : 'text-gray-400'
-                      }`}>
+                    <p className={`text-[10px] mt-1 ${
+                      item.status === 'Weekend' ? 'text-yellow-600' : 
+                      item.status === 'Absent' ? 'text-red-500' : 'text-gray-400'
+                    }`}>
                       {item.status === 'Upcoming' ? '' : item.status}
                     </p>
                   </div>
@@ -258,8 +260,8 @@ const ActivitiesSection = () => {
 
       {/* Bottom Alert */}
       <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-start sm:items-center gap-3">
-        <div className="p-1.5 bg-yellow-50 rounded-full text-yellow-500 flex-shrink-0">
-          <AlertCircle size={18} />
+        <div className="p-1.5 bg-yellow-50 rounded-full text-yellow-500 shrink-0">
+           <AlertCircle size={18} />
         </div>
         <p className="text-gray-700 text-sm leading-tight sm:leading-normal pt-0.5 sm:pt-0">You are yet to submit your time logs today!</p>
       </div>
@@ -271,7 +273,7 @@ const ActivitiesSection = () => {
 
 export default function Dashboard() {
   const [showProfile, setShowProfile] = useState(false);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
 
   const handleEmployeeClick = (employeeId: string, name: string) => {
     setSelectedEmployeeId(employeeId);
@@ -287,9 +289,9 @@ export default function Dashboard() {
   if (showProfile) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <ProfilePage
-          employeeId={selectedEmployeeId}
-          onBack={handleCloseProfile}
+        <ProfilePage 
+          employeeId={selectedEmployeeId} 
+          onBack={handleCloseProfile} 
         />
       </div>
     );
@@ -301,7 +303,7 @@ export default function Dashboard() {
       {/* Main Content Area */}
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-
+          
           {/* Left Column: Profile & Reportees */}
           <div className="lg:col-span-1 flex flex-col gap-6">
             <ProfileCard />
