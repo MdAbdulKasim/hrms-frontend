@@ -1,6 +1,8 @@
 "use client";
 
 import { X, UserPlus, Pencil } from "lucide-react";
+import { useState } from "react";
+import AddMemberDrawer from "./AddMemberDrawer";
 
 interface Props {
   department: any;
@@ -8,6 +10,8 @@ interface Props {
 }
 
 export default function DepartmentDrawer({ department, onClose }: Props) {
+  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+
   return (
     <>
       {/* Overlay */}
@@ -49,7 +53,10 @@ export default function DepartmentDrawer({ department, onClose }: Props) {
               <h3 className="font-medium">
                 Members ({department.members.length})
               </h3>
-              <button className="text-sm flex items-center gap-1 border px-3 py-1 rounded-md">
+              <button
+                onClick={() => setIsAddMemberOpen(true)}
+                className="text-sm flex items-center gap-1 border px-3 py-1 rounded-md hover:bg-gray-50"
+              >
                 <UserPlus className="w-4 h-4" />
                 Add Member
               </button>
@@ -85,6 +92,14 @@ export default function DepartmentDrawer({ department, onClose }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Add Member Drawer */}
+      {isAddMemberOpen && (
+        <AddMemberDrawer
+          onClose={() => setIsAddMemberOpen(false)}
+          departmentName={department.name}
+        />
+      )}
     </>
   );
 }

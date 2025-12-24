@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+import axios from "axios";
+import { useRouter } from "next/navigation";
 
 interface FormData {
   fullName: string;
@@ -15,10 +17,13 @@ interface FormErrors {
   email?: string;
   phone?: string;
   password?: string;
+  submit?: string;
 }
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [showPass, setShowPass] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
     email: "",
@@ -34,10 +39,11 @@ export default function RegisterPage() {
       [name]: value
     }));
     // Clear error when user starts typing
-    if (errors[name as keyof FormErrors]) {
+    if (errors[name as keyof FormErrors] || errors.submit) {
       setErrors(prev => ({
         ...prev,
-        [name]: ""
+        [name]: "",
+        submit: ""
       }));
     }
   };
@@ -69,19 +75,31 @@ export default function RegisterPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (validateForm()) {
-      // Store user data temporarily for registration completion after OTP
-      const userData = {
-        ...formData,
-        registeredAt: new Date().toISOString()
-      };
-      
-      // In production, send OTP to user's email here
-      // For now, just navigate to OTP verification page
-      
-      // Navigate to OTP verification page
-      window.location.href = "/auth/verify-otp";
+      setIsLoading(true);
+      try {
+        const payload = {
+          fullName: formData.fullName,
+          email: formData.email,
+          phoneNumber: formData.phone,
+          password: formData.password
+        };
+
+        const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+        await axios.post(`${BASE_URL}/auth/signup`, payload);
+
+        // Navigate to OTP verification page on success
+        router.push("/auth/verify-otp");
+      } catch (error: any) {
+        console.error("Registration error:", error);
+        setErrors(prev => ({
+          ...prev,
+          submit: error.response?.data?.message || "Registration failed. Please try again."
+        }));
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -101,6 +119,12 @@ export default function RegisterPage() {
         <h2 className="text-xl font-semibold mb-2 text-gray-800">Create Account</h2>
         <p className="text-gray-500 mb-6">Register as Admin to get started</p>
 
+        {errors.submit && (
+          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-md border border-red-100">
+            {errors.submit}
+          </div>
+        )}
+
         <div className="space-y-4">
 
           {/* Full Name */}
@@ -112,9 +136,9 @@ export default function RegisterPage() {
               value={formData.fullName}
               onChange={handleInputChange}
               placeholder="John Doe"
-              className={`w-full mt-1 border rounded-md p-3 focus:ring-2 focus:ring-blue-500 ${
-                errors.fullName ? "border-red-500" : ""
-              }`}
+              disabled={isLoading}
+              className={`w-full mt-1 border rounded-md p-3 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${errors.fullName ? "border-red-500" : ""
+                }`}
             />
             {errors.fullName && (
               <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>
@@ -130,9 +154,9 @@ export default function RegisterPage() {
               value={formData.email}
               onChange={handleInputChange}
               placeholder="your@email.com"
-              className={`w-full mt-1 border rounded-md p-3 focus:ring-2 focus:ring-blue-500 ${
-                errors.email ? "border-red-500" : ""
-              }`}
+              disabled={isLoading}
+              className={`w-full mt-1 border rounded-md p-3 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${errors.email ? "border-red-500" : ""
+                }`}
             />
             {errors.email && (
               <p className="text-red-500 text-xs mt-1">{errors.email}</p>
@@ -148,9 +172,9 @@ export default function RegisterPage() {
               value={formData.phone}
               onChange={handleInputChange}
               placeholder="+1 (555) 000-0000"
-              className={`w-full mt-1 border rounded-md p-3 focus:ring-2 focus:ring-blue-500 ${
-                errors.phone ? "border-red-500" : ""
-              }`}
+              disabled={isLoading}
+              className={`w-full mt-1 border rounded-md p-3 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${errors.phone ? "border-red-500" : ""
+                }`}
             />
             {errors.phone && (
               <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
@@ -167,14 +191,15 @@ export default function RegisterPage() {
                 value={formData.password}
                 onChange={handleInputChange}
                 placeholder="••••••••"
-                className={`w-full border rounded-md p-3 pr-12 focus:ring-2 focus:ring-blue-500 ${
-                  errors.password ? "border-red-500" : ""
-                }`}
+                disabled={isLoading}
+                className={`w-full border rounded-md p-3 pr-12 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${errors.password ? "border-red-500" : ""
+                  }`}
               />
               <button
                 type="button"
                 onClick={() => setShowPass(!showPass)}
-                className="absolute right-3 top-3 text-gray-500"
+                disabled={isLoading}
+                className="absolute right-3 top-3 text-gray-500 disabled:opacity-50"
               >
                 {showPass ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
@@ -188,9 +213,17 @@ export default function RegisterPage() {
           <button
             type="button"
             onClick={handleSubmit}
-            className="w-full bg-blue-600 text-white py-3 rounded-md font-medium hover:bg-blue-700 transition"
+            disabled={isLoading}
+            className="w-full bg-blue-600 text-white py-3 rounded-md font-medium hover:bg-blue-700 transition flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            Continue →
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              "Continue →"
+            )}
           </button>
         </div>
 
