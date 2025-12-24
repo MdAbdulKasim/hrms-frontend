@@ -137,7 +137,7 @@ export default function OrgChart() {
                 {/* We hide this on mobile to create a simpler 'stack' look */}
                 {colIndex > 0 && (
                    <div 
-                     className="absolute left-0 w-[2px] bg-gray-200 hidden md:block"
+                     className="absolute left-0 w-0.5 bg-gray-200 hidden md:block"
                      style={{
                         top: '2rem', 
                         bottom: '2rem',
@@ -154,7 +154,7 @@ export default function OrgChart() {
                       
                       {/* Left Connector (Horizontal) - Desktop Only */}
                       {colIndex > 0 && (
-                         <div className={`hidden md:block w-8 h-[2px] ${isActive ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
+                         <div className={`hidden md:block w-8 h-0.5 ${isActive ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
                       )}
 
                       {/* The Card */}
@@ -203,7 +203,7 @@ export default function OrgChart() {
                            )}
                            
                            {/* Line 2 */}
-                           <div className="bg-blue-500 w-[2px] h-6 -mt-1 md:mt-0 md:-ml-1 md:w-8 md:h-[2px]"></div>
+                           <div className="bg-blue-500 w-0.5 h-6 -mt-1 md:mt-0 md:-ml-1 md:w-8 md:h-0.5"></div>
                         </div>
                       )}
 

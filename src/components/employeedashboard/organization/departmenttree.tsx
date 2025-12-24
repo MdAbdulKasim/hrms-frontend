@@ -93,7 +93,7 @@ export default function OrganizationChart() {
               key={dept.id}
               onClick={() => setActiveDeptId(dept.id)}
               className={`
-                relative flex items-center p-4 rounded-2xl border cursor-pointer transition-all duration-200 h-[80px]
+                relative flex items-center p-4 rounded-2xl border cursor-pointer transition-all duration-200 h-20
                 ${isActive 
                   ? 'bg-blue-50 border-blue-500 shadow-sm z-20' 
                   : 'bg-gray-50/50 border-gray-200 hover:bg-gray-100'
@@ -117,7 +117,7 @@ export default function OrganizationChart() {
               <div className="absolute right-4 md:-right-[46px] flex items-center">
                 {/* Horizontal Line connecting Card to Badge (Desktop Only) */}
                 <div 
-                  className={`hidden md:block h-[1px] w-[14px] ${isActive ? 'bg-blue-500' : 'bg-gray-300'}`} 
+                  className={`hidden md:block h-px w-3.5 ${isActive ? 'bg-blue-500' : 'bg-gray-300'}`} 
                 />
                 
                 {/* The Number Badge */}
@@ -135,7 +135,7 @@ export default function OrganizationChart() {
 
                 {/* Horizontal Line connecting Badge to Tree (Only if active & Desktop Only) */}
                 {isActive && (
-                  <div className="hidden md:block h-[1px] w-[14px] bg-blue-500" />
+                  <div className="hidden md:block h-px w-3.5 bg-blue-500" />
                 )}
               </div>
             </div>
@@ -151,9 +151,9 @@ export default function OrganizationChart() {
         style={{ '--tree-offset': `${verticalOffset}px` } as React.CSSProperties} 
       >
         <div 
-            // RESPONSIVE UPDATE: Added mt-0 md:mt-[var(--tree-offset)]
+            // RESPONSIVE UPDATE: Added mt-0 md:mt-(--tree-offset)
             // Border left and padding left only on desktop
-            className="relative mt-0 md:mt-[var(--tree-offset)] border-l-0 md:border-l border-gray-200 pl-0 md:pl-8 flex flex-col gap-4"
+            className="relative mt-0 md:mt-(--tree-offset) border-l-0 md:border-l border-gray-200 pl-0 md:pl-8 flex flex-col gap-4"
         >
           
           {/* Active Department Employees */}
@@ -164,7 +164,7 @@ export default function OrganizationChart() {
               className="relative flex items-center bg-white border border-gray-200 rounded-xl p-3 shadow-sm w-full md:min-w-[300px] md:max-w-[400px]"
             >
               {/* Connector Line (Desktop Only) */}
-              <div className="hidden md:block absolute -left-8 top-1/2 -translate-y-1/2 w-8 h-[1px] bg-gray-200"></div>
+              <div className="hidden md:block absolute -left-8 top-1/2 -translate-y-1/2 w-8 h-px bg-gray-200"></div>
 
               {/* Avatar */}
               <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 mr-3 shrink-0 relative">

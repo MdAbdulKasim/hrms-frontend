@@ -201,7 +201,7 @@ export default function DepartmentTree() {
 
               <div className="absolute right-4 md:-right-[46px] flex items-center">
                 <div 
-                  className={`hidden md:block h-px w- ${isActive ? 'bg-blue-500' : 'bg-gray-300'}`} 
+                  className={`hidden md:block h-px w-3.5 ${isActive ? 'bg-blue-500' : 'bg-gray-300'}`} 
                 />
                 
                 <div 
@@ -217,7 +217,7 @@ export default function DepartmentTree() {
                 </div>
 
                 {isActive && (
-                  <div className="hidden md:block h-[1px] w-[14px] bg-blue-500" />
+                  <div className="hidden md:block h-px w-3.5 bg-blue-500" />
                 )}
               </div>
             </div>

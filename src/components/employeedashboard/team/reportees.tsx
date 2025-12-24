@@ -235,7 +235,7 @@ const EmployeeManagement = () => {
   const EmployeeCard = ({ employee }: { employee: Employee }) => (
     <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
       <div className="flex items-start gap-3">
-        <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-2xl flex-shrink-0">
+        <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-2xl shrink-0">
           {employee.image}
         </div>
         <div className="flex-1 min-w-0">
@@ -476,7 +476,7 @@ const EmployeeManagement = () => {
         {viewMode === 'kanban' && (
           <div className="flex gap-4 overflow-x-auto pb-4 snap-x">
             {Object.entries(groupEmployees()).map(([groupName, groupEmployees]) => (
-              <div key={groupName} className="flex-shrink-0 w-80 snap-center md:snap-align-none">
+              <div key={groupName} className="shrink-0 w-80 snap-center md:snap-align-none">
                 <div className="bg-gray-100 rounded-lg p-4 h-full">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-gray-900">{groupName}</h3>
