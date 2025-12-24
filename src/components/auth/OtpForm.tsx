@@ -1,12 +1,40 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 
 export default function VerifyOTPPage() {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  
+  // --- Timer State ---
+  const [timer, setTimer] = useState(30); // Start with 30 seconds
+  const [canResend, setCanResend] = useState(false);
 
   // references to 6 input fields
   const inputRefs = useRef<HTMLInputElement[]>([]);
+
+  // --- Timer Logic ---
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    } else {
+      setCanResend(true);
+    }
+    return () => clearInterval(interval);
+  }, [timer]);
+
+  const handleResend = () => {
+    if (!canResend) return;
+    
+    // Logic to trigger backend resend goes here
+    console.log("OTP Resent!");
+
+    // Reset timer state
+    setTimer(30);
+    setCanResend(false);
+  };
 
   // update OTP logic with auto move
   const handleChange = (value: string, index: number) => {
@@ -30,9 +58,7 @@ export default function VerifyOTPPage() {
   };
 
   const handleVerify = () => {
-    // For frontend testing: accept any 6-digit code
     if (otp.join("").length === 6) {
-      // OTP verified successfully, redirect to login page
       window.location.href = "/auth/login";
     }
   };
@@ -61,15 +87,22 @@ export default function VerifyOTPPage() {
                 onKeyDown={(e) => handleKeyDown(e, index)}
                 className="w-12 h-12 border rounded-lg text-center text-xl focus:ring-2 focus:ring-blue-500"
                 />
-
           ))}
         </div>
 
-        {/* Resend OTP */}
+        {/* Resend OTP with Timer */}
         <p className="text-center text-sm text-gray-600 mb-4">
           Didn't receive code?{" "}
-          <button className="text-blue-600 font-medium hover:underline">
-            Resend OTP
+          <button 
+            onClick={handleResend}
+            disabled={!canResend}
+            className={`font-medium transition ${
+              canResend 
+              ? "text-blue-600 hover:underline cursor-pointer" 
+              : "text-gray-400 cursor-not-allowed"
+            }`}
+          >
+            {canResend ? "Resend OTP" : `Resend in ${timer}s`}
           </button>
         </p>
 
