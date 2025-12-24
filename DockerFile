@@ -1,0 +1,31 @@
+# Use an official Node.js image. Alpine versions are lightweight.
+FROM node:18-alpine
+
+# --- Set the Working Directory ---
+# This is the directory inside the container where our code will live.
+WORKDIR /app
+
+# --- Install Dependencies ---
+# Copy only the package files first to leverage Docker's layer caching.
+# This step will only re-run if your dependencies change.
+# Use pnpm and the project's `pnpm-lock.yaml` (this repo uses pnpm).
+COPY package.json pnpm-lock.yaml ./
+# Install pnpm and install dependencies from the frozen lockfile for reproducible installs.
+RUN npm install -g pnpm && pnpm install --frozen-lockfile
+
+# --- Copy Application Code ---
+# Copy the rest of your application's source code.
+COPY . .
+
+# --- Build TypeScript to JavaScript ---
+# This command compiles your TypeScript code into JavaScript in the 'dist' folder.
+RUN npm run build
+
+# --- Expose the Port ---
+# Tell Docker that the application inside the container will listen on port 8080.
+EXPOSE 8080
+
+# --- Command to Run the Application ---
+# This is the command that will be executed when the container starts.
+# It runs the compiled JavaScript from the 'dist' folder.
+CMD ["pnpm", "start"]
