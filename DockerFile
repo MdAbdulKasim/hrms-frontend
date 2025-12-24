@@ -10,7 +10,7 @@ RUN npm install -g pnpm
 # Copy package.json and pnpm-lock.yaml
 COPY package.json pnpm-lock.yaml* ./
  
-# Clear  pnpm cache and install dependencies with no cache
+# Clear pnpm cache and install dependencies with no cache
 RUN pnpm store prune && pnpm install --frozen-lockfile --no-cache
  
 # Copy the rest of the application code
