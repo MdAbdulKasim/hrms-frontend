@@ -4,9 +4,22 @@ import { Peer } from '../types';
 interface PeersTabProps {
   peers: Peer[];
   managerName: string;
+  onEmployeeClick?: (employeeId: string) => void;
 }
 
-export default function PeersTab({ peers, managerName }: PeersTabProps) {
+export default function PeersTab({ peers, managerName, onEmployeeClick }: PeersTabProps) {
+  // Extract manager ID from managerName string (format: "1 - fathima")
+  const getManagerId = (managerString: string) => {
+    return managerString.split(' - ')[0];
+  };
+
+  const handleManagerClick = () => {
+    if (onEmployeeClick && managerName) {
+      const managerId = getManagerId(managerName);
+      onEmployeeClick(managerId);
+    }
+  };
+
   return (
     <div className="p-6">
       {/* Manager Section */}
@@ -16,7 +29,12 @@ export default function PeersTab({ peers, managerName }: PeersTabProps) {
           alt="Manager"
           className="w-8 h-8 rounded-full"
         />
-        <span className="text-sm font-medium">{managerName}</span>
+        <span 
+          className="text-sm font-medium hover:text-blue-600 cursor-pointer transition-colors"
+          onClick={handleManagerClick}
+        >
+          {managerName}
+        </span>
         <span className="ml-auto bg-white px-3 py-1 rounded text-sm">
           Members <span className="font-semibold">{peers.length}</span>
         </span>
@@ -25,7 +43,7 @@ export default function PeersTab({ peers, managerName }: PeersTabProps) {
       {/* Peers Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
         {peers.map((peer) => (
-          <PeerCard key={peer.id} peer={peer} />
+          <PeerCard key={peer.id} peer={peer} onEmployeeClick={onEmployeeClick} />
         ))}
       </div>
     </div>
@@ -34,11 +52,21 @@ export default function PeersTab({ peers, managerName }: PeersTabProps) {
 
 interface PeerCardProps {
   peer: Peer;
+  onEmployeeClick?: (employeeId: string) => void;
 }
 
-function PeerCard({ peer }: PeerCardProps) {
+function PeerCard({ peer, onEmployeeClick }: PeerCardProps) {
+  const handleClick = () => {
+    if (onEmployeeClick && peer.employeeId) {
+      onEmployeeClick(peer.employeeId);
+    }
+  };
+
   return (
-    <div className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
+    <div 
+      className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+      onClick={handleClick}
+    >
       <div className="flex items-start gap-3">
         <img
           src={peer.profileImage || '/api/placeholder/48/48'}
@@ -48,7 +76,7 @@ function PeerCard({ peer }: PeerCardProps) {
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h3 className="font-medium text-gray-900 truncate">
+              <h3 className="font-medium text-gray-900 truncate hover:text-blue-600 transition-colors">
                 {peer.employeeId} - {peer.name}
               </h3>
               <p className="text-sm text-gray-600">{peer.designation}</p>
