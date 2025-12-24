@@ -8,9 +8,10 @@ interface Props {
   value: string;
   options: string[];
   onChange: (val: string) => void;
+  direction?: "up" | "down";
 }
 
-export default function Dropdown({ value, options, onChange }: Props) {
+export default function Dropdown({ value, options, onChange, direction = "down" }: Props) {
   return (
     <Listbox value={value} onChange={onChange}>
       <div className="relative">
@@ -30,14 +31,16 @@ export default function Dropdown({ value, options, onChange }: Props) {
           leaveFrom="opacity-100 scale-100"
           leaveTo="opacity-0 scale-95"
         >
-          <Listbox.Options className="absolute z-10 mt-2 w-full bg-white border rounded-xl shadow-lg text-sm overflow-hidden">
+          <Listbox.Options
+            className={`absolute z-[100] w-max min-w-full bg-white border rounded-xl shadow-xl text-sm overflow-hidden left-0 ${direction === "up" ? "bottom-full mb-1" : "top-full mt-1"
+              }`}
+          >
             {options.map((opt) => (
               <Listbox.Option
                 key={opt}
                 value={opt}
                 className={({ active }) =>
-                  `cursor-pointer px-4 py-2 ${
-                    active ? "bg-blue-50 text-blue-600" : "text-gray-700"
+                  `cursor-pointer px-4 py-2 ${active ? "bg-blue-50 text-blue-600" : "text-gray-700"
                   }`
                 }
               >

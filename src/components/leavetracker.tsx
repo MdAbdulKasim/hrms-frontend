@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input'; // Assuming you have an Input component, otherwise standard input works
+
 
 interface LeaveType {
   id: string;
