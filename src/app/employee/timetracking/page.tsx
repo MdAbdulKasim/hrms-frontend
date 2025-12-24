@@ -1,12 +1,10 @@
-import TimeTrackingApp from "@/components/employeedashboard/timetracking";
 import Layout from "@/components/layout/Layout";
-
-
+import TimeTrackingPage from "@/components/Timetracking/timetracking";
 
 export default function time(){
     return (
         <Layout>
-        <TimeTrackingApp/>  
+        <TimeTrackingPage/>  
         </Layout>
     )
 }
