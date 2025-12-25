@@ -70,16 +70,8 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     if (validateForm()) {
-      const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-
-      if (!BASE_URL) {
-        console.error("NEXT_PUBLIC_API_URL is missing");
-        setErrors(prev => ({
-          ...prev,
-          submit: "System Error: API URL is not configured. Please check your environment variables."
-        }));
-        return;
-      }
+      // Use environment variable with fallback for development
+      const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
       // Ensure protocol is present
       const apiUrl = BASE_URL.startsWith("http") ? BASE_URL : `http://${BASE_URL}`;
@@ -99,6 +91,10 @@ export default function LoginPage() {
           // The prompt example showed: "employeeId": "..." and "role": "admin"
           const id = employeeId || employee?.id;
 
+          // Store token in cookie for API authorization (expires in 7 days)
+          document.cookie = `authToken=${token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+
+          // Also keep in localStorage for backward compatibility
           localStorage.setItem("token", token);
           localStorage.setItem("role", role);
           if (id) localStorage.setItem("hrms_user_id", id);
@@ -197,41 +193,6 @@ export default function LoginPage() {
               >
                 Forgot Password?
               </a>
-            </div>
-          </div>
-
-          {/* USER TYPE SELECTION */}
-          <div>
-            <label className="text-sm font-medium text-gray-700">User Type</label>
-
-            <div className="space-y-2 mt-1">
-              {/* ADMIN */}
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="userType"
-                  value="admin"
-                  checked={userType === "admin"}
-                  onChange={() => setUserType("admin")}
-                  disabled={isLoading}
-                  className="cursor-pointer disabled:opacity-50"
-                />
-                <span className="text-gray-700">Admin</span>
-              </label>
-
-              {/* EMPLOYEE */}
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="userType"
-                  value="employee"
-                  checked={userType === "employee"}
-                  onChange={() => setUserType("employee")}
-                  disabled={isLoading}
-                  className="cursor-pointer disabled:opacity-50"
-                />
-                <span className="text-gray-700">Employee</span>
-              </label>
             </div>
           </div>
 
