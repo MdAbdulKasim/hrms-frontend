@@ -77,17 +77,8 @@ export default function RegisterPage() {
 
   const handleSubmit = async () => {
     if (validateForm()) {
-      const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-
-
-      if (!BASE_URL) {
-        console.error("NEXT_PUBLIC_API_URL is missing");
-        setErrors(prev => ({
-          ...prev,
-          submit: "System Error: API URL is not configured. Please check your environment variables."
-        }));
-        return;
-      }
+      // Use environment variable with fallback for development
+      const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
       // Ensure protocol is present
       const apiUrl = BASE_URL.startsWith("http") ? BASE_URL : `http://${BASE_URL}`;
