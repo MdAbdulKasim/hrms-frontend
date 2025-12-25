@@ -1,6 +1,5 @@
-import ProfilePage from "@/components/employee/profile";
 import Layout from "@/components/layout/Layout";
-
+import ProfilePage from "@/components/admin/profile";
 
 
 

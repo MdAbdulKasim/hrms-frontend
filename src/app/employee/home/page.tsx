@@ -1,4 +1,4 @@
-import Dashboard from "@/components/employeedashboard/myspace/dashboard";
+import Dashboard from "@/components/employee/employeedashboard/myspace/dashboard";
 import Layout from "@/components/layout/Layout";
 
 

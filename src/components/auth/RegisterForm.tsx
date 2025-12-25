@@ -77,6 +77,21 @@ export default function RegisterPage() {
 
   const handleSubmit = async () => {
     if (validateForm()) {
+      const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+
+      if (!BASE_URL) {
+        console.error("NEXT_PUBLIC_API_URL is missing");
+        setErrors(prev => ({
+          ...prev,
+          submit: "System Error: API URL is not configured. Please check your environment variables."
+        }));
+        return;
+      }
+
+      // Ensure protocol is present
+      const apiUrl = BASE_URL.startsWith("http") ? BASE_URL : `http://${BASE_URL}`;
+
       setIsLoading(true);
       try {
         const payload = {
@@ -86,8 +101,11 @@ export default function RegisterPage() {
           password: formData.password
         };
 
-        const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-        await axios.post(`${BASE_URL}/auth/signup`, payload);
+        console.log("Using API URL:", apiUrl);
+        await axios.post(`${apiUrl}/auth/signup`, payload);
+
+        // Store email for OTP verification
+        localStorage.setItem("registrationEmail", formData.email);
 
         // Navigate to OTP verification page on success
         router.push("/auth/verify-otp");

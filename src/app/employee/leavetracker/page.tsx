@@ -1,4 +1,4 @@
-import LeaveTracker from "@/components/employeedashboard/leavetracker";
+import LeaveTracker from "@/components/employee/leavetracker";
 import Layout from "@/components/layout/Layout";
 
 

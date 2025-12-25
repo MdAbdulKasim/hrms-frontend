@@ -1,12 +1,10 @@
-
-
-
-import Dashboard from "@/components/employee/employeedashboard/myspace/dashboard";
 import Layout from "@/components/layout/Layout";
+import Dashboard from "@/components/admin/myspace/dashboard";
 
 
 
-export default function dashboard(){
+
+export default function onboarding(){
     return (
         <Layout>
         <Dashboard/>  

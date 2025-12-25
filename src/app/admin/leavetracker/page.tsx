@@ -1,15 +1,11 @@
-
-
-
-import OrganizationChart from "@/components/employee/employeedashboard/organization/departmenttree";
 import Layout from "@/components/layout/Layout";
-
+import LeaveTracker from "@/components/admin/leavetracker";
 
 
 export default function leave(){
     return (
         <Layout>
-        <OrganizationChart/>  
+        <LeaveTracker/>  
         </Layout>
     )
 }
