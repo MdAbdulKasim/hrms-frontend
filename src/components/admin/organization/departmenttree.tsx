@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { User, Mail, Phone, Briefcase } from 'lucide-react';
-import ProfilePage from '../profile/ProfilePage';
+import ProfilePage from "@/components/profile/ProfilePage";
 
 // --- DATA & TYPES ---
 
@@ -117,10 +117,10 @@ export default function DepartmentTree() {
     const previewHeight = 280; // Reduced max height of preview card
     const spaceBelow = viewportHeight - rect.bottom;
     const spaceAbove = rect.top;
-    
+
     // Determine if preview should appear above or below
     const showAbove = spaceBelow < previewHeight && spaceAbove > spaceBelow;
-    
+
     setHoveredEmployee(employee);
     setHoverPosition({
       x: rect.left + (rect.width / 2),
@@ -163,9 +163,9 @@ export default function DepartmentTree() {
   if (showProfile) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <ProfilePage 
-          employeeId={selectedEmployeeId} 
-          onBack={handleCloseProfile} 
+        <ProfilePage
+          employeeId={selectedEmployeeId}
+          onBack={handleCloseProfile}
         />
       </div>
     );
@@ -173,7 +173,7 @@ export default function DepartmentTree() {
 
   return (
     <div className="min-h-screen bg-white p-4 md:p-12 flex flex-col md:flex-row gap-8 md:gap-12 font-sans">
-      
+
       {/* --- Left Column: Departments --- */}
       <div className="w-full md:w-[320px] flex flex-col gap-5 shrink-0">
         {departments.map((dept) => {
@@ -185,8 +185,8 @@ export default function DepartmentTree() {
               onClick={() => setActiveDeptId(dept.id)}
               className={`
                 relative flex items-center p-4 rounded-2xl border cursor-pointer transition-all duration-200 h-20
-                ${isActive 
-                  ? 'bg-blue-50 border-blue-500 shadow-sm z-20' 
+                ${isActive
+                  ? 'bg-blue-50 border-blue-500 shadow-sm z-20'
                   : 'bg-gray-50/50 border-gray-200 hover:bg-gray-100'
                 }
               `}
@@ -201,15 +201,15 @@ export default function DepartmentTree() {
               </div>
 
               <div className="absolute right-4 md:-right-[46px] flex items-center">
-                <div 
-                  className={`hidden md:block h-px w-3.5 ${isActive ? 'bg-blue-500' : 'bg-gray-300'}`} 
+                <div
+                  className={`hidden md:block h-px w-3.5 ${isActive ? 'bg-blue-500' : 'bg-gray-300'}`}
                 />
-                
-                <div 
+
+                <div
                   className={`
                     w-8 h-7 flex items-center justify-center text-xs border rounded-sm
-                    ${isActive 
-                      ? 'bg-blue-500 border-blue-500 text-white' 
+                    ${isActive
+                      ? 'bg-blue-500 border-blue-500 text-white'
                       : 'bg-white border-gray-300 text-gray-600'
                     }
                   `}
@@ -227,17 +227,17 @@ export default function DepartmentTree() {
       </div>
 
       {/* --- Right Column: Employee Tree --- */}
-      <div 
+      <div
         className="flex-1 transition-all duration-300 ease-in-out"
-        style={{ '--tree-offset': `${verticalOffset}px` } as React.CSSProperties} 
+        style={{ '--tree-offset': `${verticalOffset}px` } as React.CSSProperties}
       >
-        <div 
-            className="relative mt-0 md:mt-(--tree-offset) border-l-0 md:border-l border-gray-200 pl-0 md:pl-8 flex flex-col gap-4"
+        <div
+          className="relative mt-0 md:mt-(--tree-offset) border-l-0 md:border-l border-gray-200 pl-0 md:pl-8 flex flex-col gap-4"
         >
-          
+
           {activeDept.employees.map((emp) => (
-            <div 
-              key={emp.id} 
+            <div
+              key={emp.id}
               onClick={() => setActiveDeptId(activeDeptId)}
               onMouseEnter={(e) => handleEmployeeHover(emp, e)}
               onMouseLeave={handleEmployeeLeave}
@@ -246,17 +246,17 @@ export default function DepartmentTree() {
               <div className="hidden md:block absolute -left-8 top-1/2 -translate-y-1/2 w-8 h-px bg-gray-200"></div>
 
               <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 mr-3 shrink-0 relative">
-                 <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-                    <User size={20} />
-                 </div>
-                 {emp.imageUrl && (
-                   <img 
-                     src={emp.imageUrl} 
-                     alt={emp.name} 
-                     className="w-full h-full object-cover relative z-10"
-                     onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                   />
-                 )}
+                <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+                  <User size={20} />
+                </div>
+                {emp.imageUrl && (
+                  <img
+                    src={emp.imageUrl}
+                    alt={emp.name}
+                    className="w-full h-full object-cover relative z-10"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                )}
               </div>
 
               <div className="flex flex-col flex-1 min-w-0">
@@ -282,7 +282,7 @@ export default function DepartmentTree() {
           className="fixed bg-white rounded-lg shadow-2xl border-2 border-blue-500 p-3 w-72 z-50 animate-in fade-in zoom-in-95 duration-200"
           style={{
             left: `${hoverPosition.x}px`,
-            [hoverPosition.showAbove ? 'bottom' : 'top']: hoverPosition.showAbove 
+            [hoverPosition.showAbove ? 'bottom' : 'top']: hoverPosition.showAbove
               ? `${window.innerHeight - hoverPosition.y}px`
               : `${hoverPosition.y}px`,
             transform: 'translateX(-50%)',
@@ -331,14 +331,14 @@ export default function DepartmentTree() {
                 <span className="text-gray-700 truncate">{hoveredEmployee.email}</span>
               </div>
             )}
-            
+
             {hoveredEmployee.phone && (
               <div className="flex items-center gap-2 text-xs">
                 <Phone size={14} className="text-gray-400 shrink-0" />
                 <span className="text-gray-700">{hoveredEmployee.phone}</span>
               </div>
             )}
-            
+
             {hoveredEmployee.department && (
               <div className="flex items-center gap-2 text-xs">
                 <Briefcase size={14} className="text-gray-400 shrink-0" />

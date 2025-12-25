@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { Education } from '../setup/types';
+import { Education } from '../../admin/setup/types';
 
 interface EmployeeEducationStepProps {
   education: Education[];
@@ -48,7 +48,7 @@ export default function EmployeeEducationStep({
     return (
       <div className="bg-white rounded-lg p-8">
         <h3 className="text-xl font-semibold mb-6">Add Education</h3>
-        
+
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-6">
             <div className="col-span-2">

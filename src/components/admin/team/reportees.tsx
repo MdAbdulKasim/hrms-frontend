@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { Search, Grid, List, LayoutGrid, Filter, X, ChevronDown, ArrowLeft } from 'lucide-react';
-import ProfilePage from '../profile/ProfilePage';
+import ProfilePage from "@/components/profile/ProfilePage";
 
 // Employee data type
 interface Employee {
@@ -197,7 +197,7 @@ const EmployeeManagement = () => {
   const [showFilter, setShowFilter] = useState(false);
   const [filterDepartment, setFilterDepartment] = useState('All Departments');
   const [filterDesignation, setFilterDesignation] = useState('All Designations');
-  
+
   // Profile navigation state
   const [showProfile, setShowProfile] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
@@ -210,14 +210,14 @@ const EmployeeManagement = () => {
   });
 
   // Get employees for active tab
-  const tabEmployees = activeTab === 'direct' 
+  const tabEmployees = activeTab === 'direct'
     ? filteredEmployees.filter(emp => ['S19', 'S2', 'S20', 'S3'].includes(emp.id))
     : filteredEmployees;
 
   // Group employees for kanban view
   const groupEmployees = () => {
     const groups: { [key: string]: Employee[] } = {};
-    
+
     tabEmployees.forEach(emp => {
       let key = '';
       if (kanbanGroupBy === 'seniority') {
@@ -227,13 +227,13 @@ const EmployeeManagement = () => {
       } else {
         key = emp.designation;
       }
-      
+
       if (!groups[key]) {
         groups[key] = [];
       }
       groups[key].push(emp);
     });
-    
+
     return groups;
   };
 
@@ -252,9 +252,9 @@ const EmployeeManagement = () => {
   if (showProfile) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <ProfilePage 
-          employeeId={selectedEmployeeId} 
-          onBack={handleCloseProfile} 
+        <ProfilePage
+          employeeId={selectedEmployeeId}
+          onBack={handleCloseProfile}
         />
       </div>
     );
@@ -267,7 +267,7 @@ const EmployeeManagement = () => {
           {employee.image}
         </div>
         <div className="flex-1 min-w-0">
-          <h3 
+          <h3
             onClick={() => handleEmployeeClick(employee.id)}
             className="font-semibold text-gray-900 text-sm truncate cursor-pointer hover:text-blue-600 transition-colors"
           >
@@ -295,43 +295,39 @@ const EmployeeManagement = () => {
           <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto">
             {/* Tab Buttons */}
             <div className="flex items-center gap-2">
-                <button
+              <button
                 onClick={() => setActiveTab('direct')}
-                className={`px-3 py-2 md:px-4 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                    activeTab === 'direct'
+                className={`px-3 py-2 md:px-4 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'direct'
                     ? 'bg-blue-50 text-blue-600 border-2 border-blue-500'
                     : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
-                >
+                  }`}
+              >
                 Direct <span className="ml-1">4</span>
-                </button>
-                <button
+              </button>
+              <button
                 onClick={() => setActiveTab('all')}
-                className={`px-3 py-2 md:px-4 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                    activeTab === 'all'
+                className={`px-3 py-2 md:px-4 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'all'
                     ? 'bg-blue-50 text-blue-600 border-2 border-blue-500'
                     : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
-                >
+                  }`}
+              >
                 All <span className="ml-1">19</span>
-                </button>
+              </button>
             </div>
 
             {/* View Mode Buttons */}
             <div className="flex items-center gap-1 bg-white border border-gray-300 rounded-md p-1 ml-auto md:ml-0">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded ${
-                  viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
-                }`}
+                className={`p-2 rounded ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
+                  }`}
               >
                 <Grid size={18} />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded ${
-                  viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
-                }`}
+                className={`p-2 rounded ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
+                  }`}
               >
                 <List size={18} />
               </button>
@@ -340,24 +336,23 @@ const EmployeeManagement = () => {
                   setViewMode('kanban');
                   setShowKanbanMenu(false);
                 }}
-                className={`p-2 rounded relative ${
-                  viewMode === 'kanban' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
-                }`}
+                className={`p-2 rounded relative ${viewMode === 'kanban' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
+                  }`}
               >
                 <LayoutGrid size={18} />
               </button>
             </div>
 
             <div className="flex items-center gap-2 ml-auto md:ml-0">
-                <button className="p-2 bg-white border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100">
+              <button className="p-2 bg-white border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100">
                 <Search size={18} />
-                </button>
-                <button
+              </button>
+              <button
                 onClick={() => setShowFilter(!showFilter)}
                 className="p-2 bg-white border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100"
-                >
+              >
                 <Filter size={18} />
-                </button>
+              </button>
             </div>
           </div>
         </div>
@@ -373,7 +368,7 @@ const EmployeeManagement = () => {
                 Group by: {kanbanGroupBy.charAt(0).toUpperCase() + kanbanGroupBy.slice(1)}
                 <ChevronDown size={16} />
               </button>
-              
+
               {showKanbanMenu && (
                 <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
                   <button

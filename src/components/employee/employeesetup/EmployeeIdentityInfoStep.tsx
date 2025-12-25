@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { EmployeeIdentityInfo } from '../setup/types';
+import { EmployeeIdentityInfo } from '../../admin/setup/types';
 
 interface EmployeeIdentityInfoStepProps {
   identityInfo: EmployeeIdentityInfo;
@@ -14,7 +14,7 @@ export default function EmployeeIdentityInfoStep({
   setIdentityInfo,
   onNext,
 }: EmployeeIdentityInfoStepProps) {
-  
+
   const handleChange = (field: keyof EmployeeIdentityInfo, value: string) => {
     setIdentityInfo({ ...identityInfo, [field]: value });
   };

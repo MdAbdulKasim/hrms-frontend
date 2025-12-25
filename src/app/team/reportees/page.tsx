@@ -1,13 +1,13 @@
 
 
 import Layout from "@/components/layout/Layout";
-import EmployeeManagement from "@/components/team/reportees";
+import EmployeeManagement from "@/components/admin/team/reportees";
 
 
-export default function reportees(){
+export default function reportees() {
     return (
         <Layout>
-        <EmployeeManagement/>  
+            <EmployeeManagement />
         </Layout>
     )
 }

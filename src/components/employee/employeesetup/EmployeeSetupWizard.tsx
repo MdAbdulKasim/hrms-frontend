@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2, Circle } from 'lucide-react';
-import { SetupStep, EmployeeSetupData, EmployeePersonalDetails, EmployeeContactDetails, EmployeeIdentityInfo, WorkExperience, Education } from '../setup/types';
+import { SetupStep, EmployeeSetupData, EmployeePersonalDetails, EmployeeContactDetails, EmployeeIdentityInfo, WorkExperience, Education } from '../../admin/setup/types';
 import EmployeePersonalDetailsStep from './EmployeePersonalDetailsStep';
 import EmployeeContactDetailsStep from './EmployeeContactDetailsStep';
 import EmployeeIdentityInfoStep from './EmployeeIdentityInfoStep';
@@ -18,7 +18,7 @@ export default function EmployeeSetupWizard({
 }) {
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [expandedStep, setExpandedStep] = useState<number | null>(null);
-  
+
   const [steps, setSteps] = useState<SetupStep[]>([
     { id: 1, title: 'Personal Details', completed: false },
     { id: 2, title: 'Contact Information', completed: false },
@@ -118,25 +118,25 @@ export default function EmployeeSetupWizard({
 
   const handleCompleteSetup = () => {
     markStepComplete(5);
-    
+
     const completeData = {
       ...employeeData,
       allStepsCompleted: true,
       completedAt: new Date().toISOString(),
     };
-    
+
     try {
       localStorage.setItem('employeeSetupData', JSON.stringify(completeData));
-      
+
       window.dispatchEvent(new Event('storage'));
       window.dispatchEvent(new CustomEvent('setupStatusChanged'));
-      
+
       onComplete?.(completeData);
-      
+
       setTimeout(() => {
         window.location.href = '/employee/my-space/overview';
       }, 100);
-      
+
     } catch (error) {
       console.error('Failed to save employee setup data:', error);
       alert('Failed to complete setup. Please try again.');
@@ -218,13 +218,12 @@ export default function EmployeeSetupWizard({
             {steps.map((step) => (
               <div
                 key={step.id}
-                className={`flex items-center justify-between p-4 rounded-lg border-l-4 bg-white shadow-sm cursor-pointer transition-all ${
-                  step.completed
+                className={`flex items-center justify-between p-4 rounded-lg border-l-4 bg-white shadow-sm cursor-pointer transition-all ${step.completed
                     ? 'border-green-500'
                     : currentStep === step.id
-                    ? 'border-blue-600 ring-2 ring-blue-100'
-                    : 'border-blue-500'
-                }`}
+                      ? 'border-blue-600 ring-2 ring-blue-100'
+                      : 'border-blue-500'
+                  }`}
                 onClick={() => handleStepClick(step.id)}
               >
                 <div className="flex items-center gap-3">
@@ -243,11 +242,10 @@ export default function EmployeeSetupWizard({
                   </div>
                 </div>
                 <button
-                  className={`text-sm px-4 py-1.5 rounded ${
-                    step.completed
+                  className={`text-sm px-4 py-1.5 rounded ${step.completed
                       ? 'text-blue-600 hover:text-blue-700'
                       : 'text-blue-600 hover:text-blue-700'
-                  }`}
+                    }`}
                 >
                   {step.completed ? 'View / Edit' : currentStep === step.id ? 'In Progress' : 'Complete Now'}
                 </button>

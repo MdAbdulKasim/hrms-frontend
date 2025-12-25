@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { EmployeeContactDetails } from '../setup/types';
+import { EmployeeContactDetails } from '../../admin/setup/types';
 
 interface EmployeeContactDetailsStepProps {
   contactDetails: EmployeeContactDetails;
@@ -14,7 +14,7 @@ export default function EmployeeContactDetailsStep({
   setContactDetails,
   onNext,
 }: EmployeeContactDetailsStepProps) {
-  
+
   const handlePresentAddressChange = (field: string, value: string) => {
     setContactDetails({
       ...contactDetails,

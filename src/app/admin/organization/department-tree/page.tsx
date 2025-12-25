@@ -2,14 +2,14 @@
 
 
 import Layout from "@/components/layout/Layout";
-import OrganizationChart from "@/components/organization/departmenttree";
+import OrganizationChart from "@/components/admin/organization/departmenttree";
 
 
 
-export default function leave(){
+export default function leave() {
     return (
         <Layout>
-        <OrganizationChart/>  
+            <OrganizationChart />
         </Layout>
     )
 }
