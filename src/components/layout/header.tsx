@@ -19,27 +19,27 @@ type MainTab = {
 const adminNavigationConfig: MainTab[] = [
   {
     name: 'My Space',
-    path: '/my-space',
+    path: '/admin/my-space',
     subTabs: [
-      { name: 'Overview', path: '/my-space/overview' },
-      { name: 'Dashboard', path: '/my-space/dashboard' },
-      { name: 'Calendar', path: '/my-space/calendar' }
+      { name: 'Overview', path: '/admin/my-space/overview' },
+      { name: 'Dashboard', path: '/admin/my-space/dashboard' },
+      { name: 'Calendar', path: '/admin/my-space/calendar' }
     ]
   },
   {
     name: 'Team',
-    path: '/team',
+    path: '/admin/team',
     subTabs: [
-      { name: 'Reportees', path: '/team/reportees' },
-      { name: 'HR Process', path: '/team/hr-process' }
+      { name: 'Reportees', path: '/admin/team/reportees' },
+      { name: 'HR Process', path: '/admin/team/hr-process' }
     ]
   },
   {
     name: 'Organization',
-    path: '/organization',
+    path: '/admin/organization',
     subTabs: [
-      { name: 'Employee Tree', path: '/organization/employee-tree' },
-      { name: 'Department Tree', path: '/organization/department-tree' }
+      { name: 'Employee Tree', path: '/admin/organization/employee-tree' },
+      { name: 'Department Tree', path: '/admin/organization/department-tree' }
     ]
   }
 ];
@@ -47,27 +47,27 @@ const adminNavigationConfig: MainTab[] = [
 const employeeNavigationConfig: MainTab[] = [
   {
     name: 'My Space',
-    path: '/my-space',
+    path: '/employee/my-space',
     subTabs: [
-      { name: 'Overview', path: '/my-space/overview' },
-      { name: 'Dashboard', path: '/my-space/dashboard' },
-      { name: 'Calendar', path: '/my-space/calendar' }
+      { name: 'Overview', path: '/employee/my-space/overview' },
+      { name: 'Dashboard', path: '/employee/my-space/dashboard' },
+      { name: 'Calendar', path: '/employee/my-space/calendar' }
     ]
   },
   {
     name: 'Team',
-    path: '/team',
+    path: '/employee/team',
     subTabs: [
-      { name: 'Reportees', path: '/team/reportees' },
-      { name: 'HR Process', path: '/team/hr-process' }
+      { name: 'Reportees', path: '/employee/team/reportees' },
+      { name: 'HR Process', path: '/employee/team/hr-process' }
     ]
   },
   {
     name: 'Organization',
-    path: '/organization',
+    path: '/employee/organization',
     subTabs: [
-      { name: 'Employee Tree', path: '/organization/employee-tree' },
-      { name: 'Department Tree', path: '/organization/department-tree' }
+      { name: 'Employee Tree', path: '/employee/organization/employee-tree' },
+      { name: 'Department Tree', path: '/employee/organization/department-tree' }
     ]
   }
 ];
@@ -77,17 +77,15 @@ interface NavigationHeaderProps {
   userRole?: 'admin' | 'employee'; // Add role prop
 }
 
-export default function NavigationHeader({ 
-  toggleSidebar, 
-  userRole = 'admin' // Default to admin
+export default function NavigationHeader({
+  toggleSidebar,
+  userRole = 'admin'
 }: NavigationHeaderProps) {
   const pathname = usePathname();
-  
-  // Select navigation config based on role
+
   const navigationConfig = userRole === 'admin' ? adminNavigationConfig : employeeNavigationConfig;
   const [activeMainTab, setActiveMainTab] = useState(navigationConfig[0]);
 
-  // Sync active main tab with current path
   useEffect(() => {
     const matchedTab = navigationConfig.find(tab =>
       pathname.startsWith(tab.path)
@@ -100,101 +98,91 @@ export default function NavigationHeader({
   const noScrollbarClass = "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]";
 
   return (
-    // UPDATED: Used a custom unique Hex color [#F2F5FA] (Premium Cool Gray)
-    // You can replace [#F2F5FA] with any hex code like [#E6E6FA] (Lavender) or [#F0F8FF] (AliceBlue)
-    <div className="w-full bg-white z-30 sticky top-0">
+    <div className="w-full bg-white z-30 sticky top-0 shadow-sm border-b border-gray-100">
       {/* Main Header */}
-      <div className="border-b border-gray-200">
-        <div className="flex items-center justify-between px-4 md:px-6 h-16">
-          {/* Left Section - Sidebar Toggle & Main Navigation */}
-          <div className="flex items-center flex-1 min-w-0 mr-2 md:mr-4">
-            
-            <button 
-              onClick={toggleSidebar}
-              className="p-2 mr-2 md:mr-6 text-gray-500 hover:bg-gray-100 hover:text-gray-700 rounded-md transition-colors shrink-0"
-              aria-label="Toggle Sidebar"
-            >
-              <PanelLeft className="w-5 h-5 hidden md:block" />
-              <Menu className="w-5 h-5 md:hidden" />
-            </button>
+      <div className="px-4 md:px-8 h-16 md:h-20 flex items-center justify-between">
+        {/* Left Section - Sidebar Toggle & Main Navigation */}
+        <div className="flex items-center flex-1 min-w-0 mr-4">
+          <button
+            onClick={toggleSidebar}
+            className="p-2.5 mr-4 text-gray-500 hover:bg-gray-50 hover:text-blue-600 rounded-xl transition-all active:scale-95 shrink-0"
+            aria-label="Toggle Sidebar"
+          >
+            <PanelLeft className="w-5 h-5 hidden md:block" />
+            <Menu className="w-5 h-5 md:hidden" />
+          </button>
 
-            {/* Scrollable Container for Main Tabs */}
-            <div className={`flex items-center gap-2 md:gap-4 overflow-x-auto whitespace-nowrap mask-linear-fade pr-2 ${noScrollbarClass}`}>
-              {navigationConfig.map((tab) => {
-                const isActive = activeMainTab.name === tab.name;
-                return (
-                  <button
-                    key={tab.name}
-                    onClick={() => setActiveMainTab(tab)}
-                    // Added bg-white to inactive tabs so they pop against the unique background
-                    className={`text-sm font-medium transition-colors px-3 py-1.5 md:px-4 md:py-2 rounded-md border shrink-0 ${isActive
-                      ? 'text-blue-600 border-blue-600 bg-blue-50'
-                      : 'text-gray-500 border-gray-300 hover:text-gray-700 hover:border-gray-400 bg-white' 
-                      }`}
-                  >
-                    {tab.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Right Section - Icons */}
-          <div className="flex items-center gap-1 md:gap-3 shrink-0">
-            {/* Desktop Search */}
-            <div className="relative hidden lg:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search..."
-                // UPDATED: Added bg-white here so the input doesn't blend into the header color
-                className="pl-10 pr-4 py-2 w-48 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-              />
-            </div>
-            
-            {/* Mobile Search Icon */}
-            <button className="p-2 lg:hidden hover:bg-gray-100 rounded-md">
-              <Search className="w-5 h-5 text-gray-500" />
-            </button>
-
-            {/* Settings Icon - Only for Admin */}
-            {userRole === 'admin' && (
-              <Link href="/settings/permissions" className="hidden sm:block">
-                <button className="p-2 hover:bg-blue-50 rounded-md">
-                  <Settings className="w-5 h-5 text-blue-600" />
+          {/* Desktop & Mobile Main Tabs */}
+          <div className={`flex items-center gap-2 md:gap-3 overflow-x-auto whitespace-nowrap ${noScrollbarClass} py-1`}>
+            {navigationConfig.map((tab) => {
+              const isActive = activeMainTab.name === tab.name;
+              return (
+                <button
+                  key={tab.name}
+                  onClick={() => setActiveMainTab(tab)}
+                  className={`text-xs md:text-sm font-bold transition-all px-4 py-2 rounded-xl shrink-0 ${isActive
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10'
+                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                >
+                  {tab.name}
                 </button>
-              </Link>
-            )}
-
-            <button className="p-2 hover:bg-blue-50 rounded-md transition-colors relative">
-              <Bell className="w-5 h-5 text-blue-600" />
-              <span className="absolute top-1 right-1 w-4 h-4 bg-black text-white text-[10px] flex items-center justify-center rounded-full">
-                3
-              </span>
-            </button>
-
-            <button className="flex items-center gap-2 hover:bg-gray-100 px-1 md:px-2 py-2 rounded-md transition-colors">
-              <div className="w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center shrink-0">
-                <User className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-sm font-medium text-gray-900 hidden lg:block">John Doe</span>
-            </button>
+              );
+            })}
           </div>
+        </div>
+
+        {/* Right Section - Icons */}
+        <div className="flex items-center gap-2 md:gap-4 shrink-0">
+          {/* Desktop Search */}
+          <div className="relative hidden xl:block">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search features..."
+              className="pl-11 pr-4 py-2.5 w-64 text-sm bg-gray-50 border border-transparent rounded-xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/20 transition-all font-medium"
+            />
+          </div>
+
+          <button className="p-2.5 text-gray-500 hover:bg-gray-50 hover:text-blue-600 rounded-xl transition-all active:scale-95 relative">
+            <Bell className="w-5 h-5" />
+            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-blue-600 rounded-full border-2 border-white"></span>
+          </button>
+
+          {userRole === 'admin' && (
+            <Link href="/settings/permissions" className="hidden sm:block">
+              <button className="p-2.5 text-gray-500 hover:bg-gray-50 hover:text-blue-600 rounded-xl transition-all active:scale-95">
+                <Settings className="w-5 h-5" />
+              </button>
+            </Link>
+          )}
+
+          <div className="h-8 w-px bg-gray-100 mx-1 hidden sm:block"></div>
+
+          <button className="flex items-center gap-2 p-1.5 md:p-2 hover:bg-gray-50 rounded-xl transition-all group">
+            <div className="w-8 h-8 md:w-9 md:h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/10 shrink-0">
+              <User className="w-5 h-5 text-white" />
+            </div>
+            <div className="hidden lg:flex flex-col items-start mr-1">
+              <span className="text-[13px] font-bold text-gray-900 leading-tight">John Doe</span>
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{userRole}</span>
+            </div>
+          </button>
         </div>
       </div>
 
-      {/* Sub Header */}
-      <div className="border-b border-gray-200">
-        <div className={`flex items-center px-4 md:px-6 h-12 md:h-14 gap-4 md:gap-8 overflow-x-auto whitespace-nowrap ${noScrollbarClass}`}>
+      {/* Sub Header - Sub Navigation */}
+      <div className="bg-gray-50/50">
+        <div className={`flex items-center px-4 md:px-8 h-12 md:h-14 gap-2 md:gap-2 overflow-x-auto whitespace-nowrap ${noScrollbarClass}`}>
           {activeMainTab.subTabs.map((tab) => {
             const isActive = pathname === tab.path;
             return (
               <Link
                 key={tab.path}
                 href={tab.path}
-                className={`text-sm font-medium transition-colors px-1 py-3 md:px-4 md:py-4 border-b-2 shrink-0 ${isActive
-                    ? 'text-blue-600 border-blue-600'
-                    : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-200'
+                className={`text-[12px] md:text-[13px] font-bold transition-all px-4 py-2 rounded-lg shrink-0 ${isActive
+                  ? 'text-blue-600 bg-blue-50'
+                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100/50'
                   }`}
               >
                 {tab.name}

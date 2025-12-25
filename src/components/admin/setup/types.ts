@@ -14,20 +14,15 @@ export interface OrganizationData {
   contactPerson: string;
   contactNumber: string;
   contactEmail: string;
-  addressLine1: string;
-  addressLine2: string;
-  city: string;
-  state: string;
-  country: string;
-  zipCode: string;
+  address: string;
+  logoUrl?: string; // Added to support potential future logo handling
 }
 
 export interface Location {
   id: string;
-  locationName: string;
-  locationCode: string;
-  mailAlias: string;
-  description: string;
+  name: string;
+  code: string;
+  organizationId?: string;
   addressLine1: string;
   addressLine2: string;
   city: string;
@@ -39,12 +34,10 @@ export interface Location {
 
 export interface Department {
   id: string;
-  name: string;
+  departmentName: string;
   code: string;
-  associatedUsers: number;
-  mailAlias: string;
-  departmentLead: string;
-  parentDepartment: string;
+  organizationId: string;
+  locationId: string;
 }
 
 export interface Designation {
@@ -52,6 +45,9 @@ export interface Designation {
   name: string;
   code: string;
   description: string;
+  organizationId: string;
+  locationId: string;
+  departmentId: string;
 }
 
 // NEW: Employee Setup Types
@@ -67,7 +63,7 @@ export interface EmployeePersonalDetails {
   shift: string;
   location: string;
   timeZone: string;
-  
+
   // Employee Fills
   dateOfBirth: string;
   gender: string;

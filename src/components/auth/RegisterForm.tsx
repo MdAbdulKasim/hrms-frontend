@@ -20,7 +20,7 @@ interface FormErrors {
   submit?: string;
 }
 
-export default function RegisterPage() {
+export default function RegisterForm() {
   const router = useRouter();
   const [showPass, setShowPass] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -113,135 +113,143 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#e9f0f8] to-white p-4">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] p-4 sm:p-6 lg:p-8">
+      <div className="w-full max-w-[480px] animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="bg-white rounded-2xl shadow-xl shadow-blue-900/5 p-6 sm:p-10 border border-gray-100">
 
-        {/* Logo */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-            HR
-          </div>
-          <h1 className="text-2xl font-semibold text-gray-800">HRMS</h1>
-        </div>
-
-        {/* Title */}
-        <h2 className="text-xl font-semibold mb-2 text-gray-800">Create Account</h2>
-        <p className="text-gray-500 mb-6">Register as Admin to get started</p>
-
-        {errors.submit && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-md border border-red-100">
-            {errors.submit}
-          </div>
-        )}
-
-        <div className="space-y-4">
-
-          {/* Full Name */}
-          <div>
-            <label className="text-sm font-medium text-gray-700">Full Name</label>
-            <input
-              type="text"
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleInputChange}
-              placeholder="John Doe"
-              disabled={isLoading}
-              className={`w-full mt-1 border rounded-md p-3 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${errors.fullName ? "border-red-500" : ""
-                }`}
-            />
-            {errors.fullName && (
-              <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>
-            )}
-          </div>
-
-          {/* Email */}
-          <div>
-            <label className="text-sm font-medium text-gray-700">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              placeholder="your@email.com"
-              disabled={isLoading}
-              className={`w-full mt-1 border rounded-md p-3 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${errors.email ? "border-red-500" : ""
-                }`}
-            />
-            {errors.email && (
-              <p className="text-red-500 text-xs mt-1">{errors.email}</p>
-            )}
-          </div>
-
-          {/* Phone Number */}
-          <div>
-            <label className="text-sm font-medium text-gray-700">Phone</label>
-            <input
-              type="text"
-              name="phone"
-              value={formData.phone}
-              onChange={handleInputChange}
-              placeholder="+1 (555) 000-0000"
-              disabled={isLoading}
-              className={`w-full mt-1 border rounded-md p-3 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${errors.phone ? "border-red-500" : ""
-                }`}
-            />
-            {errors.phone && (
-              <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
-            )}
-          </div>
-
-          {/* Password */}
-          <div>
-            <label className="text-sm font-medium text-gray-700">Password</label>
-            <div className="relative mt-1">
-              <input
-                type={showPass ? "text" : "password"}
-                name="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                placeholder="••••••••"
-                disabled={isLoading}
-                className={`w-full border rounded-md p-3 pr-12 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${errors.password ? "border-red-500" : ""
-                  }`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPass(!showPass)}
-                disabled={isLoading}
-                className="absolute right-3 top-3 text-gray-500 disabled:opacity-50"
-              >
-                {showPass ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-12 h-12 bg-blue-600 rounded-xl text-white flex items-center justify-center font-bold text-xl shadow-lg shadow-blue-600/20">
+              HR
             </div>
-            {errors.password && (
-              <p className="text-red-500 text-xs mt-1">{errors.password}</p>
-            )}
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">HRMS</h1>
+              <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Enterprise Suite</p>
+            </div>
           </div>
 
-          {/* Continue Button */}
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isLoading}
-            className="w-full bg-blue-600 text-white py-3 rounded-md font-medium hover:bg-blue-700 transition flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              "Continue →"
-            )}
-          </button>
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Account</h2>
+            <p className="text-gray-500 text-sm">Join our platform and manage your workforce with ease.</p>
+          </div>
+
+          {errors.submit && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl flex items-start gap-3">
+              <span className="shrink-0 w-5 h-5 flex items-center justify-center bg-red-100 rounded-full text-xs font-bold">!</span>
+              <p>{errors.submit}</p>
+            </div>
+          )}
+
+          <div className="space-y-5">
+            <div className="grid grid-cols-1 gap-5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
+                <input
+                  type="text"
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleInputChange}
+                  placeholder="Martha Nielsen"
+                  disabled={isLoading}
+                  className={`w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${errors.fullName ? "border-red-500 bg-red-50/30 ring-red-500/10" : ""
+                    }`}
+                />
+                {errors.fullName && (
+                  <p className="text-red-500 text-xs mt-2 font-medium ml-1">{errors.fullName}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  placeholder="martha.nielsen@company.com"
+                  disabled={isLoading}
+                  className={`w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${errors.email ? "border-red-500 bg-red-50/30 ring-red-500/10" : ""
+                    }`}
+                />
+                {errors.email && (
+                  <p className="text-red-500 text-xs mt-2 font-medium ml-1">{errors.email}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Phone Number</label>
+                <input
+                  type="text"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  placeholder="+1 (555) 000-0000"
+                  disabled={isLoading}
+                  className={`w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${errors.phone ? "border-red-500 bg-red-50/30 ring-red-500/10" : ""
+                    }`}
+                />
+                {errors.phone && (
+                  <p className="text-red-500 text-xs mt-2 font-medium ml-1">{errors.phone}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPass ? "text" : "password"}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    placeholder="••••••••••••"
+                    disabled={isLoading}
+                    className={`w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${errors.password ? "border-red-500 bg-red-50/30 ring-red-500/10" : ""
+                      }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPass(!showPass)}
+                    disabled={isLoading}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showPass ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+                {errors.password && (
+                  <p className="text-red-500 text-xs mt-2 font-medium ml-1">{errors.password}</p>
+                )}
+              </div>
+            </div>
+
+            <button
+              id="register-submit-button"
+              type="button"
+              onClick={handleSubmit}
+              disabled={isLoading}
+              className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white py-3.5 rounded-xl font-bold text-base shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center disabled:opacity-70 disabled:active:scale-100 mt-4"
+            >
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Creating Account...</span>
+                </div>
+              ) : (
+                "Create Account"
+              )}
+            </button>
+          </div>
+
+          <div className="mt-8 pt-8 border-t border-gray-100">
+            <p className="text-center text-sm text-gray-500 font-medium">
+              Already have an account?{" "}
+              <a href="/auth/login" className="text-blue-600 hover:text-blue-700 font-bold ml-1 transition-colors">
+                Sign In
+              </a>
+            </p>
+          </div>
         </div>
 
-        {/* Login Link */}
-        <p className="text-center text-sm text-gray-600 mt-4">
-          Already have an account?{" "}
-          <a href="/auth/login" className="text-blue-600 font-medium hover:underline">
-            Sign In
-          </a>
+        <p className="text-center mt-8 text-xs text-gray-400 font-medium">
+          &copy; {new Date().getFullYear()} Antigravity HRMS. All rights reserved.
         </p>
       </div>
     </div>
