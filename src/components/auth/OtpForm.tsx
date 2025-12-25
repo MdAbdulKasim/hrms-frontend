@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import axios from "axios";
 import { Loader2 } from "lucide-react";
 
-export default function VerifyOTPPage() {
+export default function OtpForm() {
   const router = useRouter();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [email, setEmail] = useState<string | null>(null);
@@ -115,83 +115,103 @@ export default function VerifyOTPPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-100 to-gray-200 p-4">
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] p-4 sm:p-6 lg:p-8">
+      <div className="w-full max-w-[440px] animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="bg-white rounded-2xl shadow-xl shadow-blue-900/5 p-6 sm:p-10 border border-gray-100 text-center">
 
-        {/* Title */}
-        <h2 className="text-xl font-semibold mb-2">Verify Email</h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Enter the 6-digit code sent to {email && <span className="font-medium">{email}</span>}
-        </p>
-
-        {error && (
-          <div className="mb-4 p-2 bg-red-50 text-red-600 text-sm rounded border border-red-100 text-center">
-            {error}
+          <div className="flex justify-center mb-8">
+            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
           </div>
-        )}
 
-        {/* OTP Inputs */}
-        <div className="flex justify-between mb-4">
-          {otp.map((digit, index) => (
-            <input
-              key={index}
-              ref={(el) => {
-                if (el) inputRefs.current[index] = el;
-              }}
-              maxLength={1}
-              value={digit}
-              onChange={(e) => handleChange(e.target.value, index)}
-              onKeyDown={(e) => handleKeyDown(e, index)}
-              disabled={isLoading}
-              className={`w-12 h-12 border rounded-lg text-center text-xl focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${error ? "border-red-300 focus:ring-red-500" : ""
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Verify Email</h2>
+            <p className="text-gray-500 text-sm leading-relaxed">
+              We've sent a 6-digit verification code to
+              <span className="block font-bold text-gray-900 mt-1">{email || "your email"}</span>
+            </p>
+          </div>
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl font-medium">
+              {error}
+            </div>
+          )}
+
+          {/* OTP Inputs */}
+          <div className="flex justify-between gap-2 sm:gap-3 mb-8">
+            {otp.map((digit, index) => (
+              <input
+                key={index}
+                ref={(el) => {
+                  if (el) inputRefs.current[index] = el;
+                }}
+                maxLength={1}
+                value={digit}
+                onChange={(e) => handleChange(e.target.value, index)}
+                onKeyDown={(e) => handleKeyDown(e, index)}
+                disabled={isLoading}
+                className={`w-full h-12 sm:h-14 border-2 rounded-xl text-center text-xl font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all disabled:opacity-50 ${error
+                    ? "border-red-200 text-red-600 bg-red-50/30 focus:border-red-500"
+                    : "border-gray-100 bg-gray-50 focus:border-blue-500 focus:bg-white"
+                  }`}
+              />
+            ))}
+          </div>
+
+          {/* Resend OTP with Timer */}
+          <div className="mb-8">
+            <p className="text-sm text-gray-500">
+              Didn't receive code?{" "}
+              <button
+                onClick={handleResend}
+                disabled={!canResend || isLoading}
+                className={`font-bold transition-colors ml-1 ${canResend
+                  ? "text-blue-600 hover:text-blue-700"
+                  : "text-gray-400 cursor-not-allowed"
+                  }`}
+              >
+                {canResend ? "Resend Now" : `Resend in ${timer}s`}
+              </button>
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <button
+              onClick={handleVerify}
+              disabled={otp.join("").length !== 6 || isLoading}
+              className={`w-full py-3.5 rounded-xl text-white font-bold shadow-lg transition-all flex items-center justify-center
+                ${otp.join("").length === 6 && !isLoading
+                  ? "bg-blue-600 hover:bg-blue-700 shadow-blue-600/20 active:scale-[0.98]"
+                  : "bg-gray-300 cursor-not-allowed shadow-none"
                 }`}
-            />
-          ))}
+            >
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Verifying...</span>
+                </div>
+              ) : (
+                "Verify Code"
+              )}
+            </button>
+
+            <button
+              className="w-full py-3 text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors"
+              onClick={() => router.push("/auth/register")}
+              disabled={isLoading}
+            >
+              Change Email
+            </button>
+          </div>
         </div>
 
-        {/* Resend OTP with Timer */}
-        <p className="text-center text-sm text-gray-600 mb-4">
-          Didn't receive code?{" "}
-          <button
-            onClick={handleResend}
-            disabled={!canResend || isLoading}
-            className={`font-medium transition ${canResend
-              ? "text-blue-600 hover:underline cursor-pointer"
-              : "text-gray-400 cursor-not-allowed"
-              }`}
-          >
-            {canResend ? "Resend OTP" : `Resend in ${timer}s`}
-          </button>
+        <p className="text-center mt-8 text-xs text-gray-400 font-medium">
+          &copy; {new Date().getFullYear()} Antigravity HRMS. All rights reserved.
         </p>
-
-        {/* Verify Button */}
-        <button
-          onClick={handleVerify}
-          disabled={otp.join("").length !== 6 || isLoading}
-          className={`w-full py-2 rounded-md text-white font-medium transition flex items-center justify-center
-            ${otp.join("").length === 6 && !isLoading
-              ? "bg-blue-600 hover:bg-blue-700"
-              : "bg-blue-300 cursor-not-allowed"
-            }`}
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Verifying...
-            </>
-          ) : (
-            "Verify →"
-          )}
-        </button>
-
-        {/* Back Button */}
-        <button
-          className="w-full mt-4 bg-gray-200 py-2 rounded-md hover:bg-gray-300 disabled:opacity-50"
-          onClick={() => router.push("/auth/register")}
-          disabled={isLoading}
-        >
-          Back
-        </button>
       </div>
     </div>
   );

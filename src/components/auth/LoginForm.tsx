@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-import axios from "axios";
 import { useRouter } from "next/navigation";
+import { getCookie, setCookie, setOrgId, getApiUrl, syncSetupState, clearSetupData, checkSetupStatus } from "@/lib/auth";
 
 interface FormData {
   email: string;
@@ -16,17 +16,17 @@ interface FormErrors {
   submit?: string;
 }
 
-export default function LoginPage() {
+export default function LoginForm() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  // User type selection is handled by the backend response usually, 
-  // but keeping it if UI needs it for visually selecting role before login (though API response has role).
-  // The user prompt showed response has "role": "admin". 
-  // I will keep the UI selector if it was intended to filter or set context, 
-  // but strictly speaking the API returns the role. 
-  // However, the existing UI had it, so I'll keep it but rely on API response for logic.
   const [userType, setUserType] = useState<"admin" | "employee">("admin");
+
+  // Auto-clear stale session when landing on login page
+  useEffect(() => {
+    console.warn("LOGIN_PAGE_INIT: Clearing old session state...");
+    clearSetupData();
+  }, []);
 
   const [formData, setFormData] = useState<FormData>({
     email: "",
@@ -70,45 +70,80 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     if (validateForm()) {
-      // Use environment variable with fallback for development
-      const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-
-      // Ensure protocol is present
-      const apiUrl = BASE_URL.startsWith("http") ? BASE_URL : `http://${BASE_URL}`;
-
+      const apiUrl = getApiUrl();
       setIsLoading(true);
       try {
-        console.log("Using API URL:", apiUrl);
-        const response = await axios.post(`${apiUrl}/auth/login`, {
+        const payload = {
           email: formData.email,
-          password: formData.password
+          password: formData.password,
+          role: userType
+        };
+
+        console.warn("LOGIN_DEBUG_STREAMS: Start", { apiUrl, payload });
+
+        const response = await fetch(`${apiUrl}/auth/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
         });
 
-        if (response.data.success) {
-          const { token, role, employee, employeeId } = response.data;
+        const data = await response.json().catch(() => ({}));
 
-          // Determine ID to save (response example has 'employeeId' at top level, or inside 'employee' object)
-          // The prompt example showed: "employeeId": "..." and "role": "admin"
+        if (response.ok && data.success) {
+          const { token, role, employee, employeeId } = data;
           const id = employeeId || employee?.id;
 
-          // Store token in cookie for API authorization (expires in 7 days)
-          document.cookie = `authToken=${token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+          setCookie('authToken', token, 7);
+          setCookie('role', role, 7);
+          if (typeof window !== 'undefined') localStorage.setItem('role', role);
+          if (id) setCookie('hrms_user_id', id, 7);
+          if (formData.email) setCookie('hrms_user_email', formData.email, 7);
 
-          // Also keep in localStorage for backward compatibility
-          localStorage.setItem("token", token);
-          localStorage.setItem("role", role);
-          if (id) localStorage.setItem("hrms_user_id", id);
-          if (formData.email) localStorage.setItem("hrms_user_email", formData.email);
+          let isSetupCompleted = checkSetupStatus();
 
-          // Redirect to setup page
-          // The setup page handles redirection to home if setup is already complete
-          window.location.href = "/setup";
+          const orgIdRaw = employee?.organization?.orgId ||
+            employee?.organizationId ||
+            data?.organizationId ||
+            data?.employee?.organizationId ||
+            employee?.orgId ||
+            data?.orgId ||
+            employee?.organization?.id ||
+            data?.employee?.organization?.id;
+
+          const orgId = orgIdRaw ? String(orgIdRaw) : null;
+
+          if (orgId && orgId !== 'undefined' && role === 'admin') {
+            setOrgId(orgId);
+            try {
+              const syncResult = await syncSetupState(token, orgId);
+              if (syncResult) {
+                isSetupCompleted = true;
+                setCookie('setupCompleted', 'true');
+                if (typeof window !== 'undefined') localStorage.setItem('setupCompleted', 'true');
+              }
+            } catch (err) {
+              console.error("LOGIN_DEBUG: Sync failed", err);
+            }
+          }
+
+          if (role === 'admin') {
+            const dest = isSetupCompleted ? "/admin/my-space/overview" : "/admin/setup";
+            window.location.href = dest;
+          } else {
+            window.location.href = "/employee/my-space/overview";
+          }
+        } else {
+          setErrors(prev => ({
+            ...prev,
+            submit: data?.message || `Login Failed (${response.status})`
+          }));
         }
       } catch (error: any) {
-        console.error("Login error:", error);
         setErrors(prev => ({
           ...prev,
-          submit: error.response?.data?.message || "Login failed. Please check your credentials."
+          submit: error.message || "Network Error"
         }));
       } finally {
         setIsLoading(false);
@@ -117,108 +152,138 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-r from-gray-100 to-gray-200 p-4">
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] p-4 sm:p-6 lg:p-8">
+      <div className="w-full max-w-[440px] animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="bg-white rounded-2xl shadow-xl shadow-blue-900/5 p-6 sm:p-10">
 
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-blue-600 rounded-lg text-white flex items-center justify-center font-bold">
-            HR
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-12 h-12 bg-blue-600 rounded-xl text-white flex items-center justify-center font-bold text-xl shadow-lg shadow-blue-600/20">
+              HR
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">HRMS</h1>
+              <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Enterprise Suite</p>
+            </div>
           </div>
-          <h1 className="text-xl font-semibold">HRMS</h1>
-        </div>
 
-        <h2 className="text-lg font-semibold mb-2">Login</h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Enter your credentials to access the system
-        </p>
-
-        {errors.submit && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-md border border-red-100">
-            {errors.submit}
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome Back</h2>
+            <p className="text-gray-500 text-sm">Please enter your details to sign in.</p>
           </div>
-        )}
 
-        <div className="space-y-4">
-          {/* EMAIL */}
-          <div>
-            <label className="text-sm font-medium">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              placeholder="your@email.com"
-              disabled={isLoading}
-              className={`w-full mt-1 border rounded-md p-2 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${errors.email ? "border-red-500" : ""
+          {/* Role Switcher */}
+          <div className="flex p-1 bg-gray-100 rounded-xl mb-8">
+            <button
+              onClick={() => setUserType("admin")}
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${userType === "admin"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
                 }`}
-            />
-            {errors.email && (
-              <p className="text-red-500 text-xs mt-1">{errors.email}</p>
-            )}
+            >
+              Administrator
+            </button>
+            <button
+              onClick={() => setUserType("employee")}
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${userType === "employee"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+                }`}
+            >
+              Employee
+            </button>
           </div>
 
-          {/* PASSWORD */}
-          <div>
-            <label className="text-sm font-medium">Password</label>
-            <div className="relative mt-1">
+          {errors.submit && (
+            <div id="login-error-message" className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl flex items-start gap-3">
+              <span className="shrink-0 w-5 h-5 flex items-center justify-center bg-red-100 rounded-full text-xs font-bold">!</span>
+              <p>{errors.submit}</p>
+            </div>
+          )}
+
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
               <input
-                type={showPassword ? "text" : "password"}
-                name="password"
-                value={formData.password}
+                id="email-input"
+                type="email"
+                name="email"
+                value={formData.email}
                 onChange={handleInputChange}
-                placeholder="••••••••"
+                placeholder="martha.nielsen@company.com"
                 disabled={isLoading}
-                className={`w-full border rounded-md p-2 pr-10 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${errors.password ? "border-red-500" : ""
+                className={`w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${errors.email ? "border-red-500 bg-red-50/30 ring-red-500/10" : ""
                   }`}
               />
-
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                disabled={isLoading}
-                className="absolute right-3 top-2.5 text-gray-500 disabled:opacity-50"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
+              {errors.email && (
+                <p className="text-red-500 text-xs mt-2 font-medium ml-1">{errors.email}</p>
+              )}
             </div>
 
-            {errors.password && (
-              <p className="text-red-500 text-xs mt-1">{errors.password}</p>
-            )}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <label className="text-sm font-semibold text-gray-700">Password</label>
+                <a href="/auth/forgot-password" title="Forgot Password?" className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors">
+                  Forgot?
+                </a>
+              </div>
+              <div className="relative">
+                <input
+                  id="password-input"
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  placeholder="••••••••••••"
+                  disabled={isLoading}
+                  className={`w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${errors.password ? "border-red-500 bg-red-50/30 ring-red-500/10" : ""
+                    }`}
+                />
 
-            <div className="flex justify-end mt-1">
-              <a
-                href="/auth/forgot-password"
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline"
-              >
-                Forgot Password?
-              </a>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={isLoading}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+
+              {errors.password && (
+                <p className="text-red-500 text-xs mt-2 font-medium ml-1">{errors.password}</p>
+              )}
             </div>
+
+            <button
+              id="login-submit-button"
+              type="button"
+              className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white py-3.5 rounded-xl font-bold text-base shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center disabled:opacity-70 disabled:active:scale-100"
+              onClick={handleLogin}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Authenticating...</span>
+                </div>
+              ) : (
+                "Sign In"
+              )}
+            </button>
           </div>
 
-          {/* LOGIN BUTTON */}
-          <button
-            type="button"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-md font-medium flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
-            onClick={handleLogin}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Signing In...
-              </>
-            ) : (
-              "Sign In"
-            )}
-          </button>
+          <div className="mt-8 pt-8 border-t border-gray-100">
+            <p className="text-center text-sm text-gray-500 font-medium">
+              New to HRMS?{" "}
+              <a href="/auth/register" className="text-blue-600 hover:text-blue-700 font-bold ml-1 transition-colors">
+                Create an account
+              </a>
+            </p>
+          </div>
         </div>
 
-        <p className="text-center text-sm text-gray-600 mt-4">
-          Don't have an account?{" "}
-          <a href="/auth/register" className="text-blue-600 hover:underline font-medium">
-            Register
-          </a>
+        <p className="text-center mt-8 text-xs text-gray-400 font-medium">
+          &copy; {new Date().getFullYear()} Antigravity HRMS. All rights reserved.
         </p>
       </div>
     </div>

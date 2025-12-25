@@ -1,24 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckCircle2, Circle } from 'lucide-react';
 import { SetupStep, OrganizationData, Location, Department, Designation } from './types';
 import OrganizationDetailsStep from '@/components/admin/setup/OrganisationDetails';
 import LocationsStep from '@/components/admin/setup/LocationStep';
 import DepartmentsStep from '@/components/admin/setup/DepartmentSetup';
 import DesignationsStep from '@/components/admin/setup/DesignationSetup';
+import { getOrgId, getLocationId, getDepartmentId, getApiUrl, getAuthToken, setCookie, checkSetupStatus, syncSetupState, getUserRole } from '@/lib/auth';
 
-// Check if setup is completed
+// Check if setup is completed using the centralized auth utility
 export const isSetupCompleted = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  try {
-    const setupData = localStorage.getItem('organizationSetup');
-    if (!setupData) return false;
-    const data = JSON.parse(setupData);
-    return data.allStepsCompleted === true;
-  } catch {
-    return false;
-  }
+  return checkSetupStatus();
 };
 
 export default function OrganizationSetupWizard({
@@ -45,22 +38,117 @@ export default function OrganizationSetupWizard({
     contactPerson: '',
     contactNumber: '',
     contactEmail: '',
-    addressLine1: '',
-    addressLine2: '',
-    city: '',
-    state: '',
-    country: '',
-    zipCode: '',
+    address: '',
   });
 
   const [locations, setLocations] = useState<Location[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([
-    { id: '1', name: 'HR', code: '', associatedUsers: 0, mailAlias: '', departmentLead: '', parentDepartment: '' },
-    { id: '2', name: 'IT', code: '', associatedUsers: 10, mailAlias: '', departmentLead: '', parentDepartment: '' },
-    { id: '3', name: 'Management', code: '', associatedUsers: 5, mailAlias: '', departmentLead: '', parentDepartment: '' },
-    { id: '4', name: 'Marketing', code: '', associatedUsers: 5, mailAlias: '', departmentLead: '', parentDepartment: '' },
-  ]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
+
+  // Track IDs from API responses for subsequent steps
+  const [orgId, setOrgIdState] = useState<string | null>(null);
+  const [locationId, setLocationId] = useState<string | null>(null);
+  const [departmentId, setDepartmentId] = useState<string | null>(null);
+
+  // Load existing IDs from localStorage on mount
+  // Load existing IDs and restore progress from localStorage on mount
+  // Load existing IDs and restore progress from localStorage on mount
+  useEffect(() => {
+    const storedOrgId = getOrgId();
+    const storedLocationId = getLocationId();
+    const storedDepartmentId = getDepartmentId();
+    const token = getAuthToken();
+
+    // Restore IDs
+    if (storedOrgId) setOrgIdState(storedOrgId);
+    if (storedLocationId) setLocationId(storedLocationId);
+    if (storedDepartmentId) setDepartmentId(storedDepartmentId);
+
+    // Restore Progress Logic
+    let maxStep = 1;
+    let newSteps = [...steps]; // Clone current steps
+
+    if (storedOrgId) {
+      newSteps = newSteps.map(s => s.id === 1 ? { ...s, completed: true } : s);
+      maxStep = 2;
+    }
+
+    if (storedOrgId && storedLocationId) {
+      newSteps = newSteps.map(s => s.id === 2 ? { ...s, completed: true } : s);
+      maxStep = 3;
+    }
+
+    if (storedOrgId && storedLocationId && storedDepartmentId) {
+      newSteps = newSteps.map(s => s.id === 3 ? { ...s, completed: true } : s);
+      maxStep = 4;
+    }
+
+    // Update state
+    setSteps(newSteps);
+    setCurrentStep(maxStep);
+
+    // Fetch Data for Hydration
+    const fetchData = async () => {
+      if (!token || !storedOrgId) return;
+      const apiUrl = getApiUrl();
+      const headers = { Authorization: `Bearer ${token}` };
+
+      try {
+        let hasLocs = false;
+        let hasDepts = false;
+        let hasDesigs = false;
+
+        // 1. Fetch Organization
+        const orgRes = await import('axios').then(a => a.default.get(`${apiUrl}/org/${storedOrgId}`, { headers }));
+        if (orgRes.data.data) {
+          // Adapt API response to internal state shape if needed. 
+          // Assuming API returns object matching OrganizationData partially
+          // Note: API might return slightly different shape, so map fields carefully if known.
+          // For now, simple spread or just ensuring name exists.
+          setOrgData(prev => ({ ...prev, ...orgRes.data.data }));
+        }
+
+        // 2. Fetch Locations (if step 1 done)
+        if (storedOrgId) {
+          const locRes = await import('axios').then(a => a.default.get(`${apiUrl}/org/${storedOrgId}/locations`, { headers }));
+          const locList = Array.isArray(locRes.data) ? locRes.data : (locRes.data.data || []);
+          setLocations(locList);
+          if (locList.length > 0) hasLocs = true;
+        }
+
+        // 3. Fetch Departments (if step 2 done)
+        if (storedOrgId) {
+          const deptRes = await import('axios').then(a => a.default.get(`${apiUrl}/org/${storedOrgId}/departments`, { headers }));
+          const deptList = Array.isArray(deptRes.data) ? deptRes.data : (deptRes.data.data || []);
+          setDepartments(deptList);
+          if (deptList.length > 0) hasDepts = true;
+        }
+
+        // 4. Fetch Designations (if step 3 done)
+        if (storedOrgId) {
+          const desigRes = await import('axios').then(a => a.default.get(`${apiUrl}/org/${storedOrgId}/designations`, { headers }));
+          const desigList = Array.isArray(desigRes.data) ? desigRes.data : (desigRes.data.data || []);
+          setDesignations(desigList);
+          if (desigList.length > 0) hasDesigs = true;
+        }
+
+        // Auto-Complete Check - If even one piece of data exists, consider setup "sufficiently complete"
+        // to allow accessing the dashboard, as requested by the user.
+        if (hasLocs || hasDepts || hasDesigs) {
+          console.log("SetupWizard: Found existing partial/complete setup. Redirecting to Overview...");
+          setCookie('setupCompleted', 'true');
+          if (typeof window !== 'undefined') localStorage.setItem('setupCompleted', 'true');
+          window.dispatchEvent(new Event('storage'));
+          window.dispatchEvent(new CustomEvent('setupStatusChanged'));
+          window.location.href = '/admin/my-space/overview';
+        }
+      } catch (err) {
+        console.error("Failed to hydrate setup wizard data", err);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const completedCount = steps.filter(step => step.completed).length;
   const totalCount = steps.length;
@@ -76,33 +164,41 @@ export default function OrganizationSetupWizard({
     setExpandedStep(stepId);
   };
 
-  const handleNextStep = () => {
-    if (currentStep < 4) {
-      markStepComplete(currentStep);
-      const nextStep = currentStep + 1;
-      setCurrentStep(nextStep);
-      setExpandedStep(nextStep);
-    }
+  // Handler for Organization step - receives orgId
+  const handleOrgComplete = (newOrgId: string) => {
+    setOrgIdState(newOrgId);
+    markStepComplete(1);
+    setCurrentStep(2);
+    setExpandedStep(2);
+  };
+
+  // Handler for Location step - receives locationId
+  const handleLocationComplete = (newLocationId?: string) => {
+    if (newLocationId) setLocationId(newLocationId);
+    markStepComplete(2);
+    setCurrentStep(3);
+    setExpandedStep(3);
+  };
+
+  // Handler for Department step - receives departmentId
+  const handleDepartmentComplete = (newDepartmentId?: string) => {
+    if (newDepartmentId) setDepartmentId(newDepartmentId);
+    markStepComplete(3);
+    setCurrentStep(4);
+    setExpandedStep(4);
   };
 
   const handleCompleteSetup = () => {
     markStepComplete(4);
 
     // Create complete setup data with completion flag
-    const completeData = {
-      organization: orgData,
-      locations,
-      departments,
-      designations,
-      allStepsCompleted: true,
-      completedAt: new Date().toISOString(),
-    };
-
-    // Save to localStorage
+    // We don't store detailed data in cookies/storage anymore, just the flag.
+    // The fetch logic handles hydration.
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('organizationSetup', JSON.stringify(completeData));
-        localStorage.setItem('setupCompleted', 'true');
+        setCookie('setupCompleted', 'true');
+
+        // Dispatch events to notify other components
 
         // Dispatch events to notify other components
         window.dispatchEvent(new Event('storage'));
@@ -113,7 +209,7 @@ export default function OrganizationSetupWizard({
 
         // Navigate to dashboard after a brief delay
         setTimeout(() => {
-          window.location.href = '/my-space/overview';
+          window.location.href = '/admin/my-space/overview';
         }, 100);
 
       } catch (error) {
@@ -126,8 +222,44 @@ export default function OrganizationSetupWizard({
   return (
     <div className="min-h-screen bg-gray-50 p-3">
       <div className="max-w-6xl mx-auto">
+        {/* Diagnostic Debug Box (Only shows if something is missing/In Progress) */}
+        {(progressPercentage < 100 || !orgId) && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 shadow-sm transition-all animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div className="space-y-1">
+                <p className="font-semibold flex items-center gap-2">
+                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
+                  System Diagnostic
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 opacity-90">
+                  <p>Organization ID: <code className="bg-amber-100 px-1 rounded font-mono">{orgId || '❌ Missing'}</code></p>
+                  <p>Sync Status: <code className="bg-amber-100 px-1 rounded font-mono">{progressPercentage}% Complete</code></p>
+                  <p>User Role: <code className="bg-amber-100 px-1 rounded font-mono">{getUserRole() || 'Unknown'}</code></p>
+                  <p>Auth Token: <code className="bg-amber-100 px-1 rounded font-mono">{getAuthToken() ? '✅ Detected' : '❌ Not Found'}</code></p>
+                </div>
+              </div>
+              <button
+                onClick={async () => {
+                  const token = getAuthToken();
+                  const oId = getOrgId();
+                  if (token && oId) {
+                    const res = await syncSetupState(token, oId);
+                    if (res) window.location.reload();
+                    else alert("Sync checked, but no new data found on backend yet.");
+                  } else {
+                    alert("Cannot sync: Token or OrgId missing.");
+                  }
+                }}
+                className="whitespace-nowrap px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 font-medium transition-colors shadow-sm active:scale-95"
+              >
+                Sync with Backend
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Set up your organization</h1>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">Set up your organization</h1>
           <p className="text-gray-600">Complete these following steps to set up your organization successfully.</p>
         </div>
 
@@ -145,9 +277,7 @@ export default function OrganizationSetupWizard({
                 <div>
                   <h2 className="text-2xl font-semibold mb-4">Organization — Basic Details</h2>
                   <OrganizationDetailsStep
-                    orgData={orgData}
-                    setOrgData={setOrgData}
-                    onNext={handleNextStep}
+                    onNext={handleOrgComplete}
                   />
                 </div>
               )}
@@ -157,7 +287,9 @@ export default function OrganizationSetupWizard({
                   <LocationsStep
                     locations={locations}
                     setLocations={setLocations}
-                    onNext={handleNextStep}
+                    onNext={handleLocationComplete}
+                    orgId={orgId || undefined}
+                    onLocationCreated={setLocationId}
                   />
                 </div>
               )}
@@ -167,7 +299,10 @@ export default function OrganizationSetupWizard({
                   <DepartmentsStep
                     departments={departments}
                     setDepartments={setDepartments}
-                    onNext={handleNextStep}
+                    onNext={handleDepartmentComplete}
+                    orgId={orgId || undefined}
+                    locationId={locationId || undefined}
+                    onDepartmentCreated={setDepartmentId}
                   />
                 </div>
               )}
@@ -178,6 +313,9 @@ export default function OrganizationSetupWizard({
                     designations={designations}
                     setDesignations={setDesignations}
                     onComplete={handleCompleteSetup}
+                    orgId={orgId || undefined}
+                    locationId={locationId || undefined}
+                    departmentId={departmentId || undefined}
                   />
                 </div>
               )}
@@ -189,10 +327,10 @@ export default function OrganizationSetupWizard({
               <div
                 key={step.id}
                 className={`flex items-center justify-between p-4 rounded-lg border-l-4 bg-white shadow-sm cursor-pointer transition-all ${step.completed
-                    ? 'border-green-500'
-                    : currentStep === step.id
-                      ? 'border-blue-600 ring-2 ring-blue-100'
-                      : 'border-blue-500'
+                  ? 'border-green-500'
+                  : currentStep === step.id
+                    ? 'border-blue-600 ring-2 ring-blue-100'
+                    : 'border-blue-500'
                   }`}
                 onClick={() => handleStepClick(step.id)}
               >
@@ -213,8 +351,8 @@ export default function OrganizationSetupWizard({
                 </div>
                 <button
                   className={`text-sm px-4 py-1.5 rounded ${step.completed
-                      ? 'text-blue-600 hover:text-blue-700'
-                      : 'text-blue-600 hover:text-blue-700'
+                    ? 'text-blue-600 hover:text-blue-700'
+                    : 'text-blue-600 hover:text-blue-700'
                     }`}
                 >
                   {step.completed ? 'View / Edit' : currentStep === step.id ? 'In Progress' : 'Complete Now'}

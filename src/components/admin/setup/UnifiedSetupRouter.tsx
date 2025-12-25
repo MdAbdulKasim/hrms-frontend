@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import OrganizationSetupWizard from '@/components/admin/setup/SetupWizard';
 import EmployeeSetupWizard from "@/components/employee/employeesetup/EmployeeSetupWizard";
 import { isSetupCompleted } from '@/components/admin/setup/SetupWizard';
+import { getUserRole, checkSetupStatus } from '@/lib/auth';
 
 export default function UnifiedSetupPage() {
   const router = useRouter();
@@ -12,17 +13,17 @@ export default function UnifiedSetupPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get user role from localStorage
-    const role = localStorage.getItem('role') as 'admin' | 'employee' | null;
+    // Get user role from centralized utility
+    const role = getUserRole();
     setUserRole(role);
 
-    // Check if setup is already completed
-    const setupComplete = isSetupCompleted();
+    // Check if setup is already completed using centralized status
+    const setupComplete = checkSetupStatus();
 
     if (setupComplete) {
       // Setup already done - redirect to dashboard
       if (role === 'admin') {
-        router.push('/my-space/overview');
+        router.push('/admin/my-space/overview');
       } else if (role === 'employee') {
         router.push('/employee/my-space/overview');
       }
