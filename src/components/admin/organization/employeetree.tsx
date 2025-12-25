@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { User, Mail, Phone, Briefcase, Calendar, MapPin } from 'lucide-react';
-import ProfilePage from '../profile/ProfilePage';
+import ProfilePage from "@/components/profile/ProfilePage";
 
 // --- Type Definitions ---
 interface Employee {
@@ -15,7 +15,7 @@ interface Employee {
   phone?: string;
   department?: string;
   imageUrl?: string;
-  count?: number; 
+  count?: number;
   children?: Employee[];
 }
 
@@ -30,10 +30,10 @@ const initialData: Employee = {
   department: 'Executive',
   count: 15,
   children: [
-    { 
-      id: '1', 
-      name: 'Michael Johnson', 
-      role: 'Administration', 
+    {
+      id: '1',
+      name: 'Michael Johnson',
+      role: 'Administration',
       employeeId: 'S19',
       email: 'michaeljohnson@zylker.com',
       phone: '727-555-4545',
@@ -150,10 +150,10 @@ export default function OrgChart() {
     const previewHeight = 280; // Reduced max height of preview card
     const spaceBelow = viewportHeight - rect.bottom;
     const spaceAbove = rect.top;
-    
+
     // Determine if preview should appear above or below
     const showAbove = spaceBelow < previewHeight && spaceAbove > spaceBelow;
-    
+
     setHoveredNode(node);
     setHoverPosition({
       x: rect.left + (rect.width / 2),
@@ -198,9 +198,9 @@ export default function OrgChart() {
   if (showProfile) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <ProfilePage 
-          employeeId={selectedEmployeeId} 
-          onBack={handleCloseProfile} 
+        <ProfilePage
+          employeeId={selectedEmployeeId}
+          onBack={handleCloseProfile}
         />
       </div>
     );
@@ -223,42 +223,42 @@ export default function OrgChart() {
     <div className="min-h-screen bg-gray-50 p-4 md:p-10 font-sans md:overflow-x-auto">
       <div className="flex flex-col md:flex-row md:items-start items-center">
         {columns.map((col, colIndex) => {
-          
+
           return (
             <div key={colIndex} className="flex flex-col md:flex-row items-center md:items-stretch">
-              
+
               {/* Connector Area (Lines) between columns - Desktop Only */}
               {colIndex > 0 && (
-                 <div className="hidden md:flex flex-col justify-center relative w-16">
-                    <div className="absolute top-0 bottom-0 left-0 w-full flex items-center justify-center pointer-events-none">
-                    </div>
-                 </div>
+                <div className="hidden md:flex flex-col justify-center relative w-16">
+                  <div className="absolute top-0 bottom-0 left-0 w-full flex items-center justify-center pointer-events-none">
+                  </div>
+                </div>
               )}
 
               {/* The Column of Nodes */}
               <div className="flex flex-col justify-center space-y-4 relative py-4 px-2">
-                
+
                 {/* Vertical Line for siblings - Desktop Only */}
                 {colIndex > 0 && (
-                   <div 
-                     className="absolute left-0 w-0.5 bg-gray-200 hidden md:block"
-                     style={{
-                        top: '2rem', 
-                        bottom: '2rem',
-                     }} 
-                   >
-                   </div>
+                  <div
+                    className="absolute left-0 w-0.5 bg-gray-200 hidden md:block"
+                    style={{
+                      top: '2rem',
+                      bottom: '2rem',
+                    }}
+                  >
+                  </div>
                 )}
 
                 {col.nodes.map((node) => {
                   const isActive = activePath.includes(node.id);
-                  
+
                   return (
                     <div key={node.id} className="flex items-center group relative flex-col md:flex-row">
-                      
+
                       {/* Left Connector (Horizontal) - Desktop Only */}
                       {colIndex > 0 && (
-                         <div className={`hidden md:block w-8 h-0.5 ${isActive ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
+                        <div className={`hidden md:block w-8 h-0.5 ${isActive ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
                       )}
 
                       {/* The Card */}
@@ -268,27 +268,27 @@ export default function OrgChart() {
                         onMouseLeave={handleNodeLeave}
                         className={`
                           relative flex items-center p-3 w-64 rounded-xl border-2 cursor-pointer transition-all bg-white z-10
-                          ${isActive 
-                            ? 'border-blue-500 bg-blue-50 shadow-md' 
+                          ${isActive
+                            ? 'border-blue-500 bg-blue-50 shadow-md'
                             : 'border-gray-100 hover:border-blue-300 shadow-sm hover:shadow-md'
                           }
                         `}
                       >
-                         <div className="mr-3 shrink-0">
-                           {node.imageUrl ? (
-                             <img src={node.imageUrl} className="w-10 h-10 rounded-full object-cover" alt={node.name} />
-                           ) : (
-                             <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center text-gray-500">
-                               <User size={20} />
-                             </div>
-                           )}
-                         </div>
-                         <div className="flex-1 min-w-0">
-                            <div className="font-bold text-gray-800 text-sm truncate">
-                              {node.name}
+                        <div className="mr-3 shrink-0">
+                          {node.imageUrl ? (
+                            <img src={node.imageUrl} className="w-10 h-10 rounded-full object-cover" alt={node.name} />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center text-gray-500">
+                              <User size={20} />
                             </div>
-                            <div className="text-gray-500 text-xs truncate">{node.role}</div>
-                         </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-gray-800 text-sm truncate">
+                            {node.name}
+                          </div>
+                          <div className="text-gray-500 text-xs truncate">{node.role}</div>
+                        </div>
                       </div>
 
                       {/* Right/Bottom Connector (Outgoing Line + Badge) */}
@@ -298,15 +298,15 @@ export default function OrgChart() {
                             top-full left-1/2 -translate-x-1/2 flex-col
                             md:top-1/2 md:left-full md:translate-x-0 md:-translate-y-1/2 md:flex-row
                         `}>
-                           <div className="bg-blue-500 w-0.5 h-6 md:w-8 md:h-0.5"></div>
-                           
-                           {node.count !== undefined && (
-                             <div className="bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm z-20 -mt-1 md:mt-0 md:-ml-1">
-                               {node.count}
-                             </div>
-                           )}
-                           
-                           <div className="bg-blue-500 w-0.5 h-6 -mt-1 md:mt-0 md:-ml-1 md:w-8 md:h-0.5"></div>
+                          <div className="bg-blue-500 w-0.5 h-6 md:w-8 md:h-0.5"></div>
+
+                          {node.count !== undefined && (
+                            <div className="bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm z-20 -mt-1 md:mt-0 md:-ml-1">
+                              {node.count}
+                            </div>
+                          )}
+
+                          <div className="bg-blue-500 w-0.5 h-6 -mt-1 md:mt-0 md:-ml-1 md:w-8 md:h-0.5"></div>
                         </div>
                       )}
 
@@ -325,7 +325,7 @@ export default function OrgChart() {
           className="fixed bg-white rounded-lg shadow-2xl border-2 border-blue-500 p-3 w-72 z-50 animate-in fade-in zoom-in-95 duration-200"
           style={{
             left: `${hoverPosition.x}px`,
-            [hoverPosition.showAbove ? 'bottom' : 'top']: hoverPosition.showAbove 
+            [hoverPosition.showAbove ? 'bottom' : 'top']: hoverPosition.showAbove
               ? `${window.innerHeight - hoverPosition.y}px`
               : `${hoverPosition.y}px`,
             transform: 'translateX(-50%)',
@@ -374,14 +374,14 @@ export default function OrgChart() {
                 <span className="text-gray-700 truncate">{hoveredNode.email}</span>
               </div>
             )}
-            
+
             {hoveredNode.phone && (
               <div className="flex items-center gap-2 text-xs">
                 <Phone size={14} className="text-gray-400 shrink-0" />
                 <span className="text-gray-700">{hoveredNode.phone}</span>
               </div>
             )}
-            
+
             {hoveredNode.department && (
               <div className="flex items-center gap-2 text-xs">
                 <Briefcase size={14} className="text-gray-400 shrink-0" />

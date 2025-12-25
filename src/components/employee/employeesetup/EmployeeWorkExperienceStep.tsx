@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { WorkExperience } from '../setup/types';
+import { WorkExperience } from '../../admin/setup/types';
 
 interface EmployeeWorkExperienceStepProps {
   workExperience: WorkExperience[];
@@ -58,7 +58,7 @@ export default function EmployeeWorkExperienceStep({
     return (
       <div className="bg-white rounded-lg p-8">
         <h3 className="text-xl font-semibold mb-6">Add Work Experience</h3>
-        
+
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-6">
             <div>

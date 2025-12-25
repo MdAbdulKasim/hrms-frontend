@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { EmployeePersonalDetails } from '../setup/types';
+import { EmployeePersonalDetails } from '../../admin/setup/types';
 
 interface EmployeePersonalDetailsStepProps {
   personalDetails: EmployeePersonalDetails;
@@ -14,7 +14,7 @@ export default function EmployeePersonalDetailsStep({
   setPersonalDetails,
   onNext,
 }: EmployeePersonalDetailsStepProps) {
-  
+
   const handleChange = (field: keyof EmployeePersonalDetails, value: string) => {
     setPersonalDetails({ ...personalDetails, [field]: value });
   };
@@ -25,7 +25,7 @@ export default function EmployeePersonalDetailsStep({
         {/* Disabled Fields - From Admin */}
         <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Information from Organization (Cannot be edited)</h3>
-          
+
           <div className="grid grid-cols-2 gap-6">
             <div>
               <label className="block text-sm text-gray-700 mb-2">Full Name</label>
@@ -132,7 +132,7 @@ export default function EmployeePersonalDetailsStep({
         {/* Editable Fields - Employee Fills */}
         <div className="pt-4">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Additional Personal Information (Please complete)</h3>
-          
+
           <div className="grid grid-cols-2 gap-6">
             <div>
               <label className="block text-sm text-gray-700 mb-2">
