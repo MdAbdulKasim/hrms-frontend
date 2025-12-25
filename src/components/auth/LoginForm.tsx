@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+import axios from "axios";
+import { useRouter } from "next/navigation";
 
 interface FormData {
   email: string;
@@ -11,10 +13,19 @@ interface FormData {
 interface FormErrors {
   email?: string;
   password?: string;
+  submit?: string;
 }
 
 export default function LoginPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  // User type selection is handled by the backend response usually, 
+  // but keeping it if UI needs it for visually selecting role before login (though API response has role).
+  // The user prompt showed response has "role": "admin". 
+  // I will keep the UI selector if it was intended to filter or set context, 
+  // but strictly speaking the API returns the role. 
+  // However, the existing UI had it, so I'll keep it but rely on API response for logic.
   const [userType, setUserType] = useState<"admin" | "employee">("admin");
 
   const [formData, setFormData] = useState<FormData>({
@@ -31,10 +42,11 @@ export default function LoginPage() {
       [name]: value
     }));
 
-    if (errors[name as keyof FormErrors]) {
+    if (errors[name as keyof FormErrors] || errors.submit) {
       setErrors(prev => ({
         ...prev,
-        [name]: ""
+        [name]: "",
+        submit: ""
       }));
     }
   };
@@ -56,14 +68,55 @@ export default function LoginPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (validateForm()) {
-      // Save role to localStorage
-      localStorage.setItem("role", userType);
+      const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
-      // ✅ Both admin and employee go to /setup first
-      // The setup page will check if setup is completed and redirect accordingly
-      window.location.href = "/setup";
+      if (!BASE_URL) {
+        console.error("NEXT_PUBLIC_API_URL is missing");
+        setErrors(prev => ({
+          ...prev,
+          submit: "System Error: API URL is not configured. Please check your environment variables."
+        }));
+        return;
+      }
+
+      // Ensure protocol is present
+      const apiUrl = BASE_URL.startsWith("http") ? BASE_URL : `http://${BASE_URL}`;
+
+      setIsLoading(true);
+      try {
+        console.log("Using API URL:", apiUrl);
+        const response = await axios.post(`${apiUrl}/auth/login`, {
+          email: formData.email,
+          password: formData.password
+        });
+
+        if (response.data.success) {
+          const { token, role, employee, employeeId } = response.data;
+
+          // Determine ID to save (response example has 'employeeId' at top level, or inside 'employee' object)
+          // The prompt example showed: "employeeId": "..." and "role": "admin"
+          const id = employeeId || employee?.id;
+
+          localStorage.setItem("token", token);
+          localStorage.setItem("role", role);
+          if (id) localStorage.setItem("hrms_user_id", id);
+          if (formData.email) localStorage.setItem("hrms_user_email", formData.email);
+
+          // Redirect to setup page
+          // The setup page handles redirection to home if setup is already complete
+          window.location.href = "/setup";
+        }
+      } catch (error: any) {
+        console.error("Login error:", error);
+        setErrors(prev => ({
+          ...prev,
+          submit: error.response?.data?.message || "Login failed. Please check your credentials."
+        }));
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -83,6 +136,12 @@ export default function LoginPage() {
           Enter your credentials to access the system
         </p>
 
+        {errors.submit && (
+          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-md border border-red-100">
+            {errors.submit}
+          </div>
+        )}
+
         <div className="space-y-4">
           {/* EMAIL */}
           <div>
@@ -93,7 +152,8 @@ export default function LoginPage() {
               value={formData.email}
               onChange={handleInputChange}
               placeholder="your@email.com"
-              className={`w-full mt-1 border rounded-md p-2 focus:ring-2 focus:ring-blue-500 ${errors.email ? "border-red-500" : ""
+              disabled={isLoading}
+              className={`w-full mt-1 border rounded-md p-2 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${errors.email ? "border-red-500" : ""
                 }`}
             />
             {errors.email && (
@@ -111,14 +171,16 @@ export default function LoginPage() {
                 value={formData.password}
                 onChange={handleInputChange}
                 placeholder="••••••••"
-                className={`w-full border rounded-md p-2 pr-10 focus:ring-2 focus:ring-blue-500 ${errors.password ? "border-red-500" : ""
+                disabled={isLoading}
+                className={`w-full border rounded-md p-2 pr-10 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${errors.password ? "border-red-500" : ""
                   }`}
               />
 
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-2.5 text-gray-500"
+                disabled={isLoading}
+                className="absolute right-3 top-2.5 text-gray-500 disabled:opacity-50"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -151,7 +213,8 @@ export default function LoginPage() {
                   value="admin"
                   checked={userType === "admin"}
                   onChange={() => setUserType("admin")}
-                  className="cursor-pointer"
+                  disabled={isLoading}
+                  className="cursor-pointer disabled:opacity-50"
                 />
                 <span className="text-gray-700">Admin</span>
               </label>
@@ -164,7 +227,8 @@ export default function LoginPage() {
                   value="employee"
                   checked={userType === "employee"}
                   onChange={() => setUserType("employee")}
-                  className="cursor-pointer"
+                  disabled={isLoading}
+                  className="cursor-pointer disabled:opacity-50"
                 />
                 <span className="text-gray-700">Employee</span>
               </label>
@@ -174,10 +238,18 @@ export default function LoginPage() {
           {/* LOGIN BUTTON */}
           <button
             type="button"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-md font-medium"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-md font-medium flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
             onClick={handleLogin}
+            disabled={isLoading}
           >
-            Sign In
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Signing In...
+              </>
+            ) : (
+              "Sign In"
+            )}
           </button>
         </div>
 

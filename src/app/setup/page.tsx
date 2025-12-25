@@ -1,5 +1,5 @@
 import Layout from "@/components/layout/Layout";
-import UnifiedSetupPage from "@/components/setup/UnifiedSetupRouter";
+import UnifiedSetupPage from "@/components/admin/setup/UnifiedSetupRouter";
 
 export default function SetupPage() {
   return (
