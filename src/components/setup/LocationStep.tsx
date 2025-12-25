@@ -2,20 +2,28 @@
 
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
+import axios from 'axios'; // 1. Import Axios
 import { Location } from './types';
 
 interface LocationsStepProps {
   locations: Location[];
   setLocations: (locations: Location[]) => void;
   onNext: () => void;
+  orgId?: string; // Added orgId so we can build the URL: /org/{orgId}/locations
 }
 
 export default function LocationsStep({
   locations,
   setLocations,
   onNext,
+  orgId,
 }: LocationsStepProps) {
   const [showLocationForm, setShowLocationForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Track API loading state
+  
+  // State to track validation errors
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
+
   const [currentLocation, setCurrentLocation] = useState<Location>({
     id: '',
     locationName: '',
@@ -31,24 +39,130 @@ export default function LocationsStep({
     timeZone: '',
   });
 
-  const handleSaveLocation = () => {
-    if (currentLocation.locationName) {
-      setLocations([...locations, { ...currentLocation, id: Date.now().toString() }]);
-      setCurrentLocation({
-        id: '',
-        locationName: '',
-        locationCode: '',
-        mailAlias: '',
-        description: '',
-        addressLine1: '',
-        addressLine2: '',
-        city: '',
-        country: '',
-        state: '',
-        postalCode: '',
-        timeZone: '',
-      });
-      setShowLocationForm(false);
+  // Helper: Get Token from Cookies
+  const getTokenFromCookies = (cookieName: string) => {
+    if (typeof document === 'undefined') return null;
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${cookieName}=`);
+    if (parts.length === 2) return parts.pop()?.split(';').shift();
+    return null;
+  };
+
+  const handleSaveLocation = async () => {
+    // 1. Identify important fields
+    const requiredFields = [
+      'locationName',
+      'locationCode',
+      'city',
+      'country',
+      'state',
+      'postalCode'
+    ];
+
+    // 2. Check for empty fields
+    const newErrors: Record<string, boolean> = {};
+    let isValid = true;
+
+    requiredFields.forEach((field) => {
+      // @ts-ignore - accessing object by string key for validation loop
+      if (!currentLocation[field]) {
+        newErrors[field] = true;
+        isValid = false;
+      }
+    });
+
+    setErrors(newErrors);
+
+    // 3. Only proceed if valid
+    if (isValid) {
+      setIsLoading(true);
+      
+      try {
+        // --- Get Token ---
+        const token = getTokenFromCookies('authToken'); // Replace 'authToken' with your actual cookie name
+        
+        if (!token) {
+            alert('Authentication token not found. Please log in.');
+            setIsLoading(false);
+            return;
+        }
+
+        // --- Validate Org ID ---
+        // We check if orgId prop is passed, or try to find it in localStorage if you stored it there previously
+        const activeOrgId = orgId || localStorage.getItem('currentOrgId'); 
+        
+        if (!activeOrgId) {
+            alert('Organization ID is missing. Cannot save location.');
+            setIsLoading(false);
+            return;
+        }
+
+        // --- Prepare Payload ---
+        // Mapping frontend state to API keys (based on Postman screenshot)
+        const payload = {
+          name: currentLocation.locationName,
+          code: currentLocation.locationCode,
+          addressLine1: currentLocation.addressLine1,
+          addressLine2: currentLocation.addressLine2,
+          city: currentLocation.city,
+          state: currentLocation.state,
+          country: currentLocation.country,
+          postalCode: currentLocation.postalCode,
+          timeZone: currentLocation.timeZone || 'IST', // Defaulting if empty, or ensure it's selected
+        };
+
+        // --- Axios POST Request ---
+        const response = await axios.post(
+            `${process.env.NEXT_PUBLIC_API_URL}org/${activeOrgId}/locations`, 
+            payload,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            }
+        );
+
+        if (response.status === 200 || response.status === 201) {
+             // Success: Add the NEW location returned from API (which has the real DB ID)
+             // or combine local data with the returned ID.
+             const savedLocation = {
+                 ...currentLocation,
+                 id: response.data.id || Date.now().toString() // Use API ID if available
+             };
+
+             setLocations([...locations, savedLocation]);
+             
+             // Reset form and errors
+             setCurrentLocation({
+                id: '',
+                locationName: '',
+                locationCode: '',
+                mailAlias: '',
+                description: '',
+                addressLine1: '',
+                addressLine2: '',
+                city: '',
+                country: '',
+                state: '',
+                postalCode: '',
+                timeZone: '',
+              });
+              setErrors({});
+              setShowLocationForm(false);
+        }
+
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+            console.error('Axios error:', error.response?.data || error.message);
+            alert(`Failed to save location: ${error.response?.data?.message || error.message}`);
+        } else {
+            console.error('Unexpected error:', error);
+            alert('An unexpected error occurred while saving the location.');
+        }
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -66,6 +180,7 @@ export default function LocationsStep({
           <h3 className="text-lg font-medium mb-6">Location Details</h3>
           
           <div className="grid grid-cols-2 gap-6">
+            {/* Location Name */}
             <div className="space-y-2">
               <label className="text-sm text-gray-700">
                 Location Name <span className="text-red-500">*</span>
@@ -73,19 +188,34 @@ export default function LocationsStep({
               <input
                 type="text"
                 value={currentLocation.locationName}
-                onChange={(e) => setCurrentLocation({ ...currentLocation, locationName: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => {
+                  setCurrentLocation({ ...currentLocation, locationName: e.target.value });
+                  if (errors.locationName) setErrors({ ...errors, locationName: false });
+                }}
+                className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.locationName ? 'border-red-500' : 'border-gray-300'
+                }`}
               />
+              {errors.locationName && <span className="text-xs text-red-500">Required</span>}
             </div>
 
+            {/* Location Code */}
             <div className="space-y-2">
-              <label className="text-sm text-gray-700">Location Code</label>
+              <label className="text-sm text-gray-700">
+                Location Code <span className="text-red-500">*</span>
+              </label>
               <input
                 type="text"
                 value={currentLocation.locationCode}
-                onChange={(e) => setCurrentLocation({ ...currentLocation, locationCode: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => {
+                  setCurrentLocation({ ...currentLocation, locationCode: e.target.value });
+                  if (errors.locationCode) setErrors({ ...errors, locationCode: false });
+                }}
+                className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.locationCode ? 'border-red-500' : 'border-gray-300'
+                }`}
               />
+               {errors.locationCode && <span className="text-xs text-red-500">Required</span>}
             </div>
 
             <div className="space-y-2">
@@ -126,21 +256,39 @@ export default function LocationsStep({
               />
             </div>
 
+            {/* City */}
             <div className="space-y-2">
+              <label className="text-sm text-gray-700">
+                City <span className="text-red-500">*</span>
+              </label>
               <input
                 type="text"
                 placeholder="City"
                 value={currentLocation.city}
-                onChange={(e) => setCurrentLocation({ ...currentLocation, city: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => {
+                  setCurrentLocation({ ...currentLocation, city: e.target.value });
+                  if (errors.city) setErrors({ ...errors, city: false });
+                }}
+                className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.city ? 'border-red-500' : 'border-gray-300'
+                }`}
               />
             </div>
 
+            {/* Country */}
             <div className="space-y-2">
+              <label className="text-sm text-gray-700">
+                Country <span className="text-red-500">*</span>
+              </label>
               <select
                 value={currentLocation.country}
-                onChange={(e) => setCurrentLocation({ ...currentLocation, country: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => {
+                  setCurrentLocation({ ...currentLocation, country: e.target.value });
+                  if (errors.country) setErrors({ ...errors, country: false });
+                }}
+                className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.country ? 'border-red-500' : 'border-gray-300'
+                }`}
               >
                 <option value="">Select Country</option>
                 <option>India</option>
@@ -149,11 +297,20 @@ export default function LocationsStep({
               </select>
             </div>
 
+            {/* State */}
             <div className="space-y-2">
+              <label className="text-sm text-gray-700">
+                State <span className="text-red-500">*</span>
+              </label>
               <select
                 value={currentLocation.state}
-                onChange={(e) => setCurrentLocation({ ...currentLocation, state: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => {
+                  setCurrentLocation({ ...currentLocation, state: e.target.value });
+                  if (errors.state) setErrors({ ...errors, state: false });
+                }}
+                className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.state ? 'border-red-500' : 'border-gray-300'
+                }`}
               >
                 <option value="">Select State</option>
                 <option>Tamil Nadu</option>
@@ -161,13 +318,22 @@ export default function LocationsStep({
               </select>
             </div>
 
+            {/* Postal Code */}
             <div className="space-y-2">
+              <label className="text-sm text-gray-700">
+                Postal Code <span className="text-red-500">*</span>
+              </label>
               <input
                 type="text"
                 placeholder="Postal Code"
                 value={currentLocation.postalCode}
-                onChange={(e) => setCurrentLocation({ ...currentLocation, postalCode: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => {
+                  setCurrentLocation({ ...currentLocation, postalCode: e.target.value });
+                  if (errors.postalCode) setErrors({ ...errors, postalCode: false });
+                }}
+                className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.postalCode ? 'border-red-500' : 'border-gray-300'
+                }`}
               />
             </div>
 
@@ -188,13 +354,15 @@ export default function LocationsStep({
           <div className="flex gap-4 mt-8">
             <button
               onClick={handleSaveLocation}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              disabled={isLoading}
+              className={`px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
-              Submit
+              {isLoading ? 'Saving...' : 'Submit'}
             </button>
             <button
               onClick={handleSaveLocation}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              disabled={isLoading}
+              className={`px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
               Submit and New
             </button>

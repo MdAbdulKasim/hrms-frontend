@@ -1,20 +1,30 @@
 'use client';
 
 import React, { useState } from 'react';
+import axios from 'axios'; // 1. Import Axios
 import { Designation } from './types';
 
 interface DesignationsStepProps {
   designations: Designation[];
   setDesignations: (designations: Designation[]) => void;
   onComplete: () => void;
+  // Added these props because the API (screenshot) requires them
+  orgId?: string;
+  locationId?: string; 
+  departmentId?: string;
 }
 
 export default function DesignationsStep({
   designations,
   setDesignations,
   onComplete,
+  orgId,
+  locationId,
+  departmentId,
 }: DesignationsStepProps) {
   const [showDesignationForm, setShowDesignationForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Track loading state
+  
   const [currentDesignation, setCurrentDesignation] = useState<Designation>({
     id: '',
     name: '',
@@ -22,11 +32,85 @@ export default function DesignationsStep({
     description: '',
   });
 
-  const handleSaveDesignation = () => {
-    if (currentDesignation.name) {
-      setDesignations([...designations, { ...currentDesignation, id: Date.now().toString() }]);
-      setCurrentDesignation({ id: '', name: '', code: '', description: '' });
-      setShowDesignationForm(false);
+  // Helper: Get Token from Cookies
+  const getTokenFromCookies = (cookieName: string) => {
+    if (typeof document === 'undefined') return null;
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${cookieName}=`);
+    if (parts.length === 2) return parts.pop()?.split(';').shift();
+    return null;
+  };
+
+  const handleSaveDesignation = async () => {
+    // 1. Basic Validation
+    if (!currentDesignation.name) return;
+
+    setIsLoading(true);
+
+    try {
+      // 2. Get Token
+      const token = getTokenFromCookies('authToken'); // Replace with your actual cookie name
+      if (!token) {
+        alert('Authentication token not found. Please log in.');
+        setIsLoading(false);
+        return;
+      }
+
+      // 3. Ensure we have necessary Parent IDs
+      // The API endpoint requires an Org ID, and the Body requires Location/Department IDs
+      if (!orgId) {
+        alert('Organization ID is missing.');
+        setIsLoading(false);
+        return;
+      }
+
+      // 4. Prepare Payload based on Postman Screenshot
+      const payload = {
+        name: currentDesignation.name,
+        code: currentDesignation.code,
+        description: currentDesignation.description,
+        locationId: locationId,       // Passed from props
+        departmentId: departmentId,   // Passed from props
+      };
+
+      // 5. Axios POST Request
+      // URL structure from screenshot: http://localhost:5000/org/{orgId}/designations
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}org/${orgId}/designations`,
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      // 6. Handle Success
+      if (response.status === 200 || response.status === 201) {
+        // Use the ID returned from API, or fallback to date
+        const newDesignation = { 
+          ...currentDesignation, 
+          id: response.data.id || Date.now().toString() 
+        };
+
+        setDesignations([...designations, newDesignation]);
+        
+        // Reset Form
+        setCurrentDesignation({ id: '', name: '', code: '', description: '' });
+        setShowDesignationForm(false);
+      }
+
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error('Axios error:', error.response?.data || error.message);
+        alert(`Failed to save designation: ${error.response?.data?.message || error.message}`);
+      } else {
+        console.error('Unexpected error:', error);
+        alert('An unexpected error occurred.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -68,9 +152,14 @@ export default function DesignationsStep({
         <div className="flex gap-4 mt-8">
           <button
             onClick={handleSaveDesignation}
-            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            disabled={!currentDesignation.name || isLoading} 
+            className={`px-6 py-2 rounded-md text-white ${
+               (!currentDesignation.name || isLoading)
+               ? 'bg-blue-300 cursor-not-allowed' 
+               : 'bg-blue-600 hover:bg-blue-700'
+            }`}
           >
-            Submit and New
+            {isLoading ? 'Saving...' : 'Submit and New'}
           </button>
           <button
             onClick={() => setShowDesignationForm(false)}
@@ -129,7 +218,13 @@ export default function DesignationsStep({
       <div className="flex justify-end mt-8">
         <button
           onClick={onComplete}
-          className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+          // Change: Button is disabled if list is empty
+          disabled={designations.length === 0}
+          className={`px-6 py-2 rounded-md text-white ${
+            designations.length === 0
+              ? 'bg-gray-400 cursor-not-allowed' // Disabled style
+              : 'bg-green-600 hover:bg-green-700' // Active style
+          }`}
         >
           Complete Setup
         </button>
