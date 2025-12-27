@@ -76,7 +76,7 @@ export default function LoginForm() {
         const payload = {
           email: formData.email,
           password: formData.password,
-          role: userType
+          // role: userType
         };
 
         console.warn("LOGIN_DEBUG_STREAMS: Start", { apiUrl, payload });
