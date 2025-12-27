@@ -9,7 +9,7 @@ import EmployeeIdentityInfoStep from './EmployeeIdentityInfoStep';
 import EmployeeWorkExperienceStep from './EmployeeWorkExperienceStep';
 import EmployeeEducationStep from './EmployeeEducationStep';
 import axios from 'axios';
-import { getApiUrl, getAuthToken } from '@/lib/auth';
+import { getApiUrl, getAuthToken, checkEmployeeSetupStatus, syncEmployeeSetupState, getCookie, setCookie } from '@/lib/auth';
 
 export default function EmployeeSetupWizard({
   initialStep = 1,
@@ -95,15 +95,144 @@ export default function EmployeeSetupWizard({
     education: [],
   });
 
-  const completedCount = steps.filter(step => step.completed).length;
-  const totalCount = steps.length;
-  const progressPercentage = (completedCount / totalCount) * 100;
-
   const markStepComplete = (stepId: number) => {
-    setSteps(steps.map(step =>
+    setSteps(prevSteps => prevSteps.map(step =>
       step.id === stepId ? { ...step, completed: true } : step
     ));
   };
+
+  // Redirect immediately if employee setup is already completed
+  useEffect(() => {
+    if (checkEmployeeSetupStatus()) {
+      console.log("Employee setup already completed, redirecting to dashboard...");
+      window.location.href = '/employee/my-space/overview';
+    }
+  }, []);
+
+  // Load existing employee data and check setup status from backend
+  useEffect(() => {
+    const fetchEmployeeData = async () => {
+      const token = getAuthToken();
+      if (!token) return;
+
+      const apiUrl = getApiUrl();
+      const employeeId = getCookie('hrms_user_id');
+      
+      if (!employeeId) return;
+
+      try {
+        // Fetch employee data to check if profile is already completed
+        const res = await axios.get(`${apiUrl}/employees/${employeeId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const employee = res.data.data || res.data.employee || res.data;
+        
+        // Check if onboarding is completed
+        const isComplete = employee?.onboardingStatus === 'completed' || 
+                          (employee?.aadharNumber && employee?.PAN && employee?.bloodGroup);
+
+        if (isComplete) {
+          console.log("EmployeeSetupWizard: Profile already completed. Redirecting to Overview...");
+          setCookie('employeeSetupCompleted', 'true');
+          if (typeof window !== 'undefined') localStorage.setItem('employeeSetupCompleted', 'true');
+          window.dispatchEvent(new Event('storage'));
+          window.dispatchEvent(new CustomEvent('setupStatusChanged'));
+          window.location.href = '/employee/my-space/overview';
+          return;
+        }
+
+        // If not complete, restore progress from existing data
+        if (employee) {
+          // Restore personal details
+          if (employee.fullName || employee.dateOfBirth || employee.bloodGroup) {
+            setEmployeeData(prev => ({
+              ...prev,
+              personalDetails: {
+                ...prev.personalDetails,
+                fullName: employee.fullName || prev.personalDetails.fullName,
+                dateOfBirth: employee.dateOfBirth || prev.personalDetails.dateOfBirth,
+                gender: employee.gender || prev.personalDetails.gender,
+                maritalStatus: employee.maritalStatus || prev.personalDetails.maritalStatus,
+                bloodGroup: employee.bloodGroup || prev.personalDetails.bloodGroup,
+              }
+            }));
+            markStepComplete(1);
+          }
+
+          // Restore contact details
+          if (employee.presentAddressLine1 || employee.emergencyContactName) {
+            setEmployeeData(prev => ({
+              ...prev,
+              contactDetails: {
+                presentAddress: {
+                  addressLine1: employee.presentAddressLine1 || prev.contactDetails.presentAddress.addressLine1,
+                  addressLine2: employee.presentAddressLine2 || prev.contactDetails.presentAddress.addressLine2,
+                  city: employee.presentCity || prev.contactDetails.presentAddress.city,
+                  state: employee.presentState || prev.contactDetails.presentAddress.state,
+                  country: employee.presentCountry || prev.contactDetails.presentAddress.country,
+                  pinCode: employee.presentPinCode || prev.contactDetails.presentAddress.pinCode,
+                },
+                permanentAddress: {
+                  addressLine1: employee.permanentAddressLine1 || prev.contactDetails.permanentAddress.addressLine1,
+                  addressLine2: employee.permanentAddressLine2 || prev.contactDetails.permanentAddress.addressLine2,
+                  city: employee.permanentCity || prev.contactDetails.permanentAddress.city,
+                  state: employee.permanentState || prev.contactDetails.permanentAddress.state,
+                  country: employee.permanentCountry || prev.contactDetails.permanentAddress.country,
+                  pinCode: employee.permanentPinCode || prev.contactDetails.permanentAddress.pinCode,
+                },
+                sameAsPresent: prev.contactDetails.sameAsPresent,
+                emergencyContactName: employee.emergencyContactName || prev.contactDetails.emergencyContactName,
+                emergencyContactRelation: employee.emergencyContactRelation || prev.contactDetails.emergencyContactRelation,
+                emergencyContactNumber: employee.emergencyContactNumber || prev.contactDetails.emergencyContactNumber,
+              }
+            }));
+            markStepComplete(2);
+          }
+
+          // Restore identity info
+          if (employee.aadharNumber || employee.PAN || employee.UAN) {
+            setEmployeeData(prev => ({
+              ...prev,
+              identityInfo: {
+                uan: employee.UAN || prev.identityInfo.uan,
+                pan: employee.PAN || prev.identityInfo.pan,
+                aadhar: employee.aadharNumber || prev.identityInfo.aadhar,
+                passport: employee.passportNumber || prev.identityInfo.passport,
+                drivingLicense: employee.drivingLicense || prev.identityInfo.drivingLicense,
+              }
+            }));
+            markStepComplete(3);
+          }
+
+          // Restore work experience and education if available
+          if (employee.workExperience && employee.workExperience.length > 0) {
+            setEmployeeData(prev => ({
+              ...prev,
+              workExperience: employee.workExperience || prev.workExperience
+            }));
+            markStepComplete(4);
+          }
+
+          if (employee.education && employee.education.length > 0) {
+            setEmployeeData(prev => ({
+              ...prev,
+              education: employee.education || prev.education
+            }));
+            markStepComplete(5);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch employee data", err);
+      }
+    };
+
+    fetchEmployeeData();
+  }, []);
+
+  const completedCount = steps.filter(step => step.completed).length;
+  const totalCount = steps.length;
+  const progressPercentage = (completedCount / totalCount) * 100;
 
   const handleStepClick = (stepId: number) => {
     setExpandedStep(stepId);
@@ -138,8 +267,12 @@ export default function EmployeeSetupWizard({
         },
       });
 
-      // Also save to localStorage as backup
-      localStorage.setItem('employeeSetupData', JSON.stringify(completeData));
+      // Mark employee setup as completed
+      setCookie('employeeSetupCompleted', 'true');
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('employeeSetupCompleted', 'true');
+        localStorage.setItem('employeeSetupData', JSON.stringify(completeData));
+      }
 
       window.dispatchEvent(new Event('storage'));
       window.dispatchEvent(new CustomEvent('setupStatusChanged'));

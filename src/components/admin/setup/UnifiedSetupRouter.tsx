@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import OrganizationSetupWizard from '@/components/admin/setup/SetupWizard';
 import EmployeeSetupWizard from "@/components/employee/employeesetup/EmployeeSetupWizard";
 import { isSetupCompleted } from '@/components/admin/setup/SetupWizard';
-import { getUserRole, checkSetupStatus } from '@/lib/auth';
+import { getUserRole, checkSetupStatus, checkEmployeeSetupStatus } from '@/lib/auth';
 
 export default function UnifiedSetupPage() {
   const router = useRouter();
@@ -18,7 +18,13 @@ export default function UnifiedSetupPage() {
     setUserRole(role);
 
     // Check if setup is already completed using centralized status
-    const setupComplete = checkSetupStatus();
+    // For admin, check organization setup status
+    // For employee, check profile setup status
+    const setupComplete = role === 'admin' 
+      ? checkSetupStatus() 
+      : role === 'employee' 
+        ? checkEmployeeSetupStatus() 
+        : false;
 
     if (setupComplete) {
       // Setup already done - redirect to dashboard
