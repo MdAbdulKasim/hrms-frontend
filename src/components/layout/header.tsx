@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Settings, Bell, User, PanelLeft, Menu } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { getAuthToken, decodeToken, getCookie } from '@/lib/auth';
 
 type SubTab = {
   name: string;
@@ -86,6 +87,57 @@ export default function NavigationHeader({
   const navigationConfig = userRole === 'admin' ? adminNavigationConfig : employeeNavigationConfig;
   const [activeMainTab, setActiveMainTab] = useState(navigationConfig[0]);
 
+  // User data state
+  const [userData, setUserData] = useState({
+    name: 'User',
+    email: '',
+    initials: 'U'
+  });
+
+  // Fetch user data from localStorage and JWT
+  useEffect(() => {
+    const fetchUserData = () => {
+      // Try to get from cookies first, then fallback to localStorage
+      const firstName = getCookie('hrms_user_firstName') || localStorage.getItem('hrms_user_firstName') || getCookie('registrationFirstName') || localStorage.getItem('registrationFirstName');
+      const lastName = getCookie('hrms_user_lastName') || localStorage.getItem('hrms_user_lastName') || getCookie('registrationLastName') || localStorage.getItem('registrationLastName');
+      const email = getCookie('hrms_user_email') || localStorage.getItem('hrms_user_email') || getCookie('registrationEmail') || localStorage.getItem('registrationEmail');
+
+      console.log('Header - Storage data:', { firstName, lastName, email });
+
+      // Try to get from JWT token
+      const token = getAuthToken();
+      let tokenData = null;
+      if (token) {
+        tokenData = decodeToken(token);
+        console.log('Header - JWT token data:', tokenData);
+      }
+
+      // Construct full name
+      const fullName = firstName && lastName
+        ? `${firstName} ${lastName}`.trim()
+        : tokenData?.fullName || tokenData?.name || firstName || 'User';
+
+      console.log('Header - Final user name:', fullName);
+
+      // Get initials
+      const getInitials = (name: string) => {
+        const parts = name.split(' ');
+        if (parts.length >= 2) {
+          return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+        }
+        return name.substring(0, 2).toUpperCase();
+      };
+
+      setUserData({
+        name: fullName,
+        email: email || tokenData?.email || '',
+        initials: getInitials(fullName)
+      });
+    };
+
+    fetchUserData();
+  }, []);
+
   useEffect(() => {
     const matchedTab = navigationConfig.find(tab =>
       pathname.startsWith(tab.path)
@@ -150,7 +202,7 @@ export default function NavigationHeader({
           </button>
 
           {userRole === 'admin' && (
-            <Link href="/settings/permissions" className="hidden sm:block">
+            <Link href="/admin/settings/permissions" className="hidden sm:block">
               <button className="p-2.5 text-gray-500 hover:bg-gray-50 hover:text-blue-600 rounded-xl transition-all active:scale-95">
                 <Settings className="w-5 h-5" />
               </button>
@@ -161,10 +213,10 @@ export default function NavigationHeader({
 
           <button className="flex items-center gap-2 p-1.5 md:p-2 hover:bg-gray-50 rounded-xl transition-all group">
             <div className="w-8 h-8 md:w-9 md:h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/10 shrink-0">
-              <User className="w-5 h-5 text-white" />
+              <span className="text-white font-bold text-sm">{userData.initials}</span>
             </div>
             <div className="hidden lg:flex flex-col items-start mr-1">
-              <span className="text-[13px] font-bold text-gray-900 leading-tight">John Doe</span>
+              <span className="text-[13px] font-bold text-gray-900 leading-tight">{userData.name}</span>
               <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{userRole}</span>
             </div>
           </button>

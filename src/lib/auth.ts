@@ -4,15 +4,13 @@
 
 // Get the API base URL with proper formatting
 export const getApiUrl = (): string => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-    // Ensure protocol is present
-    const withProtocol = baseUrl.startsWith('http') ? baseUrl : `http://${baseUrl}`;
-    // Ensure URL doesn't end with slash
-    const finalUrl = withProtocol.endsWith('/') ? withProtocol.slice(0, -1) : withProtocol;
+    // Use Next.js API proxy to avoid CORS issues
+    // The proxy route forwards requests to the backend at http://localhost:8080
+    const apiUrl = '/api/proxy';
     if (typeof window !== 'undefined' && (window as any).DEBUG_AUTH) {
-        console.log("DEBUG_API_URL:", finalUrl);
+        console.log("DEBUG_API_URL:", apiUrl);
     }
-    return finalUrl;
+    return apiUrl;
 };
 
 // Cookie helpers
@@ -37,7 +35,7 @@ export const deleteCookie = (name: string): void => {
 
 // Auth token helpers
 // Basic JWT Decoder
-const decodeToken = (token: string): any => {
+export const decodeToken = (token: string): any => {
     try {
         const base64Url = token.split('.')[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');

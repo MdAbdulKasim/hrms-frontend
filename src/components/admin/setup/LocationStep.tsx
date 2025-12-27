@@ -158,13 +158,25 @@ export default function LocationsStep({
 
       } catch (error) {
         if (axios.isAxiosError(error)) {
-          console.error('Axios error:', error.response?.data || error.message);
+          // Enhanced error logging
+          console.error('=== LOCATION SAVE ERROR ===');
+          console.error('Error status:', error.response?.status);
+          console.error('Error data:', JSON.stringify(error.response?.data, null, 2));
+          console.error('Error message:', error.message);
+          console.error('Request URL:', error.config?.url);
+          console.error('Request payload:', error.config?.data);
+
           if (error.message === 'Network Error') {
             const activeOrgId = orgId || getOrgId();
             const apiUrl = `${getApiUrl()}/org/${activeOrgId}/locations`;
             alert(`Network Error: Unable to connect to server at ${apiUrl}. Please ensure the backend is running and accessible.`);
+          } else if (error.response) {
+            // Server responded with error
+            const errorMsg = error.response.data?.message || error.response.data?.error || error.message;
+            alert(`Failed to save location: ${errorMsg}`);
           } else {
-            alert(`Failed to save location: ${error.response?.data?.message || error.message}`);
+            // Request was made but no response received
+            alert(`Failed to save location: ${error.message}`);
           }
         } else {
           console.error('Unexpected error:', error);

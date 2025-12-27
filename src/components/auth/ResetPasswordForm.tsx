@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import axios from "axios";
+import { getApiUrl } from "@/lib/auth";
 
 export default function ResetPasswordForm() {
     const router = useRouter();
@@ -40,16 +42,28 @@ export default function ResetPasswordForm() {
         setIsLoading(true);
 
         try {
-            // Simulate password update API
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            const email = localStorage.getItem("resetPasswordEmail");
+            if (!email) {
+                setError("Session expired. Please start the password reset process again.");
+                router.push("/auth/forgot-password");
+                return;
+            }
+
+            const apiUrl = getApiUrl();
+            const payload = { email, newPassword: formData.password };
+
+            console.log("Resetting password for:", email);
+            await axios.post(`${apiUrl}/auth/reset-password`, payload);
 
             // Clear storage
             localStorage.removeItem("resetPasswordEmail");
 
+            console.log("Password reset successfully!");
             // Redirect to login
             router.push("/auth/login");
-        } catch {
-            setError("Failed to reset password. Please try again.");
+        } catch (error: any) {
+            console.error("Reset password error:", error);
+            setError(error.response?.data?.message || "Failed to reset password. Please try again.");
         } finally {
             setIsLoading(false);
         }

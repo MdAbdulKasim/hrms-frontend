@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import axios from "axios";
+import { getApiUrl } from "@/lib/auth";
 
 export default function ForgotPasswordForm() {
     const router = useRouter();
@@ -31,17 +33,19 @@ export default function ForgotPasswordForm() {
         setIsLoading(true);
 
         try {
-            // TODO: Integrate actual API call here
-            // For now, simulate API delay
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            const apiUrl = getApiUrl();
+            const payload = { email };
+
+            console.log("Sending forgot password OTP to:", email);
+            await axios.post(`${apiUrl}/auth/forgot-password`, payload);
 
             // Store email to display on next page or use for verification
-            // Using localStorage for simplicity in this flow
             localStorage.setItem("resetPasswordEmail", email);
 
             router.push("/auth/forgot-password/verify-otp");
-        } catch (err) {
-            setError("Something went wrong. Please try again.");
+        } catch (error: any) {
+            console.error("Forgot password error:", error);
+            setError(error.response?.data?.message || "Something went wrong. Please try again.");
         } finally {
             setIsLoading(false);
         }
