@@ -4,9 +4,11 @@ import { useState } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
+import { getApiUrl, setCookie } from "@/lib/auth";
 
 interface FormData {
   fullName: string;
+  organizationName: string;
   email: string;
   phone: string;
   password: string;
@@ -14,6 +16,7 @@ interface FormData {
 
 interface FormErrors {
   fullName?: string;
+  organizationName?: string;
   email?: string;
   phone?: string;
   password?: string;
@@ -26,6 +29,7 @@ export default function RegisterForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
+    organizationName: "",
     email: "",
     phone: "",
     password: ""
@@ -55,6 +59,10 @@ export default function RegisterForm() {
       newErrors.fullName = "Full name is required";
     }
 
+    if (!formData.organizationName.trim()) {
+      newErrors.organizationName = "Organization name is required";
+    }
+
     if (!formData.email.trim()) {
       newErrors.email = "Email is required";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
@@ -77,34 +85,68 @@ export default function RegisterForm() {
 
   const handleSubmit = async () => {
     if (validateForm()) {
-      // Use environment variable with fallback for development
-      const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-
-      // Ensure protocol is present
-      const apiUrl = BASE_URL.startsWith("http") ? BASE_URL : `http://${BASE_URL}`;
-
       setIsLoading(true);
       try {
         const payload = {
           fullName: formData.fullName,
+          organizationName: formData.organizationName,
           email: formData.email,
           phoneNumber: formData.phone,
           password: formData.password
         };
 
-        console.log("Using API URL:", apiUrl);
-        await axios.post(`${apiUrl}/auth/signup`, payload);
+        const apiUrl = getApiUrl();
+        console.log("Using API URL for registration:", apiUrl);
+        console.log("Registration payload:", payload);
 
-        // Store email for OTP verification
-        localStorage.setItem("registrationEmail", formData.email);
+        const response = await axios.post(`${apiUrl}/auth/signup`, payload);
+        console.log("Registration successful:", response.data);
+
+        // Store email and name for OTP verification and UI in cookies
+        const firstName = formData.fullName.split(' ')[0];
+        const lastName = formData.fullName.split(' ').slice(1).join(' ');
+
+        setCookie("registrationEmail", formData.email);
+        setCookie("hrms_user_firstName", firstName);
+        setCookie("hrms_user_lastName", lastName);
+        setCookie("hrms_user_email", formData.email);
+        setCookie("registrationOrgName", formData.organizationName);
+
+        // Also keep in localStorage for components that might still look there, but cookies are priority now
+        if (typeof window !== 'undefined') {
+          localStorage.setItem("registrationEmail", formData.email);
+          localStorage.setItem("hrms_user_firstName", firstName);
+          localStorage.setItem("hrms_user_lastName", lastName);
+          localStorage.setItem("hrms_user_email", formData.email);
+          localStorage.setItem("registrationOrgName", formData.organizationName);
+        }
 
         // Navigate to OTP verification page on success
         router.push("/auth/verify-otp");
       } catch (error: any) {
         console.error("Registration error:", error);
+
+        let errorMessage = "Registration failed. Please try again.";
+
+        if (error.response) {
+          // The request was made and the server responded with a status code
+          // that falls out of the range of 2xx
+          console.error("Error data:", error.response.data);
+          console.error("Error status:", error.response.status);
+          errorMessage = error.response.data?.message || errorMessage;
+        } else if (error.request) {
+          // The request was made but no response was received
+          console.error("Error request:", error.request);
+          errorMessage = "No response from server. Check your connection.";
+        } else {
+          // Something happened in setting up the request that triggered an Error
+          console.error("Error message:", error.message);
+          errorMessage = error.message;
+        }
+
         setErrors(prev => ({
           ...prev,
-          submit: error.response?.data?.message || "Registration failed. Please try again."
+          submit: errorMessage
         }));
       } finally {
         setIsLoading(false);
@@ -155,6 +197,23 @@ export default function RegisterForm() {
                 />
                 {errors.fullName && (
                   <p className="text-red-500 text-xs mt-2 font-medium ml-1">{errors.fullName}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Organization Name</label>
+                <input
+                  type="text"
+                  name="organizationName"
+                  value={formData.organizationName}
+                  onChange={handleInputChange}
+                  placeholder="Acme Inc."
+                  disabled={isLoading}
+                  className={`w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${errors.organizationName ? "border-red-500 bg-red-50/30 ring-red-500/10" : ""
+                    }`}
+                />
+                {errors.organizationName && (
+                  <p className="text-red-500 text-xs mt-2 font-medium ml-1">{errors.organizationName}</p>
                 )}
               </div>
 

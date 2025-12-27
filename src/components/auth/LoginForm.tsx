@@ -101,6 +101,13 @@ export default function LoginForm() {
           if (id) setCookie('hrms_user_id', id, 7);
           if (formData.email) setCookie('hrms_user_email', formData.email, 7);
 
+          // Store first and last name if available
+          const firstName = employee?.firstName || employee?.fullName?.split(' ')[0] || data?.firstName;
+          const lastName = employee?.lastName || employee?.fullName?.split(' ').slice(1).join(' ') || data?.lastName;
+
+          if (firstName) setCookie('hrms_user_firstName', firstName, 7);
+          if (lastName) setCookie('hrms_user_lastName', lastName, 7);
+
           let isSetupCompleted = checkSetupStatus();
 
           const orgIdRaw = employee?.organization?.orgId ||
@@ -169,28 +176,6 @@ export default function LoginForm() {
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome Back</h2>
             <p className="text-gray-500 text-sm">Please enter your details to sign in.</p>
-          </div>
-
-          {/* Role Switcher */}
-          <div className="flex p-1 bg-gray-100 rounded-xl mb-8">
-            <button
-              onClick={() => setUserType("admin")}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${userType === "admin"
-                  ? "bg-white text-blue-600 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-                }`}
-            >
-              Administrator
-            </button>
-            <button
-              onClick={() => setUserType("employee")}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${userType === "employee"
-                  ? "bg-white text-blue-600 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-                }`}
-            >
-              Employee
-            </button>
           </div>
 
           {errors.submit && (

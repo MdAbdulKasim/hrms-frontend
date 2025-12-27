@@ -50,7 +50,14 @@ export default function OrganizationSetupWizard({
   const [locationId, setLocationId] = useState<string | null>(null);
   const [departmentId, setDepartmentId] = useState<string | null>(null);
 
-  // Load existing IDs from localStorage on mount
+  // Redirect immediately if setup is already completed
+  useEffect(() => {
+    if (checkSetupStatus()) {
+      console.log("Setup already completed, redirecting to dashboard...");
+      window.location.href = '/admin/my-space/overview';
+    }
+  }, []);
+
   // Load existing IDs and restore progress from localStorage on mount
   // Load existing IDs and restore progress from localStorage on mount
   useEffect(() => {
@@ -222,41 +229,6 @@ export default function OrganizationSetupWizard({
   return (
     <div className="min-h-screen bg-gray-50 p-3">
       <div className="max-w-6xl mx-auto">
-        {/* Diagnostic Debug Box (Only shows if something is missing/In Progress) */}
-        {(progressPercentage < 100 || !orgId) && (
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 shadow-sm transition-all animate-in fade-in slide-in-from-top-4 duration-500">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <div className="space-y-1">
-                <p className="font-semibold flex items-center gap-2">
-                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
-                  System Diagnostic
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 opacity-90">
-                  <p>Organization ID: <code className="bg-amber-100 px-1 rounded font-mono">{orgId || '❌ Missing'}</code></p>
-                  <p>Sync Status: <code className="bg-amber-100 px-1 rounded font-mono">{progressPercentage}% Complete</code></p>
-                  <p>User Role: <code className="bg-amber-100 px-1 rounded font-mono">{getUserRole() || 'Unknown'}</code></p>
-                  <p>Auth Token: <code className="bg-amber-100 px-1 rounded font-mono">{getAuthToken() ? '✅ Detected' : '❌ Not Found'}</code></p>
-                </div>
-              </div>
-              <button
-                onClick={async () => {
-                  const token = getAuthToken();
-                  const oId = getOrgId();
-                  if (token && oId) {
-                    const res = await syncSetupState(token, oId);
-                    if (res) window.location.reload();
-                    else alert("Sync checked, but no new data found on backend yet.");
-                  } else {
-                    alert("Cannot sync: Token or OrgId missing.");
-                  }
-                }}
-                className="whitespace-nowrap px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 font-medium transition-colors shadow-sm active:scale-95"
-              >
-                Sync with Backend
-              </button>
-            </div>
-          </div>
-        )}
 
         <div className="mb-8">
           <h1 className="text-2xl md:text-3xl font-bold mb-2">Set up your organization</h1>

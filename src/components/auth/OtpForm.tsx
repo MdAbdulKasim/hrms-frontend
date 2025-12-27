@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { Loader2 } from "lucide-react";
+import { getApiUrl } from "@/lib/auth";
 
 export default function OtpForm() {
   const router = useRouter();
@@ -44,14 +45,24 @@ export default function OtpForm() {
   }, [timer]);
 
   const handleResend = async () => {
-    if (!canResend) return;
+    if (!canResend || !email) return;
 
-    // Logic to trigger backend resend goes here
-    console.log("OTP Resent!");
+    try {
+      const apiUrl = getApiUrl();
+      const payload = { email };
 
-    // Reset timer state
-    setTimer(30);
-    setCanResend(false);
+      console.log("Resending OTP to:", email);
+      await axios.post(`${apiUrl}/auth/resend-otp`, payload);
+
+      // Reset timer state
+      setTimer(30);
+      setCanResend(false);
+
+      console.log("OTP resent successfully!");
+    } catch (error: any) {
+      console.error("Resend OTP error:", error);
+      setError(error.response?.data?.message || "Failed to resend OTP. Please try again.");
+    }
   };
 
   // update OTP logic with auto move
@@ -80,12 +91,6 @@ export default function OtpForm() {
     const otpValue = otp.join("");
     if (otpValue.length !== 6 || !email) return;
 
-    // Use environment variable with fallback for development
-    const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-
-    // Ensure protocol is present
-    const apiUrl = BASE_URL.startsWith("http") ? BASE_URL : `http://${BASE_URL}`;
-
     setIsLoading(true);
     setError("");
 
@@ -95,7 +100,8 @@ export default function OtpForm() {
         otp: otpValue
       };
 
-      console.log("Using API URL:", apiUrl);
+      const apiUrl = getApiUrl();
+      console.log("Using API URL for OTP verification:", apiUrl);
       const response = await axios.post(`${apiUrl}/auth/verify-otp`, payload);
 
       if (response.data.success) {
@@ -155,8 +161,8 @@ export default function OtpForm() {
                 onKeyDown={(e) => handleKeyDown(e, index)}
                 disabled={isLoading}
                 className={`w-full h-12 sm:h-14 border-2 rounded-xl text-center text-xl font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all disabled:opacity-50 ${error
-                    ? "border-red-200 text-red-600 bg-red-50/30 focus:border-red-500"
-                    : "border-gray-100 bg-gray-50 focus:border-blue-500 focus:bg-white"
+                  ? "border-red-200 text-red-600 bg-red-50/30 focus:border-red-500"
+                  : "border-gray-100 bg-gray-50 focus:border-blue-500 focus:bg-white"
                   }`}
               />
             ))}

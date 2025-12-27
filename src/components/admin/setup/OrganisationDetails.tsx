@@ -1,28 +1,100 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Upload } from 'lucide-react';
 import axios from 'axios';
 import { OrganizationData } from './types';
-import { getApiUrl, getAuthToken, setOrgId } from '@/lib/auth';
+import { getApiUrl, getAuthToken, setOrgId, getOrgId, getCookie } from '@/lib/auth';
 
 interface OrganizationDetailsStepProps {
-  onNext: (orgId: string) => void; // Modified to pass orgId back
+  onNext: (orgId: string) => void;
+  existingOrgId?: string; // Optional: if provided, component is in edit mode
+  existingOrgData?: Partial<OrganizationData>; // Optional: pre-fill form with existing data
 }
 
 export default function OrganizationDetailsStep({
   onNext,
+  existingOrgId,
+  existingOrgData,
 }: OrganizationDetailsStepProps) {
 
+  const isEditMode = !!existingOrgId;
+
   const [orgData, setOrgData] = useState<OrganizationData>({
-    name: '',
-    website: '',
-    type: 'Software House', // Set default
-    contactPerson: '',
-    contactNumber: '',
-    contactEmail: '',
-    address: '',
+    name: existingOrgData?.name || '',
+    website: existingOrgData?.website || '',
+    type: existingOrgData?.type || 'Software House',
+    contactPerson: existingOrgData?.contactPerson || '',
+    contactNumber: existingOrgData?.contactNumber || '',
+    contactEmail: existingOrgData?.contactEmail || '',
+    address: existingOrgData?.address || '',
   });
+
+  // Load registration data and fetch organization details from API
+  useEffect(() => {
+    const fetchOrgData = async () => {
+      const orgIdToFetch = existingOrgId || getOrgId();
+      const token = getAuthToken();
+
+      if (orgIdToFetch && token) {
+        try {
+          const apiUrl = `${getApiUrl()}/org/${orgIdToFetch}`;
+          console.log('Fetching organization details from:', apiUrl);
+
+          const response = await axios.get(apiUrl, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          console.log('Fetched organization data:', response.data);
+
+          // Extract data from response (handle both direct data and nested data.data)
+          const fetchedData = response.data.data || response.data;
+
+          // Update form with fetched data
+          setOrgData(prev => ({
+            ...prev,
+            name: fetchedData.name || prev.name,
+            website: fetchedData.OrgWebsite || fetchedData.website || prev.website,
+            type: fetchedData.orgType || prev.type,
+            contactPerson: fetchedData.contactPerson || prev.contactPerson,
+            contactNumber: fetchedData.contactNumber || prev.contactNumber,
+            contactEmail: fetchedData.contactMail || fetchedData.contactEmail || prev.contactEmail,
+            address: fetchedData.address || prev.address,
+          }));
+        } catch (error) {
+          console.error('Error fetching organization details:', error);
+          // Fallback to localStorage data if API fails
+          loadFromLocalStorage();
+        }
+      } else {
+        // No orgId or token, load from localStorage
+        loadFromLocalStorage();
+      }
+    };
+
+    const loadFromLocalStorage = () => {
+      // Priority: Cookie -> LocalStorage
+      const registrationOrgName = getCookie('registrationOrgName') || localStorage.getItem('registrationOrgName');
+      const registrationEmail = getCookie('registrationEmail') || getCookie('hrms_user_email') || localStorage.getItem('registrationEmail') || localStorage.getItem('hrms_user_email');
+      const userFirstName = getCookie('hrms_user_firstName') || localStorage.getItem('hrms_user_firstName');
+      const userLastName = getCookie('hrms_user_lastName') || localStorage.getItem('hrms_user_lastName');
+
+      const fullName = userFirstName && userLastName
+        ? `${userFirstName} ${userLastName}`.trim()
+        : userFirstName || '';
+
+      setOrgData(prev => ({
+        ...prev,
+        name: existingOrgData?.name || registrationOrgName || prev.name,
+        contactEmail: existingOrgData?.contactEmail || registrationEmail || prev.contactEmail,
+        contactPerson: existingOrgData?.contactPerson || fullName || prev.contactPerson,
+      }));
+    };
+
+    fetchOrgData();
+  }, [existingOrgData, existingOrgId]);
 
   // Local state to track validation errors
   const [errors, setErrors] = useState<Partial<OrganizationData>>({});
@@ -71,11 +143,8 @@ export default function OrganizationDetailsStep({
     // Only call API and onNext if validation passes
     if (isValid) {
       setIsLoading(true);
-      // Construct API URL outside try block to be available in catch
-      const apiUrl = `${getApiUrl()}/org`;
 
       try {
-        // Get token from auth utilities
         const token = getAuthToken();
 
         if (!token) {
@@ -84,60 +153,55 @@ export default function OrganizationDetailsStep({
           return;
         }
 
-        // Prepare the payload matching the Postman screenshot keys (Reverted to OrgWebsite)
-        const payload = {
-          name: orgData.name,
-          orgType: orgData.type || 'Software House',
+        // Get organization ID from props or from auth utilities
+        const orgIdToUse = existingOrgId || getOrgId();
+
+        if (!orgIdToUse) {
+          alert('Organization ID not found. Please complete registration first.');
+          setIsLoading(false);
+          return;
+        }
+
+        // UPDATE MODE - PUT request (always update, never create)
+        const apiUrl = `${getApiUrl()}/org/${orgIdToUse}`;
+
+        // Payload for update
+        const updatePayload = {
           address: orgData.address,
-          contactMail: orgData.contactEmail,
+          orgType: orgData.type || 'Software House',
           contactPerson: orgData.contactPerson,
           contactNumber: orgData.contactNumber,
           logoUrl: orgData.logoUrl || "https://zendev.io/logo.png",
           OrgWebsite: orgData.website,
         };
 
-        // Axios POST request with Headers - using getApiUrl() for proper URL formatting
-        console.log('Attempting to create org at:', apiUrl);
-        console.log('Payload:', payload);
+        console.log('Updating organization at:', apiUrl);
+        console.log('Update payload:', updatePayload);
 
-        const response = await axios.post(
-          apiUrl, payload, {
+        const response = await axios.put(apiUrl, updatePayload, {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
         });
 
+        console.log('Organization updated successfully:', response.data);
 
-        // Axios automatically checks for 2xx status codes
-        if (response.status === 200 || response.status === 201) {
-          console.log('API Response Data:', response.data);
-          // Store the organization ID from API response - check multiple possible fields
-          const newOrgId = response.data.orgId || response.data.id || response.data._id;
-
-          if (newOrgId) {
-            setOrgId(newOrgId); // Save to localStorage
-            console.log('Organization created with ID:', newOrgId);
-            onNext(String(newOrgId)); // Pass orgId to parent
-          } else {
-            console.error('No orgId found in response:', response.data);
-            console.error('Organization created but ID was not found in the response (checked orgId, id, _id). Please check console for details.');
-          }
+        // Store orgId if not already stored
+        if (!existingOrgId) {
+          setOrgId(orgIdToUse);
         }
 
+        onNext(orgIdToUse); // Pass orgId to parent
+
       } catch (error) {
-        // Axios Error Handling
         if (axios.isAxiosError(error)) {
           console.error('Axios error:', error.response?.data || error.message);
-          if (error.message === 'Network Error') {
-            console.error(`Network Error: Unable to connect to server at ${apiUrl}. Please ensure the backend is running and accessible.`);
-          } else {
-            // Debugging 400 errors: Show full detail
-            const errorDetails = error.response?.data ? JSON.stringify(error.response.data) : error.message;
-            console.error(`Failed to create organization: ${errorDetails}`);
-          }
+          const errorMsg = error.response?.data?.message || error.message;
+          alert(`Failed to update organization: ${errorMsg}`);
         } else {
           console.error('Unexpected error:', error);
+          alert('An unexpected error occurred.');
         }
       } finally {
         setIsLoading(false);
@@ -179,11 +243,10 @@ export default function OrganizationDetailsStep({
               type="text"
               placeholder="e.g. Acme Corp"
               value={orgData.name}
-              onChange={(e) => handleChange('name', e.target.value)}
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${errors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                }`}
+              readOnly
+              className="w-full px-4 py-2 border rounded-md bg-gray-100 text-gray-600 cursor-not-allowed border-gray-300"
             />
-            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+            <p className="text-xs text-gray-500 mt-1">Organization name cannot be changed</p>
           </div>
         </div>
 
@@ -202,15 +265,13 @@ export default function OrganizationDetailsStep({
         {/* Type of organization */}
         <div className="flex flex-col md:flex-row items-start md:items-center gap-1 md:gap-8">
           <label className="text-sm font-medium text-gray-700 w-full md:w-32">Type</label>
-          <select
+          <input
+            type="text"
+            placeholder="e.g. Software House, Manufacturing, Services"
             value={orgData.type}
             onChange={(e) => handleChange('type', e.target.value)}
-            className="flex-1 w-full px-4 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="Software House">Software House</option>
-            <option value="Manufacturing">Manufacturing</option>
-            <option value="Services">Services</option>
-          </select>
+            className="flex-1 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
 
         {/* Contact person */}
@@ -253,11 +314,10 @@ export default function OrganizationDetailsStep({
               type="email"
               placeholder="contact@company.com"
               value={orgData.contactEmail}
-              onChange={(e) => handleChange('contactEmail', e.target.value)}
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.contactEmail ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                }`}
+              readOnly
+              className="w-full px-4 py-2 border rounded-md bg-gray-100 text-gray-600 cursor-not-allowed border-gray-300"
             />
-            {errors.contactEmail && <p className="text-red-500 text-xs mt-1">{errors.contactEmail}</p>}
+            <p className="text-xs text-gray-500 mt-1">Contact email cannot be changed</p>
           </div>
         </div>
 
@@ -283,7 +343,7 @@ export default function OrganizationDetailsStep({
           className={`px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors ${isLoading ? 'opacity-70 cursor-not-allowed' : ''
             }`}
         >
-          {isLoading ? 'Saving...' : 'Save & Continue'}
+          {isLoading ? 'Updating...' : 'Update & Continue'}
         </button>
       </div>
     </div>

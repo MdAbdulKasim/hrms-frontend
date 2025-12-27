@@ -3,6 +3,8 @@
 import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import axios from "axios";
+import { getApiUrl } from "@/lib/auth";
 
 export default function ResetPasswordOtpForm() {
     const router = useRouter();
@@ -54,19 +56,22 @@ export default function ResetPasswordOtpForm() {
     };
 
     const handleResend = async () => {
-        if (timer > 0) return;
+        if (timer > 0 || !email) return;
 
         setIsLoading(true);
         try {
-            // Simulate resend API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const apiUrl = getApiUrl();
+            const payload = { email };
+
+            console.log("Resending reset password OTP to:", email);
+            await axios.post(`${apiUrl}/auth/forgot-password`, payload);
+
             setTimer(30); // Reset timer
-            // Optional: Clear OTP fields
-            // setOtp(["", "", "", "", "", ""]);
-            // inputRefs.current[0]?.focus();
             setError("");
-        } catch {
-            setError("Failed to resend code");
+            console.log("Reset password OTP resent successfully!");
+        } catch (error: any) {
+            console.error("Resend reset OTP error:", error);
+            setError(error.response?.data?.message || "Failed to resend code");
         } finally {
             setIsLoading(false);
         }
@@ -74,16 +79,21 @@ export default function ResetPasswordOtpForm() {
 
     const handleVerify = async () => {
         const otpValue = otp.join("");
-        if (otpValue.length !== 6) return;
+        if (otpValue.length !== 6 || !email) return;
 
         setIsLoading(true);
         try {
-            // Simulate verification API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const apiUrl = getApiUrl();
+            const payload = { email, otp: otpValue };
 
+            console.log("Verifying reset password OTP for:", email);
+            await axios.post(`${apiUrl}/auth/verify-reset-otp`, payload);
+
+            console.log("Reset password OTP verified successfully!");
             router.push("/auth/reset-password");
-        } catch {
-            setError("Invalid code. Please try again.");
+        } catch (error: any) {
+            console.error("Verify reset OTP error:", error);
+            setError(error.response?.data?.message || "Invalid code. Please try again.");
         } finally {
             setIsLoading(false);
         }

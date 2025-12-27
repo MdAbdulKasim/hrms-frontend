@@ -1,19 +1,63 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import RolePermissionsTable from "./RolePermissionsTable";
 import Toggle from "./Toggle";
 import Dropdown from "@/components/ui/Dropdown";
+
 import DepartmentPage from "@/components/admin/settings/departments/DepartmentsPage";
 import { Building2, Briefcase, Plus, Trash2 } from "lucide-react";
+import SearchableDropdown from "@/components/ui/SearchableDropdown";
 
 const roles = ["Admin", "Manager", "Team Lead", "Employee"];
+
+const usersByRole: Record<string, string[]> = {
+  Admin: ["Alice Admin", "Bob Admin"],
+  Manager: ["Charlie Manager", "David Manager"],
+  "Team Lead": ["Eve Lead", "Frank Lead"],
+  Employee: ["Grace Employee", "Heidi Employee", "Ivan Employee"],
+};
+
+type AccessScope = "all" | "multiple" | "particular";
 
 export default function PermissionsPage() {
   const [activeTab, setActiveTab] = useState<"set" | "all" | "add">("set");
   const [innerTab, setInnerTab] = useState<"dept" | "role">("dept");
   const [role, setRole] = useState("Employee");
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [hrAccess, setHrAccess] = useState(false);
+
+  // Reset user selection when role changes
+  useEffect(() => {
+    setSelectedUsers([]);
+  }, [role]);
+
+  const currentRoleUsers = usersByRole[role] || [];
+
+  // Construct dropdown options
+  const userDropdownOptions = [
+    `All ${role}s`,
+    ...currentRoleUsers,
+  ];
+
+  const handleUserChange = (val: string[]) => {
+    const allOption = `All ${role}s`;
+
+    // If "All" is being selected
+    if (val.includes(allOption) && !selectedUsers.includes(allOption)) {
+      // Select only "All", deselect everything else
+      setSelectedUsers([allOption]);
+    }
+    // If a specific user is being selected while "All" is already selected
+    else if (selectedUsers.includes(allOption) && val.length > 1) {
+      // Remove "All", keep only the newly selected users
+      setSelectedUsers(val.filter(v => v !== allOption));
+    }
+    // Normal multi-select behavior
+    else {
+      setSelectedUsers(val);
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -57,16 +101,46 @@ export default function PermissionsPage() {
           <div className="bg-white rounded-xl border p-6 space-y-6">
             <h2 className="text-lg font-semibold">Role Permissions</h2>
 
-            <div className="flex items-center gap-4">
-              <span className="text-sm font-medium">Select Role:</span>
-              <div className="w-60">
-                <Dropdown
-                  value={role}
-                  options={roles}
-                  onChange={setRole}
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Role Select */}
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium w-24">Select Role:</span>
+                <div className="w-64">
+                  <Dropdown
+                    value={role}
+                    options={roles}
+                    onChange={setRole}
+                  />
+                </div>
+              </div>
+
+              {/* User Select */}
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium w-24">Select User:</span>
+                <div className="w-64">
+                  <SearchableDropdown
+                    value={selectedUsers}
+                    options={userDropdownOptions}
+                    onChange={handleUserChange}
+                    placeholder="Search User..."
+                    multiple={true}
+                  />
+                </div>
               </div>
             </div>
+
+            {/* Access Scope Selection Display */}
+            {role && selectedUsers.length > 0 && (
+              <div className="space-y-4">
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">Selected: </span>
+                  {selectedUsers.includes(`All ${role}s`)
+                    ? `All ${role}s`
+                    : `${selectedUsers.length} user(s) - ${selectedUsers.join(", ")}`
+                  }
+                </div>
+              </div>
+            )}
 
             <RolePermissionsTable />
 
