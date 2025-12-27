@@ -4,15 +4,12 @@
 
 // Get the API base URL with proper formatting
 export const getApiUrl = (): string => {
-    // Use Next.js API proxy to avoid CORS issues
-    // The proxy route forwards requests to the backend at http://localhost:8080
-    const apiUrl = '/api/proxy';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://hrms-backend-alb-225844496.ap-south-1.elb.amazonaws.com';
     if (typeof window !== 'undefined' && (window as any).DEBUG_AUTH) {
         console.log("DEBUG_API_URL:", apiUrl);
     }
     return apiUrl;
 };
-
 // Cookie helpers
 export const getCookie = (name: string): string | null => {
     if (typeof document === 'undefined') return null;
@@ -153,8 +150,6 @@ export const clearSetupData = (): void => {
         localStorage.clear();
     }
 };
-
-import axios from 'axios';
 
 // Sync setup state from backend
 export const syncSetupState = async (token: string, orgId?: string): Promise<boolean> => {
