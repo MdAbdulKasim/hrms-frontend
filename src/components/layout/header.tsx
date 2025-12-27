@@ -75,7 +75,7 @@ const employeeNavigationConfig: MainTab[] = [
 
 interface NavigationHeaderProps {
   toggleSidebar?: () => void;
-  userRole?: 'admin' | 'employee'; // Add role prop
+  userRole?: 'admin' | 'employee';
 }
 
 export default function NavigationHeader({
@@ -94,48 +94,95 @@ export default function NavigationHeader({
     initials: 'U'
   });
 
-  // Fetch user data from localStorage and JWT
+  // Helper function to get initials
+  const getInitials = (name: string) => {
+    if (!name || name === 'User') return 'U';
+    const parts = name.trim().split(' ').filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  // Fetch user data from multiple sources
   useEffect(() => {
     const fetchUserData = () => {
-      // Try to get from cookies first, then fallback to localStorage
-      const firstName = getCookie('hrms_user_firstName') || localStorage.getItem('hrms_user_firstName') || getCookie('registrationFirstName') || localStorage.getItem('registrationFirstName');
-      const lastName = getCookie('hrms_user_lastName') || localStorage.getItem('hrms_user_lastName') || getCookie('registrationLastName') || localStorage.getItem('registrationLastName');
-      const email = getCookie('hrms_user_email') || localStorage.getItem('hrms_user_email') || getCookie('registrationEmail') || localStorage.getItem('registrationEmail');
+      // Priority order: cookies > localStorage > JWT
+      let firstName = '';
+      let lastName = '';
+      let email = '';
+      let fullName = '';
 
-      console.log('Header - Storage data:', { firstName, lastName, email });
+      // Try cookies first
+      firstName = getCookie('hrms_user_firstName') || getCookie('registrationFirstName') || '';
+      lastName = getCookie('hrms_user_lastName') || getCookie('registrationLastName') || '';
+      email = getCookie('hrms_user_email') || getCookie('registrationEmail') || '';
 
-      // Try to get from JWT token
+      // Fallback to localStorage if cookies are empty
+      if (!firstName) firstName = localStorage.getItem('hrms_user_firstName') || localStorage.getItem('registrationFirstName') || '';
+      if (!lastName) lastName = localStorage.getItem('hrms_user_lastName') || localStorage.getItem('registrationLastName') || '';
+      if (!email) email = localStorage.getItem('hrms_user_email') || localStorage.getItem('registrationEmail') || '';
+
+      console.log('Header - Retrieved data:', { firstName, lastName, email });
+
+      // Try JWT token as last resort
       const token = getAuthToken();
       let tokenData = null;
       if (token) {
-        tokenData = decodeToken(token);
-        console.log('Header - JWT token data:', tokenData);
+        try {
+          tokenData = decodeToken(token);
+          console.log('Header - JWT token data:', tokenData);
+        } catch (error) {
+          console.error('Header - Error decoding token:', error);
+        }
       }
 
-      // Construct full name
-      const fullName = firstName && lastName
-        ? `${firstName} ${lastName}`.trim()
-        : tokenData?.fullName || tokenData?.name || firstName || 'User';
+      // Construct full name with priority
+      if (firstName || lastName) {
+        fullName = `${firstName} ${lastName}`.trim();
+      } else if (tokenData?.firstName && tokenData?.lastName) {
+        fullName = `${tokenData.firstName} ${tokenData.lastName}`.trim();
+      } else if (tokenData?.fullName) {
+        fullName = tokenData.fullName;
+      } else if (tokenData?.name) {
+        fullName = tokenData.name;
+      } else {
+        fullName = 'User';
+      }
 
-      console.log('Header - Final user name:', fullName);
+      // Get email with fallback
+      const finalEmail = email || tokenData?.email || '';
 
-      // Get initials
-      const getInitials = (name: string) => {
-        const parts = name.split(' ');
-        if (parts.length >= 2) {
-          return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-        }
-        return name.substring(0, 2).toUpperCase();
-      };
+      console.log('Header - Final user data:', { fullName, finalEmail });
 
       setUserData({
         name: fullName,
-        email: email || tokenData?.email || '',
+        email: finalEmail,
         initials: getInitials(fullName)
       });
     };
 
     fetchUserData();
+
+    // Listen for storage changes (in case user data is updated elsewhere)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key?.includes('firstName') || e.key?.includes('lastName') || e.key?.includes('email')) {
+        fetchUserData();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also listen for custom events if you dispatch them after registration/login
+    const handleUserDataUpdate = () => {
+      fetchUserData();
+    };
+    window.addEventListener('userDataUpdated', handleUserDataUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('userDataUpdated', handleUserDataUpdate);
+    };
   }, []);
 
   useEffect(() => {

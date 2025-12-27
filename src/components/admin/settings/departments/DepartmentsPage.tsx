@@ -1,41 +1,87 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DepartmentCard from "./DepartmentCard";
 import DepartmentDrawer from "./DepartmentDrawer";
 import { Search } from "lucide-react";
+import axios from 'axios';
+import { getApiUrl, getAuthToken } from '@/lib/auth';
 
-const departmentsData = [
-  {
-    id: 1,
-    name: "Engineering",
-    lead: "Sarah Davis",
-    members: [
-      { name: "Alice Johnson", role: "Developer" },
-      { name: "Bob Smith", role: "Developer" },
-      { name: "Carol White", role: "QA" },
-    ],
-  },
-  {
-    id: 2,
-    name: "Design",
-    lead: "Emily Chen",
-    members: [
-      { name: "Frank Miller", role: "UI Designer" },
-      { name: "Grace Lee", role: "UX Designer" },
-    ],
-  },
-  {
-    id: 3,
-    name: "Human Resources",
-    lead: "Jane Wilson",
-    members: [{ name: "Henry Adams", role: "HR Manager" }],
-  },
-];
+interface Department {
+  id: number;
+  name: string;
+  lead: string;
+  members: Array<{ name: string; role: string }>;
+}
 
 export default function DepartmentsPage() {
   const [selectedDept, setSelectedDept] = useState<any>(null);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [departmentsData, setDepartmentsData] = useState<Department[]>([]);
+
+  // Fetch departments from API
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        setLoading(true);
+        const apiUrl = getApiUrl();
+        const token = getAuthToken();
+
+        const response = await axios.get(`${apiUrl}/departments`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const departments = response.data.data || response.data || [];
+
+        // Transform API data to match component interface
+        const transformedData: Department[] = departments.map((dept: any) => ({
+          id: dept.id || dept._id,
+          name: dept.name || 'Unknown Department',
+          lead: dept.lead || dept.manager || 'Not assigned',
+          members: dept.members || dept.employees || []
+        }));
+
+        setDepartmentsData(transformedData);
+      } catch (error) {
+        console.error('Error fetching departments:', error);
+        // Fallback to mock data if API fails
+        setDepartmentsData([
+          {
+            id: 1,
+            name: "Engineering",
+            lead: "Sarah Davis",
+            members: [
+              { name: "Alice Johnson", role: "Developer" },
+              { name: "Bob Smith", role: "Developer" },
+              { name: "Carol White", role: "QA" },
+            ],
+          },
+          {
+            id: 2,
+            name: "Design",
+            lead: "Emily Chen",
+            members: [
+              { name: "Frank Miller", role: "UI Designer" },
+              { name: "Grace Lee", role: "UX Designer" },
+            ],
+          },
+          {
+            id: 3,
+            name: "Human Resources",
+            lead: "Jane Wilson",
+            members: [{ name: "Henry Adams", role: "HR Manager" }],
+          },
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
 
   const filtered = departmentsData.filter((d) =>
     d.name.toLowerCase().includes(search.toLowerCase())
@@ -60,13 +106,23 @@ export default function DepartmentsPage() {
 
       {/* Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {filtered.map((dept) => (
-          <DepartmentCard
-            key={dept.id}
-            department={dept}
-            onClick={() => setSelectedDept(dept)}
-          />
-        ))}
+        {loading ? (
+          <div className="col-span-full text-center py-8">
+            <p className="text-gray-500">Loading departments...</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="col-span-full text-center py-8">
+            <p className="text-gray-500">No departments found</p>
+          </div>
+        ) : (
+          filtered.map((dept) => (
+            <DepartmentCard
+              key={dept.id}
+              department={dept}
+              onClick={() => setSelectedDept(dept)}
+            />
+          ))
+        )}
       </div>
 
       {/* Right Drawer */}

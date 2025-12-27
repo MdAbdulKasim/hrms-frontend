@@ -9,6 +9,8 @@ import {
   AlertCircle, 
   Briefcase
 } from 'lucide-react';
+import axios from 'axios';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 
 
 // --- Types ---
@@ -26,22 +28,8 @@ type ScheduleDay = {
   isToday?: boolean;
 };
 
-// --- Mock Data ---
-const reportees: Reportee[] = [
-  { id: '1', name: 'Michael Johnson', roleId: 'S19', status: 'Yet to check-in' },
-  { id: '2', name: 'Lilly Williams', roleId: 'S2', status: 'Yet to check-in' },
-  { id: '3', name: 'Christopher Brown', roleId: 'S20', status: 'Yet to check-in' },
-];
-
-const schedule: ScheduleDay[] = [
-  { day: 'Sun', date: '07', status: 'Weekend' },
-  { day: 'Mon', date: '08', status: 'Absent' },
-  { day: 'Tue', date: '09', status: 'Absent' },
-  { day: 'Wed', date: '10', status: 'Absent' },
-  { day: 'Thu', date: '11', status: 'Upcoming', isToday: true },
-  { day: 'Fri', date: '12', status: 'Upcoming' },
-  { day: 'Sat', date: '13', status: 'Weekend' },
-];
+// --- State ---
+// Remove mock data, will fetch from API
 
 // --- Sub-Components ---
 
@@ -144,7 +132,7 @@ const ProfileCard = () => {
   );
 };
 
-const ReporteesCard = () => {
+const ReporteesCard = ({ reportees }: { reportees: Reportee[] }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 flex flex-col h-full w-full">
       <h3 className="text-gray-700 font-semibold mb-4 text-sm">Reportees</h3>
@@ -170,7 +158,7 @@ const ReporteesCard = () => {
   );
 };
 
-const ActivitiesSection = () => {
+const ActivitiesSection = ({ schedule }: { schedule: ScheduleDay[] }) => {
   return (
     <div className="space-y-4">
       {/* Greeting Card */}
@@ -265,6 +253,64 @@ const ActivitiesSection = () => {
 // --- Main Page Component ---
 
 export default function Dashboard() {
+  const [reportees, setReportees] = useState<Reportee[]>([]);
+  const [schedule, setSchedule] = useState<ScheduleDay[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const token = getAuthToken();
+        const orgId = getOrgId();
+        const apiUrl = getApiUrl();
+
+        if (!token || !orgId) return;
+
+        // Fetch reportees (for employee, might be team members or something)
+        const reporteesRes = await axios.get(`${apiUrl}/org/${orgId}/employees`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const reporteesData = reporteesRes.data.data || reporteesRes.data;
+        setReportees(reporteesData.slice(0, 5).map((emp: any) => ({
+          id: emp.id || emp._id,
+          name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.email,
+          roleId: emp.employeeId || emp.id,
+          status: 'Yet to check-in'
+        })));
+
+        // Fetch attendance for schedule
+        const today = new Date();
+        const weekSchedule: ScheduleDay[] = [];
+        for (let i = 0; i < 7; i++) {
+          const date = new Date(today);
+          date.setDate(today.getDate() - today.getDay() + i);
+          const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+          const dateStr = date.getDate().toString().padStart(2, '0');
+          const isToday = date.toDateString() === today.toDateString();
+          const isWeekend = i === 0 || i === 6;
+          weekSchedule.push({
+            day: dayName,
+            date: dateStr,
+            status: isWeekend ? 'Weekend' : isToday ? 'Upcoming' : 'Absent',
+            isToday
+          });
+        }
+        setSchedule(weekSchedule);
+
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return <div className="min-h-screen bg-white flex items-center justify-center">Loading...</div>;
+  }
+
   return (
     
       <div className="min-h-screen bg-white p-4 md:p-8 font-sans">
@@ -276,12 +322,12 @@ export default function Dashboard() {
             {/* Left Column: Profile & Reportees */}
             <div className="lg:col-span-1 flex flex-col gap-6">
               <ProfileCard />
-              <ReporteesCard />
+              <ReporteesCard reportees={reportees} />
             </div>
 
             {/* Right Column: Activities & Schedule */}
             <div className="lg:col-span-3">
-              <ActivitiesSection />
+              <ActivitiesSection schedule={schedule} />
             </div>
 
           </div>

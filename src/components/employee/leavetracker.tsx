@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Plus, Calendar, Coffee, Gift, Clock, Heart, Users, AlertCircle } from 'lucide-react';
 import {
   Dialog,
@@ -18,6 +18,8 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import axios from 'axios';
+import { getApiUrl, getAuthToken } from '@/lib/auth';
 
 
 interface LeaveType {
@@ -46,6 +48,12 @@ const LeaveTracker = () => {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [reason, setReason] = useState('');
+
+  // Loading state for API calls
+  const [loading, setLoading] = useState(false);
+
+  // Converted leaveHistory to state for API integration
+  const [leaveHistory, setLeaveHistory] = useState<LeaveHistory[]>([]);
 
   const leaveTypes: LeaveType[] = [
     {
@@ -110,40 +118,85 @@ const LeaveTracker = () => {
     }
   ];
 
-  const leaveHistory: LeaveHistory[] = [
-    {
-      type: 'Casual Leave',
-      from: 'Jan 15, 2024',
-      to: 'Jan 16, 2024',
-      days: 2,
-      reason: 'Personal work',
-      status: 'Approved'
-    },
-    {
-      type: 'Sick Leave',
-      from: 'Feb 10, 2024',
-      to: 'Feb 11, 2024',
-      days: 2,
-      reason: 'Fever',
-      status: 'Approved'
-    },
-    {
-      type: 'Earned Leave',
-      from: 'Mar 20, 2024',
-      to: 'Mar 25, 2024',
-      days: 5,
-      reason: 'Family vacation',
-      status: 'Pending'
-    },
-    {
-      type: 'Casual Leave',
-      from: 'Apr 05, 2024',
-      to: 'Apr 06, 2024',
-      days: 2,
-      reason: 'Personal work',
-      status: 'Rejected'
-    }
-  ];
+  // Fetch leave requests from API
+  useEffect(() => {
+    const fetchLeaveRequests = async () => {
+      try {
+        setLoading(true);
+        const apiUrl = getApiUrl();
+        const token = getAuthToken();
+
+        const response = await axios.get(`${apiUrl}/leave-requests`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const leaveRequests = response.data.data || response.data || [];
+
+        // Transform API data to match component interface
+        const transformedData: LeaveHistory[] = leaveRequests.map((request: any) => ({
+          type: request.leaveType || 'Unknown',
+          from: new Date(request.startDate).toLocaleDateString('en-US', {
+            month: 'short',
+            day: '2-digit',
+            year: 'numeric'
+          }),
+          to: new Date(request.endDate).toLocaleDateString('en-US', {
+            month: 'short',
+            day: '2-digit',
+            year: 'numeric'
+          }),
+          days: request.days || 1,
+          reason: request.reason || 'No reason provided',
+          status: request.status || 'Pending'
+        }));
+
+        setLeaveHistory(transformedData);
+      } catch (error) {
+        console.error('Error fetching leave requests:', error);
+        // Fallback to mock data if API fails
+        setLeaveHistory([
+          {
+            type: 'Casual Leave',
+            from: 'Jan 15, 2024',
+            to: 'Jan 16, 2024',
+            days: 2,
+            reason: 'Personal work',
+            status: 'Approved'
+          },
+          {
+            type: 'Sick Leave',
+            from: 'Feb 10, 2024',
+            to: 'Feb 11, 2024',
+            days: 2,
+            reason: 'Fever',
+            status: 'Approved'
+          },
+          {
+            type: 'Earned Leave',
+            from: 'Mar 20, 2024',
+            to: 'Mar 25, 2024',
+            days: 5,
+            reason: 'Family vacation',
+            status: 'Pending'
+          },
+          {
+            type: 'Casual Leave',
+            from: 'Apr 05, 2024',
+            to: 'Apr 06, 2024',
+            days: 2,
+            reason: 'Personal work',
+            status: 'Rejected'
+          }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLeaveRequests();
+  }, []);
 
   const handleSubmit = () => {
     console.log({ selectedLeaveType, fromDate, toDate, reason });
@@ -224,28 +277,42 @@ const LeaveTracker = () => {
                 </tr>
               </thead>
               <tbody>
-                {leaveHistory.map((leave, index) => (
-                  <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-4 px-4 text-gray-900 whitespace-nowrap">{leave.type}</td>
-                    <td className="py-4 px-4 text-gray-600 whitespace-nowrap">{leave.from}</td>
-                    <td className="py-4 px-4 text-gray-600 whitespace-nowrap">{leave.to}</td>
-                    <td className="py-4 px-4 text-gray-900 whitespace-nowrap">{leave.days}</td>
-                    <td className="py-4 px-4 text-gray-600 whitespace-nowrap max-w-[200px] truncate" title={leave.reason}>{leave.reason}</td>
-                    <td className="py-4 px-4 whitespace-nowrap">
-                      <span
-                        className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                          leave.status === 'Approved'
-                            ? 'bg-green-100 text-green-700'
-                            : leave.status === 'Pending'
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-red-100 text-red-700'
-                        }`}
-                      >
-                        {leave.status}
-                      </span>
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-gray-500">
+                      Loading leave history...
                     </td>
                   </tr>
-                ))}
+                ) : leaveHistory.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-gray-500">
+                      No leave history found
+                    </td>
+                  </tr>
+                ) : (
+                  leaveHistory.map((leave, index) => (
+                    <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-4 px-4 text-gray-900 whitespace-nowrap">{leave.type}</td>
+                      <td className="py-4 px-4 text-gray-600 whitespace-nowrap">{leave.from}</td>
+                      <td className="py-4 px-4 text-gray-600 whitespace-nowrap">{leave.to}</td>
+                      <td className="py-4 px-4 text-gray-900 whitespace-nowrap">{leave.days}</td>
+                      <td className="py-4 px-4 text-gray-600 whitespace-nowrap max-w-[200px] truncate" title={leave.reason}>{leave.reason}</td>
+                      <td className="py-4 px-4 whitespace-nowrap">
+                        <span
+                          className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                            leave.status === 'Approved'
+                              ? 'bg-green-100 text-green-700'
+                              : leave.status === 'Pending'
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          {leave.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from 'lucide-react';
+import axios from 'axios';
+import { getApiUrl, getAuthToken } from '@/lib/auth';
 
 // --- Type Definitions ---
 interface Employee {
@@ -9,86 +11,113 @@ interface Employee {
   name: string;
   role: string;
   imageUrl?: string;
-  count?: number; 
+  count?: number;
   children?: Employee[];
 }
 
-// --- Data ---
-const initialData: Employee = {
-  id: 'root',
-  name: 'mohamed',
-  role: 'CEO',
-  count: 15, // Badge on line to Level 1
-  children: [
-    { id: '1', name: 'Michael Johnson', role: 'Administration' },
-    {
-      id: '2',
-      name: 'Lilly Williams',
-      role: 'Administration',
-      count: 11, // Badge on line to Level 2
-      children: [
-        {
-          id: '2-1',
-          name: 'Andrew Turner',
-          role: 'Manager',
-          count: 3,
-          children: [
-            {
-              id: '2-1-1',
-              name: 'Asher Miller',
-              role: 'Assistant Manager',
-              count: 2,
-              children: [
-                { id: '2-1-1-1', name: 'Emily Jones', role: 'Team Member' },
-                { id: '2-1-1-2', name: 'Isabella Lopez', role: 'Team Member' },
-              ],
-            },
-          ],
-        },
-        {
-          id: '2-2',
-          name: 'Ember Johnson',
-          role: 'Assistant Manager',
-          count: 2,
-          children: [
-            {
-              id: '2-2-1',
-              name: 'Caspian Jones',
-              role: 'Team Member',
-              count: 1,
-              children: [
-                { id: '2-2-1-1', name: 'Amardeep Banjeet', role: 'Team Member' },
-              ],
-            },
-          ],
-        },
-        {
-          id: '2-3',
-          name: 'Ethen Anderson',
-          role: 'Manager',
-          count: 3,
-          children: [
-            {
-              id: '2-3-1',
-              name: 'Hazel Carter',
-              role: 'Assistant Manager',
-              count: 2,
-              children: [
-                { id: '2-3-1-1', name: 'Olivia Smith', role: 'Team Member' },
-                { id: '2-3-1-2', name: 'Lindon Smith', role: 'Team Member' },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-    { id: '3', name: 'Christopher Brown', role: 'Administration' },
-    { id: '4', name: 'Clarkson Walter', role: 'Administration' },
-  ],
-};
-
 export default function OrgChart() {
   const [activePath, setActivePath] = useState<string[]>(['root']);
+  const [loading, setLoading] = useState(false);
+  const [initialData, setInitialData] = useState<Employee | null>(null);
+
+  // Fetch employee hierarchy from API
+  useEffect(() => {
+    const fetchEmployeeHierarchy = async () => {
+      try {
+        setLoading(true);
+        const apiUrl = getApiUrl();
+        const token = getAuthToken();
+
+        const response = await axios.get(`${apiUrl}/employees/hierarchy`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const hierarchyData = response.data.data || response.data || null;
+        setInitialData(hierarchyData);
+      } catch (error) {
+        console.error('Error fetching employee hierarchy:', error);
+        // Fallback to mock data if API fails
+        setInitialData({
+          id: 'root',
+          name: 'mohamed',
+          role: 'CEO',
+          count: 15,
+          children: [
+            { id: '1', name: 'Michael Johnson', role: 'Administration' },
+            {
+              id: '2',
+              name: 'Lilly Williams',
+              role: 'Administration',
+              count: 11,
+              children: [
+                {
+                  id: '2-1',
+                  name: 'Andrew Turner',
+                  role: 'Manager',
+                  count: 3,
+                  children: [
+                    {
+                      id: '2-1-1',
+                      name: 'Asher Miller',
+                      role: 'Assistant Manager',
+                      count: 2,
+                      children: [
+                        { id: '2-1-1-1', name: 'Emily Jones', role: 'Team Member' },
+                        { id: '2-1-1-2', name: 'Isabella Lopez', role: 'Team Member' },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  id: '2-2',
+                  name: 'Ember Johnson',
+                  role: 'Assistant Manager',
+                  count: 2,
+                  children: [
+                    {
+                      id: '2-2-1',
+                      name: 'Caspian Jones',
+                      role: 'Team Member',
+                      count: 1,
+                      children: [
+                        { id: '2-2-1-1', name: 'Amardeep Banjeet', role: 'Team Member' },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  id: '2-3',
+                  name: 'Ethen Anderson',
+                  role: 'Manager',
+                  count: 3,
+                  children: [
+                    {
+                      id: '2-3-1',
+                      name: 'Hazel Carter',
+                      role: 'Assistant Manager',
+                      count: 2,
+                      children: [
+                        { id: '2-3-1-1', name: 'Olivia Smith', role: 'Team Member' },
+                        { id: '2-3-1-2', name: 'Lindon Smith', role: 'Team Member' },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+            { id: '3', name: 'Christopher Brown', role: 'Administration' },
+            { id: '4', name: 'Clarkson Walter', role: 'Administration' },
+          ],
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEmployeeHierarchy();
+  }, []);
 
   const handleNodeClick = (nodeId: string, depth: number) => {
     const newPath = activePath.slice(0, depth + 1);
@@ -97,6 +126,22 @@ export default function OrgChart() {
     }
     setActivePath(newPath);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 md:p-10 font-sans flex items-center justify-center">
+        <p className="text-gray-500">Loading organization chart...</p>
+      </div>
+    );
+  }
+
+  if (!initialData) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 md:p-10 font-sans flex items-center justify-center">
+        <p className="text-gray-500">No organization data available</p>
+      </div>
+    );
+  }
 
   const columns: { nodes: Employee[], parentId: string | null }[] = [];
   columns.push({ nodes: [initialData], parentId: null });
@@ -112,14 +157,11 @@ export default function OrgChart() {
   }
 
   return (
-    // Changed: Added overflow handling for both axis and removed fixed height constraint for mobile
     <div className="min-h-screen bg-gray-50 p-4 md:p-10 font-sans md:overflow-x-auto">
-      {/* Changed: flex-col for mobile, flex-row for desktop */}
       <div className="flex flex-col md:flex-row md:items-start items-center">
         {columns.map((col, colIndex) => {
           
           return (
-            // Changed: Added responsive width and alignment
             <div key={colIndex} className="flex flex-col md:flex-row items-center md:items-stretch">
               
               {/* Connector Area (Lines) between columns - Desktop Only */}
@@ -134,7 +176,6 @@ export default function OrgChart() {
               <div className="flex flex-col justify-center space-y-4 relative py-4 px-2">
                 
                 {/* Vertical Line for siblings - Desktop Only */}
-                {/* We hide this on mobile to create a simpler 'stack' look */}
                 {colIndex > 0 && (
                    <div 
                      className="absolute left-0 w-[2px] bg-gray-200 hidden md:block"
@@ -170,7 +211,7 @@ export default function OrgChart() {
                       >
                          <div className="mr-3 shrink-0">
                            {node.imageUrl ? (
-                             <img src={node.imageUrl} className="w-10 h-10 rounded-full object-cover" />
+                             <img src={node.imageUrl} className="w-10 h-10 rounded-full object-cover" alt={node.name} />
                            ) : (
                              <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center text-gray-500">
                                <User size={20} />
@@ -187,9 +228,7 @@ export default function OrgChart() {
                       {isActive && node.children && (
                         <div className={`
                             absolute flex items-center justify-center
-                            /* Mobile Positions: Bottom Center */
                             top-full left-1/2 -translate-x-1/2 flex-col
-                            /* Desktop Positions: Right Center */
                             md:top-1/2 md:left-full md:translate-x-0 md:-translate-y-1/2 md:flex-row
                         `}>
                            {/* Line 1 */}

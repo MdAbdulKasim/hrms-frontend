@@ -1,11 +1,12 @@
-
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, Briefcase, Calendar, MapPin } from 'lucide-react';
+import axios from 'axios';
+import { getApiUrl, getAuthToken } from '@/lib/auth';
 import ProfilePage from "@/components/profile/ProfilePage";
 
-// --- Type Definitions ---
+// Define Employee type
 interface Employee {
   id: string;
   name: string;
@@ -19,122 +20,74 @@ interface Employee {
   children?: Employee[];
 }
 
-// --- Data ---
-const initialData: Employee = {
-  id: 'root',
-  name: 'mohamed',
-  role: 'CEO',
-  employeeId: '1',
-  email: 'mohamed@company.com',
-  phone: '+1 234-567-8900',
-  department: 'Executive',
-  count: 15,
-  children: [
-    {
-      id: '1',
-      name: 'Michael Johnson',
-      role: 'Administration',
-      employeeId: 'S19',
-      email: 'michaeljohnson@zylker.com',
-      phone: '727-555-4545',
-      department: 'Management'
-    },
-    {
-      id: '2',
-      name: 'Lilly Williams',
-      role: 'Administration',
-      employeeId: 'S2',
-      email: 'lillywilliams@zylker.com',
-      phone: '239-555-0001',
-      department: 'Management',
-      count: 11,
-      children: [
-        {
-          id: '2-1',
-          name: 'Andrew Turner',
-          role: 'Manager',
-          employeeId: 'S5',
-          email: 'andrewturner@zylker.com',
-          department: 'Management',
-          count: 3,
-          children: [
-            {
-              id: '2-1-1',
-              name: 'Asher Miller',
-              role: 'Assistant Manager',
-              employeeId: 'S8',
-              email: 'ashermiller@zylker.com',
-              department: 'Operations',
-              count: 2,
-              children: [
-                { id: '2-1-1-1', name: 'Emily Jones', role: 'Team Member', employeeId: 'S14', email: 'emilyjones@zylker.com', department: 'Operations' },
-                { id: '2-1-1-2', name: 'Isabella Lopez', role: 'Team Member', employeeId: 'S13', email: 'isabellalopez@zylker.com', department: 'Sales' },
-              ],
-            },
-          ],
-        },
-        {
-          id: '2-2',
-          name: 'Ember Johnson',
-          role: 'Assistant Manager',
-          employeeId: 'S6',
-          email: 'emberjohnson@zylker.com',
-          department: 'Management',
-          count: 2,
-          children: [
-            {
-              id: '2-2-1',
-              name: 'Caspian Jones',
-              role: 'Team Member',
-              employeeId: 'S9',
-              email: 'caspianjones@zylker.com',
-              department: 'Operations',
-              count: 1,
-              children: [
-                { id: '2-2-1-1', name: 'Amardeep Banjeet', role: 'Team Member', employeeId: 'S17', email: 'amardeep@zylker.com', department: 'Sales' },
-              ],
-            },
-          ],
-        },
-        {
-          id: '2-3',
-          name: 'Ethen Anderson',
-          role: 'Manager',
-          employeeId: 'S4',
-          email: 'ethenanderson@zylker.com',
-          department: 'Operations',
-          count: 3,
-          children: [
-            {
-              id: '2-3-1',
-              name: 'Hazel Carter',
-              role: 'Assistant Manager',
-              employeeId: 'S7',
-              email: 'hazelcarter@zylker.com',
-              department: 'Operations',
-              count: 2,
-              children: [
-                { id: '2-3-1-1', name: 'Olivia Smith', role: 'Team Member', employeeId: 'S11', email: 'oliviasmith@zylker.com', department: 'Sales' },
-                { id: '2-3-1-2', name: 'Lindon Smith', role: 'Team Member', employeeId: 'S10', email: 'lindonsmith@zylker.com', department: 'Sales' },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-    { id: '3', name: 'Christopher Brown', role: 'Administration', employeeId: 'S20', email: 'christopherbrown@zylker.com', department: 'Management' },
-    { id: '4', name: 'Clarkson Walter', role: 'Administration', employeeId: 'S3', email: 'clarksonwalter@zylker.com', department: 'Management' },
-  ],
-};
-
 export default function OrgChart() {
-  const [activePath, setActivePath] = useState<string[]>(['root']);
+  const [activePath, setActivePath] = useState<string[]>([]);
   const [showProfile, setShowProfile] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [hoveredNode, setHoveredNode] = useState<Employee | null>(null);
   const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number; showAbove?: boolean } | null>(null);
   const [isHoveringPreview, setIsHoveringPreview] = useState(false);
+  const [employeeTree, setEmployeeTree] = useState<Employee | null>(null);
+  const [loading, setLoading] = useState(false);
   let hoverTimeout: NodeJS.Timeout;
+
+  useEffect(() => {
+    const fetchEmployeeTree = async () => {
+      setLoading(true);
+      try {
+        const token = getAuthToken();
+        const apiUrl = getApiUrl();
+
+        const response = await axios.get(`${apiUrl}/employees`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const employees = response.data?.data || response.data || [];
+
+        // Build hierarchical tree structure
+        const buildTree = (employees: any[], managerId: string | null = null): Employee[] => {
+          return employees
+            .filter((emp: any) => emp.reportingManager === managerId)
+            .map((emp: any) => ({
+              id: emp.id,
+              name: `${emp.firstName} ${emp.lastName}`,
+              role: emp.designation || emp.role || 'Employee',
+              employeeId: emp.employeeId || emp.id,
+              email: emp.email,
+              phone: emp.phone,
+              department: emp.department,
+              imageUrl: emp.imageUrl,
+              count: employees.filter((e: any) => e.reportingManager === emp.id).length,
+              children: buildTree(employees, emp.id)
+            }));
+        };
+
+        // Find the root employee (CEO or highest level)
+        const rootEmployee = employees.find((emp: any) => !emp.reportingManager) || employees[0];
+        if (rootEmployee) {
+          const tree: Employee = {
+            id: rootEmployee.id,
+            name: `${rootEmployee.firstName} ${rootEmployee.lastName}`,
+            role: rootEmployee.designation || rootEmployee.role || 'CEO',
+            employeeId: rootEmployee.employeeId || rootEmployee.id,
+            email: rootEmployee.email,
+            phone: rootEmployee.phone,
+            department: rootEmployee.department,
+            imageUrl: rootEmployee.imageUrl,
+            count: employees.filter((e: any) => e.reportingManager === rootEmployee.id).length,
+            children: buildTree(employees, rootEmployee.id)
+          };
+          setEmployeeTree(tree);
+        }
+      } catch (error) {
+        console.error('Error fetching employee tree:', error);
+        setEmployeeTree(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEmployeeTree();
+  }, []);
 
   const handleNodeClick = (nodeId: string, depth: number) => {
     const newPath = activePath.slice(0, depth + 1);
@@ -207,7 +160,9 @@ export default function OrgChart() {
   }
 
   const columns: { nodes: Employee[], parentId: string | null }[] = [];
-  columns.push({ nodes: [initialData], parentId: null });
+  if (employeeTree) {
+    columns.push({ nodes: [employeeTree], parentId: null });
+  }
 
   for (let i = 0; i < activePath.length; i++) {
     const activeId = activePath[i];

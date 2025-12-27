@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from 'lucide-react';
+import axios from 'axios';
+import { getApiUrl, getAuthToken } from '@/lib/auth';
 
 // --- DATA & TYPES ---
 
@@ -20,54 +22,101 @@ export type Department = {
   employees: Employee[];
 };
 
-export const departments: Department[] = [
-  {
-    id: 'it',
-    name: 'IT',
-    initial: 'I',
-    count: 10,
-    employees: [
-      { id: '1', name: 'Andrew Turner', role: 'Manager', imageUrl: '/images/user1.jpg' },
-      { id: '2', name: 'Ember Johnson', role: 'Assistant Manager', imageUrl: '/images/user2.jpg' },
-      { id: '3', name: 'Asher Miller', role: 'Assistant Manager', imageUrl: '/images/user3.jpg' },
-      { id: '4', name: 'Caspian Jones', role: 'Team Member', imageUrl: '/images/user4.jpg' },
-      { id: '5', name: 'Isabella Lopez', role: 'Team Member', imageUrl: '/images/user5.jpg' },
-    ],
-  },
-  {
-    id: 'management',
-    name: 'Management',
-    initial: 'M',
-    count: 5,
-    employees: [
-      { id: '10', name: 'Mohamed', role: 'CEO', imageUrl: '/images/user6.jpg' },
-      { id: '11', name: 'Lilly Williams', role: 'Administration', imageUrl: '/images/user7.jpg' },
-    ],
-  },
-  {
-    id: 'marketing',
-    name: 'Marketing',
-    initial: 'M',
-    count: 5,
-    employees: [
-      { id: '15', name: 'Ethen Anderson', role: 'Manager', imageUrl: '/images/user8.jpg' },
-      { id: '16', name: 'Hazel Carter', role: 'Assistant Manager', imageUrl: '/images/user9.jpg' },
-      { id: '17', name: 'Lindon Smith', role: 'Team Member', imageUrl: '/images/user10.jpg' },
-    ],
-  },
-  {
-    id: 'hr',
-    name: 'HR',
-    initial: 'H',
-    count: 0,
-    employees: [],
-  },
-];
-
 // --- COMPONENT ---
 
 export default function OrganizationChart() {
   const [activeDeptId, setActiveDeptId] = useState<string>('it');
+  const [loading, setLoading] = useState(false);
+  const [departments, setDepartments] = useState<Department[]>([]);
+
+  // Fetch departments and employees from API
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        setLoading(true);
+        const apiUrl = getApiUrl();
+        const token = getAuthToken();
+
+        const response = await axios.get(`${apiUrl}/departments`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const departmentsData = response.data.data || response.data || [];
+
+        // Transform API data to match component interface
+        const transformedData: Department[] = departmentsData.map((dept: any) => ({
+          id: dept.id || dept._id || dept.name?.toLowerCase().replace(/\s/g, '-'),
+          name: dept.name || 'Unknown Department',
+          initial: dept.name?.charAt(0).toUpperCase() || 'U',
+          count: dept.employees?.length || dept.members?.length || 0,
+          employees: (dept.employees || dept.members || []).map((emp: any) => ({
+            id: emp.id || emp._id || String(Math.random()),
+            name: emp.name || emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown Employee',
+            role: emp.role || emp.designation || emp.position || 'Employee',
+            imageUrl: emp.imageUrl || emp.profileImage || undefined
+          }))
+        }));
+
+        setDepartments(transformedData);
+        // Set first department as active if available
+        if (transformedData.length > 0 && !transformedData.find(d => d.id === activeDeptId)) {
+          setActiveDeptId(transformedData[0].id);
+        }
+      } catch (error) {
+        console.error('Error fetching departments:', error);
+        // Fallback to mock data if API fails
+        setDepartments([
+          {
+            id: 'it',
+            name: 'IT',
+            initial: 'I',
+            count: 10,
+            employees: [
+              { id: '1', name: 'Andrew Turner', role: 'Manager', imageUrl: '/images/user1.jpg' },
+              { id: '2', name: 'Ember Johnson', role: 'Assistant Manager', imageUrl: '/images/user2.jpg' },
+              { id: '3', name: 'Asher Miller', role: 'Assistant Manager', imageUrl: '/images/user3.jpg' },
+              { id: '4', name: 'Caspian Jones', role: 'Team Member', imageUrl: '/images/user4.jpg' },
+              { id: '5', name: 'Isabella Lopez', role: 'Team Member', imageUrl: '/images/user5.jpg' },
+            ],
+          },
+          {
+            id: 'management',
+            name: 'Management',
+            initial: 'M',
+            count: 5,
+            employees: [
+              { id: '10', name: 'Mohamed', role: 'CEO', imageUrl: '/images/user6.jpg' },
+              { id: '11', name: 'Lilly Williams', role: 'Administration', imageUrl: '/images/user7.jpg' },
+            ],
+          },
+          {
+            id: 'marketing',
+            name: 'Marketing',
+            initial: 'M',
+            count: 5,
+            employees: [
+              { id: '15', name: 'Ethen Anderson', role: 'Manager', imageUrl: '/images/user8.jpg' },
+              { id: '16', name: 'Hazel Carter', role: 'Assistant Manager', imageUrl: '/images/user9.jpg' },
+              { id: '17', name: 'Lindon Smith', role: 'Team Member', imageUrl: '/images/user10.jpg' },
+            ],
+          },
+          {
+            id: 'hr',
+            name: 'HR',
+            initial: 'H',
+            count: 0,
+            employees: [],
+          },
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDepartments();
+  }, [activeDeptId]);
 
   // Find the currently active department
   const activeDept = departments.find((d) => d.id === activeDeptId) || departments[0];
@@ -85,21 +134,30 @@ export default function OrganizationChart() {
       {/* --- Left Column: Departments --- */}
       {/* RESPONSIVE UPDATE: w-full on mobile, fixed width on desktop */}
       <div className="w-full md:w-[320px] flex flex-col gap-5 shrink-0">
-        {departments.map((dept) => {
-          const isActive = activeDeptId === dept.id;
+        {loading ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500">Loading departments...</p>
+          </div>
+        ) : departments.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500">No departments found</p>
+          </div>
+        ) : (
+          departments.map((dept) => {
+            const isActive = activeDeptId === dept.id;
 
-          return (
-            <div
-              key={dept.id}
-              onClick={() => setActiveDeptId(dept.id)}
-              className={`
-                relative flex items-center p-4 rounded-2xl border cursor-pointer transition-all duration-200 h-[80px]
-                ${isActive 
-                  ? 'bg-blue-50 border-blue-500 shadow-sm z-20' 
-                  : 'bg-gray-50/50 border-gray-200 hover:bg-gray-100'
-                }
-              `}
-            >
+            return (
+              <div
+                key={dept.id}
+                onClick={() => setActiveDeptId(dept.id)}
+                className={`
+                  relative flex items-center p-4 rounded-2xl border cursor-pointer transition-all duration-200 h-[80px]
+                  ${isActive 
+                    ? 'bg-blue-50 border-blue-500 shadow-sm z-20' 
+                    : 'bg-gray-50/50 border-gray-200 hover:bg-gray-100'
+                  }
+                `}
+              >
               {/* Initial Box */}
               <div className="w-10 h-10 bg-gray-200/80 rounded-lg flex items-center justify-center text-gray-700 font-medium mr-4">
                 {dept.initial}
@@ -140,7 +198,8 @@ export default function OrganizationChart() {
               </div>
             </div>
           );
-        })}
+        })
+        )}
       </div>
 
       {/* --- Right Column: Employee Tree --- */}

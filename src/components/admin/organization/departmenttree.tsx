@@ -1,8 +1,9 @@
-
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, Briefcase } from 'lucide-react';
+import axios from 'axios';
+import { getApiUrl, getAuthToken } from '@/lib/auth';
 import ProfilePage from "@/components/profile/ProfilePage";
 
 // --- DATA & TYPES ---
@@ -26,76 +27,6 @@ export type Department = {
   employees: Employee[];
 };
 
-export const departments: Department[] = [
-  {
-    id: 'it',
-    name: 'IT',
-    initial: 'I',
-    count: 10,
-    employees: [
-      { id: '1', employeeId: 'S5', name: 'Andrew Turner', role: 'Manager', email: 'andrewturner@zylker.com', phone: '555-0101', department: 'Management' },
-      { id: '2', employeeId: 'S6', name: 'Ember Johnson', role: 'Assistant Manager', email: 'emberjohnson@zylker.com', phone: '555-0102', department: 'Management' },
-      { id: '3', employeeId: 'S8', name: 'Asher Miller', role: 'Assistant Manager', email: 'ashermiller@zylker.com', phone: '555-0103', department: 'Operations' },
-      { id: '4', employeeId: 'S9', name: 'Caspian Jones', role: 'Team Member', email: 'caspianjones@zylker.com', phone: '555-0104', department: 'Operations' },
-      { id: '5', employeeId: 'S13', name: 'Isabella Lopez', role: 'Team Member', email: 'isabellalopez@zylker.com', phone: '555-0105', department: 'Sales' },
-    ],
-  },
-  {
-    id: 'management',
-    name: 'Management',
-    initial: 'M',
-    count: 5,
-    employees: [
-      { id: '10', employeeId: '1', name: 'Mohamed', role: 'CEO', email: 'mohamed@zylker.com', phone: '555-0200', department: 'Executive' },
-      { id: '11', employeeId: 'S2', name: 'Lilly Williams', role: 'Administration', email: 'lillywilliams@zylker.com', phone: '239-555-0001', department: 'Management' },
-      { id: '12', employeeId: 'S19', name: 'Michael Johnson', role: 'Administration', email: 'michaeljohnson@zylker.com', phone: '727-555-4545', department: 'Management' },
-      { id: '13', employeeId: 'S20', name: 'Christopher Brown', role: 'Administration', email: 'christopherbrown@zylker.com', phone: '555-0203', department: 'Management' },
-      { id: '14', employeeId: 'S3', name: 'Clarkson Walter', role: 'Administration', email: 'clarksonwalter@zylker.com', phone: '555-0204', department: 'Management' },
-    ],
-  },
-  {
-    id: 'marketing',
-    name: 'Marketing',
-    initial: 'M',
-    count: 5,
-    employees: [
-      { id: '15', employeeId: 'S4', name: 'Ethen Anderson', role: 'Manager', email: 'ethenanderson@zylker.com', phone: '555-0301', department: 'Operations' },
-      { id: '16', employeeId: 'S7', name: 'Hazel Carter', role: 'Assistant Manager', email: 'hazelcarter@zylker.com', phone: '555-0302', department: 'Operations' },
-      { id: '17', employeeId: 'S10', name: 'Lindon Smith', role: 'Team Member', email: 'lindonsmith@zylker.com', phone: '555-0303', department: 'Sales' },
-    ],
-  },
-  {
-    id: 'operations',
-    name: 'Operations',
-    initial: 'O',
-    count: 3,
-    employees: [
-      { id: '18', employeeId: 'S14', name: 'Emily Jones', role: 'Team Member', email: 'emilyjones@zylker.com', phone: '555-0401', department: 'Operations' },
-      { id: '19', employeeId: 'S15', name: 'Aparna Acharya', role: 'Team Member', email: 'aparnaacharya@zylker.com', phone: '555-0402', department: 'Operations' },
-    ],
-  },
-  {
-    id: 'sales',
-    name: 'Sales',
-    initial: 'S',
-    count: 7,
-    employees: [
-      { id: '20', employeeId: 'S11', name: 'Olivia Smith', role: 'Team Member', email: 'oliviasmith@zylker.com', phone: '555-0501', department: 'Sales' },
-      { id: '21', employeeId: 'S12', name: 'Sofia Rodriguez', role: 'Team Member', email: 'sofiarodriguez@zylker.com', phone: '555-0502', department: 'Sales' },
-      { id: '22', employeeId: 'S16', name: 'Andrea Garcia', role: 'Team Member', email: 'andreagarcia@zylker.com', phone: '555-0503', department: 'Sales' },
-      { id: '23', employeeId: 'S17', name: 'Amardeep Banjeet', role: 'Team Member', email: 'amardeep@zylker.com', phone: '555-0504', department: 'Sales' },
-      { id: '24', employeeId: 'S18', name: 'William Smith', role: 'Team Member', email: 'williamsmith@zylker.com', phone: '555-0505', department: 'Sales' },
-    ],
-  },
-  {
-    id: 'hr',
-    name: 'HR',
-    initial: 'H',
-    count: 0,
-    employees: [],
-  },
-];
-
 // --- COMPONENT ---
 
 export default function DepartmentTree() {
@@ -105,7 +36,71 @@ export default function DepartmentTree() {
   const [hoveredEmployee, setHoveredEmployee] = useState<Employee | null>(null);
   const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number; showAbove?: boolean } | null>(null);
   const [isHoveringPreview, setIsHoveringPreview] = useState(false);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loading, setLoading] = useState(false);
   let hoverTimeout: NodeJS.Timeout;
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      setLoading(true);
+      try {
+        const token = getAuthToken();
+        const apiUrl = getApiUrl();
+
+        // Fetch departments
+        const deptResponse = await axios.get(`${apiUrl}/departments`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const departmentsData = deptResponse.data?.data || deptResponse.data || [];
+
+        // Fetch employees
+        const empResponse = await axios.get(`${apiUrl}/employees`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const employeesData = empResponse.data?.data || empResponse.data || [];
+
+        // Group employees by department
+        const deptMap = new Map();
+        employeesData.forEach((emp: any) => {
+          const deptId = emp.departmentId || emp.department?.toLowerCase().replace(/\s+/g, '') || 'other';
+          if (!deptMap.has(deptId)) {
+            deptMap.set(deptId, []);
+          }
+          deptMap.get(deptId).push({
+            id: emp.id,
+            employeeId: emp.employeeId || emp.id,
+            name: `${emp.firstName} ${emp.lastName}`,
+            role: emp.designation || emp.role || 'Employee',
+            email: emp.email,
+            phone: emp.phone,
+            department: emp.department,
+            imageUrl: emp.imageUrl
+          });
+        });
+
+        // Create department objects
+        const formattedDepartments: Department[] = departmentsData.map((dept: any) => ({
+          id: dept.id || dept.name?.toLowerCase().replace(/\s+/g, ''),
+          name: dept.name,
+          initial: dept.name?.charAt(0).toUpperCase() || 'D',
+          count: deptMap.get(dept.id || dept.name?.toLowerCase().replace(/\s+/g, ''))?.length || 0,
+          employees: deptMap.get(dept.id || dept.name?.toLowerCase().replace(/\s+/g, '')) || []
+        }));
+
+        setDepartments(formattedDepartments);
+        if (formattedDepartments.length > 0 && !activeDeptId) {
+          setActiveDeptId(formattedDepartments[0].id);
+        }
+      } catch (error) {
+        console.error('Error fetching departments and employees:', error);
+        setDepartments([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
 
   const activeDept = departments.find((d) => d.id === activeDeptId) || departments[0];
   const activeIndex = departments.findIndex((d) => d.id === activeDeptId);
@@ -149,6 +144,12 @@ export default function DepartmentTree() {
     setHoverPosition(null);
   };
 
+  const handleEmployeeClick = (employeeId: string) => {
+    setSelectedEmployeeId(employeeId);
+    setShowProfile(true);
+    setHoveredEmployee(null);
+  };
+
   const handleViewProfile = (employeeId: string) => {
     setSelectedEmployeeId(employeeId);
     setShowProfile(true);
@@ -176,54 +177,64 @@ export default function DepartmentTree() {
 
       {/* --- Left Column: Departments --- */}
       <div className="w-full md:w-[320px] flex flex-col gap-5 shrink-0">
-        {departments.map((dept) => {
-          const isActive = activeDeptId === dept.id;
+        {loading ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500">Loading departments...</p>
+          </div>
+        ) : departments.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500">No departments found</p>
+          </div>
+        ) : (
+          departments.map((dept) => {
+            const isActive = activeDeptId === dept.id;
 
-          return (
-            <div
-              key={dept.id}
-              onClick={() => setActiveDeptId(dept.id)}
-              className={`
-                relative flex items-center p-4 rounded-2xl border cursor-pointer transition-all duration-200 h-20
-                ${isActive
-                  ? 'bg-blue-50 border-blue-500 shadow-sm z-20'
-                  : 'bg-gray-50/50 border-gray-200 hover:bg-gray-100'
-                }
-              `}
-            >
-              <div className="w-10 h-10 bg-gray-200/80 rounded-lg flex items-center justify-center text-gray-700 font-medium mr-4">
-                {dept.initial}
-              </div>
-
-              <div className="flex flex-col">
-                <span className="font-semibold text-gray-800 text-base">{dept.name}</span>
-                <span className="text-gray-400 text-xs">-</span>
-              </div>
-
-              <div className="absolute right-4 md:-right-[46px] flex items-center">
-                <div
-                  className={`hidden md:block h-px w-3.5 ${isActive ? 'bg-blue-500' : 'bg-gray-300'}`}
-                />
-
-                <div
-                  className={`
-                    w-8 h-7 flex items-center justify-center text-xs border rounded-sm
-                    ${isActive
-                      ? 'bg-blue-500 border-blue-500 text-white'
-                      : 'bg-white border-gray-300 text-gray-600'
-                    }
-                  `}
-                >
-                  {dept.count > 0 ? dept.count : 0}
+            return (
+              <div
+                key={dept.id}
+                onClick={() => setActiveDeptId(dept.id)}
+                className={`
+                  relative flex items-center p-4 rounded-2xl border cursor-pointer transition-all duration-200 h-20
+                  ${isActive
+                    ? 'bg-blue-50 border-blue-500 shadow-sm z-20'
+                    : 'bg-gray-50/50 border-gray-200 hover:bg-gray-100'
+                  }
+                `}
+              >
+                <div className="w-10 h-10 bg-gray-200/80 rounded-lg flex items-center justify-center text-gray-700 font-medium mr-4">
+                  {dept.initial}
                 </div>
 
-                {isActive && (
-                  <div className="hidden md:block h-px w-3.5 bg-blue-500" />
-                )}
+                <div className="flex flex-col">
+                  <span className="font-semibold text-gray-800 text-base">{dept.name}</span>
+                  <span className="text-gray-400 text-xs">{dept.count} employees</span>
+                </div>
+
+                <div className="absolute right-4 md:-right-[46px] flex items-center">
+                  <div
+                    className={`hidden md:block h-px w-3.5 ${isActive ? 'bg-blue-500' : 'bg-gray-300'}`}
+                  />
+
+                  <div
+                    className={`
+                      w-8 h-7 flex items-center justify-center text-xs border rounded-sm
+                      ${isActive
+                        ? 'bg-blue-500 border-blue-500 text-white'
+                        : 'bg-white border-gray-300 text-gray-600'
+                      }
+                    `}
+                  >
+                    {dept.count > 0 ? dept.count : 0}
+                  </div>
+
+                  {isActive && (
+                    <div className="hidden md:block h-px w-3.5 bg-blue-500" />
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
 
       {/* --- Right Column: Employee Tree --- */}
@@ -235,43 +246,47 @@ export default function DepartmentTree() {
           className="relative mt-0 md:mt-(--tree-offset) border-l-0 md:border-l border-gray-200 pl-0 md:pl-8 flex flex-col gap-4"
         >
 
-          {activeDept.employees.map((emp) => (
-            <div
-              key={emp.id}
-              onClick={() => setActiveDeptId(activeDeptId)}
-              onMouseEnter={(e) => handleEmployeeHover(emp, e)}
-              onMouseLeave={handleEmployeeLeave}
-              className="relative flex items-center bg-white border border-gray-200 rounded-xl p-3 shadow-sm w-full md:min-w-[300px] md:max-w-[400px] cursor-pointer hover:border-blue-300 hover:shadow-md transition-all"
-            >
-              <div className="hidden md:block absolute -left-8 top-1/2 -translate-y-1/2 w-8 h-px bg-gray-200"></div>
+          {loading ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">Loading employees...</p>
+            </div>
+          ) : !activeDept || activeDept.employees.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No employees in this department</p>
+            </div>
+          ) : (
+            activeDept.employees.map((emp) => (
+              <div
+                key={emp.id}
+                onClick={() => handleEmployeeClick(emp.id)}
+                onMouseEnter={(e) => handleEmployeeHover(emp, e)}
+                onMouseLeave={handleEmployeeLeave}
+                className="relative flex items-center bg-white border border-gray-200 rounded-xl p-3 shadow-sm w-full md:min-w-[300px] md:max-w-[400px] cursor-pointer hover:border-blue-300 hover:shadow-md transition-all"
+              >
+                <div className="hidden md:block absolute -left-8 top-1/2 -translate-y-1/2 w-8 h-px bg-gray-200"></div>
 
-              <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 mr-3 shrink-0 relative">
-                <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-                  <User size={20} />
+                <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 mr-3 shrink-0 relative">
+                  <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+                    <User size={20} />
+                  </div>
+                  {emp.imageUrl && (
+                    <img
+                      src={emp.imageUrl}
+                      alt={emp.name}
+                      className="w-full h-full object-cover relative z-10"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                  )}
                 </div>
-                {emp.imageUrl && (
-                  <img
-                    src={emp.imageUrl}
-                    alt={emp.name}
-                    className="w-full h-full object-cover relative z-10"
-                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                  />
-                )}
-              </div>
 
-              <div className="flex flex-col flex-1 min-w-0">
-                <span className="text-sm font-semibold text-gray-800 truncate">
-                  {emp.employeeId} - {emp.name}
-                </span>
-                <span className="text-xs text-gray-500 truncate">{emp.role}</span>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="text-sm font-semibold text-gray-800 truncate">
+                    {emp.employeeId} - {emp.name}
+                  </span>
+                  <span className="text-xs text-gray-500 truncate">{emp.role}</span>
+                </div>
               </div>
-            </div>
-          ))}
-
-          {activeDept.employees.length === 0 && (
-            <div className="text-gray-400 text-sm italic pl-2 pt-2">
-              No team members listed.
-            </div>
+            ))
           )}
         </div>
       </div>

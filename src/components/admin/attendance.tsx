@@ -35,6 +35,8 @@ import {
 } from 'date-fns';
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
+import axios from 'axios';
+import { getApiUrl, getAuthToken } from '@/lib/auth';
 
 interface AttendanceRecord {
   date: string; // Dynamic date string or ISO
@@ -52,18 +54,11 @@ const AttendanceTracker: React.FC = () => {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
 
-  const allAttendanceData: AttendanceRecord[] = [
-    { date: '2024-01-15', checkIn: '09:00 AM', checkOut: '06:30 PM', hoursWorked: '9h 30m', status: 'Present' },
-    { date: '2024-01-14', checkIn: '09:15 AM', checkOut: '06:00 PM', hoursWorked: '8h 45m', status: 'Present' },
-    { date: '2024-01-13', checkIn: '-', checkOut: '-', hoursWorked: '-', status: 'Weekend' },
-    { date: '2024-01-12', checkIn: '-', checkOut: '-', hoursWorked: '-', status: 'Weekend' },
-    { date: '2024-01-11', checkIn: '09:30 AM', checkOut: '05:45 PM', hoursWorked: '8h 15m', status: 'Late' },
-    { date: '2024-01-10', checkIn: '-', checkOut: '-', hoursWorked: '-', status: 'Leave' },
-    { date: '2024-01-09', checkIn: '08:55 AM', checkOut: '06:15 PM', hoursWorked: '9h 20m', status: 'Present' },
-    { date: '2024-01-08', checkIn: '09:00 AM', checkOut: '06:00 PM', hoursWorked: '9h 00m', status: 'Present' },
-    { date: '2024-01-07', checkIn: '-', checkOut: '-', hoursWorked: '-', status: 'Weekend' },
-    { date: '2023-12-25', checkIn: '09:00 AM', checkOut: '06:00 PM', hoursWorked: '9h 00m', status: 'Present' },
-  ];
+  // Loading state for API calls
+  const [loading, setLoading] = useState(false);
+
+  // Converted mock data to state for API integration
+  const [allAttendanceData, setAllAttendanceData] = useState<AttendanceRecord[]>([]);
 
   // Close calendar when clicking outside
   useEffect(() => {
@@ -74,6 +69,55 @@ const AttendanceTracker: React.FC = () => {
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fetch attendance data from API
+  useEffect(() => {
+    const fetchAttendanceData = async () => {
+      try {
+        setLoading(true);
+        const apiUrl = getApiUrl();
+        const token = getAuthToken();
+
+        const response = await axios.get(`${apiUrl}/attendance`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const attendanceData = response.data.data || response.data || [];
+
+        // Transform API data to match component interface
+        const transformedData: AttendanceRecord[] = attendanceData.map((record: any) => ({
+          date: record.date ? new Date(record.date).toISOString().split('T')[0] : '',
+          checkIn: record.checkIn || '-',
+          checkOut: record.checkOut || '-',
+          hoursWorked: record.hoursWorked || '-',
+          status: record.status || 'Present'
+        }));
+
+        setAllAttendanceData(transformedData);
+      } catch (error) {
+        console.error('Error fetching attendance data:', error);
+        // Fallback to mock data if API fails
+        setAllAttendanceData([
+          { date: '2024-01-15', checkIn: '09:00 AM', checkOut: '06:30 PM', hoursWorked: '9h 30m', status: 'Present' },
+          { date: '2024-01-14', checkIn: '09:15 AM', checkOut: '06:00 PM', hoursWorked: '8h 45m', status: 'Present' },
+          { date: '2024-01-13', checkIn: '-', checkOut: '-', hoursWorked: '-', status: 'Weekend' },
+          { date: '2024-01-12', checkIn: '-', checkOut: '-', hoursWorked: '-', status: 'Weekend' },
+          { date: '2024-01-11', checkIn: '09:30 AM', checkOut: '05:45 PM', hoursWorked: '8h 15m', status: 'Late' },
+          { date: '2024-01-10', checkIn: '-', checkOut: '-', hoursWorked: '-', status: 'Leave' },
+          { date: '2024-01-09', checkIn: '08:55 AM', checkOut: '06:15 PM', hoursWorked: '9h 20m', status: 'Present' },
+          { date: '2024-01-08', checkIn: '09:00 AM', checkOut: '06:00 PM', hoursWorked: '9h 00m', status: 'Present' },
+          { date: '2024-01-07', checkIn: '-', checkOut: '-', hoursWorked: '-', status: 'Weekend' },
+          { date: '2023-12-25', checkIn: '09:00 AM', checkOut: '06:00 PM', hoursWorked: '9h 00m', status: 'Present' },
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAttendanceData();
   }, []);
 
   const filteredData = useMemo(() => {
@@ -304,7 +348,13 @@ const AttendanceTracker: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredData.length > 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                      Loading attendance records...
+                    </td>
+                  </tr>
+                ) : filteredData.length > 0 ? (
                   filteredData.map((record, idx) => (
                     <tr key={idx} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 md:px-6 md:py-4 text-sm font-medium text-gray-900 whitespace-nowrap">

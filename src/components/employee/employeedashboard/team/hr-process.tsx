@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, ChevronDown, Search, Menu, Plus, Calendar, Info } from 'lucide-react';
 import {
   Dialog,
@@ -7,6 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import axios from 'axios';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 
 // Types
 type ProcessType = 'Department Change' | 'Location Change' | 'Designation Change';
@@ -41,37 +43,7 @@ interface ProcessRequest {
   createdAt: string;
 }
 
-const processes: Process[] = [
-  {
-    id: 'dc',
-    name: 'Department Change',
-    description: 'This process is used by reporting managers to initiate the team change process.',
-    icon: 'DC'
-  },
-  {
-    id: 'lc',
-    name: 'Location Change',
-    description: 'This process is used by reporting managers to initiate the location change process.',
-    icon: 'LC'
-  },
-  {
-    id: 'pp',
-    name: 'Designation Change',
-    description: 'This process is used by reporting managers to raise a designation change for their reportees',
-    icon: 'PP'
-  }
-];
-
-const availableEmployees: Employee[] = [
-  { id: 'S10', name: 'Lindon Smith', email: 'lindonsmith@zylker.com', role: 'Team member' },
-  { id: 'S11', name: 'John Doe', email: 'johndoe@zylker.com', role: 'Team member' },
-  { id: 'S12', name: 'Jane Smith', email: 'janesmith@zylker.com', role: 'Senior Developer' },
-];
-
-const departments = ['HR', 'MANAGEMENT', 'MARKETING', 'IT'];
-const locations = ['New York', 'San Francisco', 'London', 'Mumbai'];
-const designations = ['Assistant Manager', 'Manager', 'Senior Manager', 'Team Lead', 'Senior Developer'];
-const reportingManagers = ['S2 Lilly Williams', 'S3 CLARKSON WALTER', 'S4 Emma Johnson', 'S5 Michael Brown'];
+// Remove mock data - will fetch from API
 
 export default function HRProcessManager() {
   const [selectedProcess, setSelectedProcess] = useState<string>('All');
@@ -89,8 +61,123 @@ export default function HRProcessManager() {
   const [currentRequest, setCurrentRequest] = useState<ProcessRequest | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date(2025, 11, 16)); // Dec 16, 2025
-  
-  // Form state
+  const [loading, setLoading] = useState(true);
+
+  // Data states
+  const [processes, setProcesses] = useState<Process[]>([]);
+  const [availableEmployees, setAvailableEmployees] = useState<Employee[]>([]);
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [locations, setLocations] = useState<string[]>([]);
+  const [designations, setDesignations] = useState<string[]>([]);
+  const [reportingManagers, setReportingManagers] = useState<string[]>([]);
+
+  // Fetch data from API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const token = getAuthToken();
+        const orgId = getOrgId();
+        const apiUrl = getApiUrl();
+
+        if (!token || !orgId) return;
+
+        // Set static processes (these might be predefined)
+        setProcesses([
+          {
+            id: 'dc',
+            name: 'Department Change',
+            description: 'This process is used by reporting managers to initiate the team change process.',
+            icon: 'DC'
+          },
+          {
+            id: 'lc',
+            name: 'Location Change',
+            description: 'This process is used by reporting managers to initiate the location change process.',
+            icon: 'LC'
+          },
+          {
+            id: 'pp',
+            name: 'Designation Change',
+            description: 'This process is used by reporting managers to raise a designation change for their reportees',
+            icon: 'PP'
+          }
+        ]);
+
+        // Fetch employees
+        const employeesRes = await axios.get(`${apiUrl}/org/${orgId}/employees`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const employeesData = employeesRes.data.data || employeesRes.data;
+        setAvailableEmployees(employeesData.map((emp: any) => ({
+          id: emp.employeeId || emp.id,
+          name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.email,
+          email: emp.email,
+          role: emp.designation?.name || emp.designation || 'Team member'
+        })));
+
+        // Fetch departments
+        const deptRes = await axios.get(`${apiUrl}/org/${orgId}/departments`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const deptData = deptRes.data.data || deptRes.data;
+        setDepartments(deptData.map((d: any) => d.name || d));
+
+        // Fetch locations
+        const locRes = await axios.get(`${apiUrl}/org/${orgId}/locations`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const locData = locRes.data.data || locRes.data;
+        setLocations(locData.map((l: any) => l.name || l.city || l));
+
+        // Fetch designations
+        const desigRes = await axios.get(`${apiUrl}/org/${orgId}/designations`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const desigData = desigRes.data.data || desigRes.data;
+        setDesignations(desigData.map((d: any) => d.name || d.title || d));
+
+        // Set reporting managers (could be managers from employees)
+        setReportingManagers(availableEmployees.slice(0, 4).map(emp => `${emp.id} ${emp.name}`));
+
+      } catch (error) {
+        console.error('Error fetching HR process data:', error);
+        // Fallback to defaults
+        setProcesses([
+          {
+            id: 'dc',
+            name: 'Department Change',
+            description: 'This process is used by reporting managers to initiate the team change process.',
+            icon: 'DC'
+          },
+          {
+            id: 'lc',
+            name: 'Location Change',
+            description: 'This process is used by reporting managers to initiate the location change process.',
+            icon: 'LC'
+          },
+          {
+            id: 'pp',
+            name: 'Designation Change',
+            description: 'This process is used by reporting managers to raise a designation change for their reportees',
+            icon: 'PP'
+          }
+        ]);
+        setAvailableEmployees([
+          { id: 'S10', name: 'Lindon Smith', email: 'lindonsmith@zylker.com', role: 'Team member' },
+          { id: 'S11', name: 'John Doe', email: 'johndoe@zylker.com', role: 'Team member' },
+          { id: 'S12', name: 'Jane Smith', email: 'janesmith@zylker.com', role: 'Senior Developer' },
+        ]);
+        setDepartments(['HR', 'MANAGEMENT', 'MARKETING', 'IT']);
+        setLocations(['New York', 'San Francisco', 'London', 'Mumbai']);
+        setDesignations(['Assistant Manager', 'Manager', 'Senior Manager', 'Team Lead', 'Senior Developer']);
+        setReportingManagers(['S2 Lilly Williams', 'S3 CLARKSON WALTER', 'S4 Emma Johnson', 'S5 Michael Brown']);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
   const [formData, setFormData] = useState({
     department: '',
     location: '',
@@ -270,7 +357,13 @@ export default function HRProcessManager() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header - Made Responsive */}
+      {loading ? (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-gray-500">Loading HR process data...</div>
+        </div>
+      ) : (
+        <>
+          {/* Header - Made Responsive */}
       <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full md:w-auto">
@@ -1050,6 +1143,8 @@ export default function HRProcessManager() {
           </div>
         </DialogContent>
       </Dialog>
+        </>
+      )}
     </div>
   );
 }

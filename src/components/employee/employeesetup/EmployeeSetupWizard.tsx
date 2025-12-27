@@ -8,6 +8,8 @@ import EmployeeContactDetailsStep from './EmployeeContactDetailsStep';
 import EmployeeIdentityInfoStep from './EmployeeIdentityInfoStep';
 import EmployeeWorkExperienceStep from './EmployeeWorkExperienceStep';
 import EmployeeEducationStep from './EmployeeEducationStep';
+import axios from 'axios';
+import { getApiUrl, getAuthToken } from '@/lib/auth';
 
 export default function EmployeeSetupWizard({
   initialStep = 1,
@@ -116,16 +118,27 @@ export default function EmployeeSetupWizard({
     }
   };
 
-  const handleCompleteSetup = () => {
-    markStepComplete(5);
-
-    const completeData = {
-      ...employeeData,
-      allStepsCompleted: true,
-      completedAt: new Date().toISOString(),
-    };
-
+  const handleCompleteSetup = async () => {
     try {
+      markStepComplete(5);
+
+      const completeData = {
+        ...employeeData,
+        allStepsCompleted: true,
+        completedAt: new Date().toISOString(),
+      };
+
+      // Save to API
+      const apiUrl = getApiUrl();
+      const token = getAuthToken();
+
+      await axios.put(`${apiUrl}/employees/me`, completeData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Also save to localStorage as backup
       localStorage.setItem('employeeSetupData', JSON.stringify(completeData));
 
       window.dispatchEvent(new Event('storage'));
