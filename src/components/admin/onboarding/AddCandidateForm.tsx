@@ -1,13 +1,112 @@
 'use client';
 import React from 'react';
-import { X, ChevronDown } from 'lucide-react';
+import { X, ChevronDown, Search, Check } from 'lucide-react';
 import { CandidateForm } from './types';
+
+interface SearchableSelectProps {
+    value: string;
+    onChange: (value: string) => void;
+    options: { id: string; label: string }[];
+    placeholder: string;
+    label: string;
+    disabled?: boolean;
+}
+
+const SearchableSelect: React.FC<SearchableSelectProps> = ({
+    value,
+    onChange,
+    options,
+    placeholder,
+    label,
+    disabled = false,
+}) => {
+    const [isOpen, setIsOpen] = React.useState(false);
+    const [searchQuery, setSearchQuery] = React.useState('');
+    const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+    const filteredOptions = options.filter(option =>
+        option.label.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const selectedOption = options.find(opt => opt.id === value);
+
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div className="relative" ref={dropdownRef}>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+                {label}
+            </label>
+            <div
+                onClick={() => !disabled && setIsOpen(!isOpen)}
+                className={`w-full px-4 py-2 border border-gray-300 rounded-lg flex items-center justify-between cursor-pointer focus-within:ring-2 focus-within:ring-blue-500 bg-white ${disabled ? 'bg-gray-50 cursor-not-allowed opacity-75' : ''}`}
+            >
+                <span className={`truncate ${!selectedOption ? 'text-gray-400' : 'text-gray-900'}`}>
+                    {selectedOption ? selectedOption.label : placeholder}
+                </span>
+                <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </div>
+
+            {isOpen && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
+                    <div className="p-2 border-b border-gray-100 flex items-center gap-2 bg-gray-50">
+                        <Search className="w-4 h-4 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="Search..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full bg-transparent border-none focus:ring-0 text-sm p-1"
+                            autoFocus
+                        />
+                    </div>
+                    <div className="overflow-y-auto flex-1">
+                        {filteredOptions.length > 0 ? (
+                            filteredOptions.map((option) => (
+                                <div
+                                    key={option.id}
+                                    onClick={() => {
+                                        onChange(option.id);
+                                        setIsOpen(false);
+                                        setSearchQuery('');
+                                    }}
+                                    className={`px-4 py-2 text-sm cursor-pointer flex items-center justify-between hover:bg-blue-50 ${value === option.id ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'}`}
+                                >
+                                    <span className="truncate">{option.label}</span>
+                                    {value === option.id && <Check className="w-4 h-4" />}
+                                </div>
+                            ))
+                        ) : (
+                            <div className="px-4 py-3 text-sm text-gray-500 text-center italic">
+                                No results found
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 interface AddCandidateFormProps {
     candidateForm: CandidateForm;
     onInputChange: (field: keyof CandidateForm, value: string) => void;
     onAddCandidate: () => void;
     onCancel: () => void;
+    departments: any[];
+    designations: any[];
+    locations: any[];
+    reportingManagers: any[];
+    shifts: any[];
+    isLoading: boolean;
 }
 
 const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
@@ -15,6 +114,12 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
     onInputChange,
     onAddCandidate,
     onCancel,
+    departments,
+    designations,
+    locations,
+    reportingManagers,
+    shifts,
+    isLoading,
 }) => {
     return (
         <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -47,7 +152,7 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                             <input
                                 type="text"
                                 placeholder="Enter full name"
-                                value={candidateForm.fullName}
+                                value={candidateForm.fullName || ''}
                                 onChange={(e) => onInputChange('fullName', e.target.value)}
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
@@ -60,106 +165,69 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                             <input
                                 type="email"
                                 placeholder="Enter email"
-                                value={candidateForm.email}
+                                value={candidateForm.email || ''}
                                 onChange={(e) => onInputChange('email', e.target.value)}
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Role
-                            </label>
-                            <div className="relative">
-                                <select
-                                    value={candidateForm.role}
-                                    onChange={(e) => onInputChange('role', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                    <option value="">Select role</option>
-                                    <option value="Developer">Developer</option>
-                                    <option value="Designer">Designer</option>
-                                    <option value="Manager">Manager</option>
-                                    <option value="Analyst">Analyst</option>
-                                </select>
-                                <ChevronDown className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
-                            </div>
-                        </div>
+                        <SearchableSelect
+                            label="Role"
+                            value={candidateForm.designationId || ''}
+                            onChange={(val) => onInputChange('designationId', val)}
+                            placeholder="Select Role"
+                            options={designations.map(desig => ({
+                                id: desig.id || desig._id,
+                                label: desig.designationName || desig.name
+                            }))}
+                        />
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Reporting To
-                            </label>
-                            <div className="relative">
-                                <select
-                                    value={candidateForm.reportingTo}
-                                    onChange={(e) => onInputChange('reportingTo', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                    <option value="">Select manager</option>
-                                    <option value="John Doe">John Doe</option>
-                                    <option value="Jane Smith">Jane Smith</option>
-                                </select>
-                                <ChevronDown className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
-                            </div>
-                        </div>
+                        <SearchableSelect
+                            label="Reporting To"
+                            value={candidateForm.reportingToId || ''}
+                            onChange={(val) => onInputChange('reportingToId', val)}
+                            placeholder={reportingManagers.length === 0 ? "No employees yet (First employee)" : "Select manager"}
+                            disabled={reportingManagers.length === 0}
+                            options={reportingManagers.map(mgr => ({
+                                id: mgr.id || mgr._id,
+                                label: mgr.fullName || `${mgr.firstName} ${mgr.lastName}`
+                            }))}
+                        />
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Department
-                            </label>
-                            <div className="relative">
-                                <select
-                                    value={candidateForm.department}
-                                    onChange={(e) => onInputChange('department', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                    <option value="">Select department</option>
-                                    <option value="Engineering">Engineering</option>
-                                    <option value="Design">Design</option>
-                                    <option value="Marketing">Marketing</option>
-                                    <option value="Sales">Sales</option>
-                                    <option value="HR">HR</option>
-                                </select>
-                                <ChevronDown className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
-                            </div>
-                        </div>
+                        <SearchableSelect
+                            label="Department"
+                            value={candidateForm.departmentId || ''}
+                            onChange={(val) => onInputChange('departmentId', val)}
+                            placeholder="Select department"
+                            options={departments.map(dept => ({
+                                id: dept.id || dept._id,
+                                label: dept.departmentName || dept.name
+                            }))}
+                        />
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Employee Type
-                            </label>
-                            <div className="relative">
-                                <select
-                                    value={candidateForm.employeeType}
-                                    onChange={(e) => onInputChange('employeeType', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                    <option value="">Select type</option>
-                                    <option value="Temporary">Temporary</option>
-                                    <option value="Permanent">Permanent</option>
-                                </select>
-                                <ChevronDown className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
-                            </div>
-                        </div>
+                        <SearchableSelect
+                            label="Employee Type"
+                            value={candidateForm.empType || ''}
+                            onChange={(val) => onInputChange('empType', val)}
+                            placeholder="Select type"
+                            options={[
+                                { id: 'temporary', label: 'Temporary' },
+                                { id: 'permanent', label: 'Permanent' },
+                                { id: 'intern', label: 'Intern' },
+                                { id: 'contract', label: 'Contract' }
+                            ]}
+                        />
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Employee Status
-                            </label>
-                            <div className="relative">
-                                <select
-                                    value={candidateForm.employeeStatus}
-                                    onChange={(e) => onInputChange('employeeStatus', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                    <option value="">Select status</option>
-                                    <option value="Active">Active</option>
-                                    <option value="Inactive">Inactive</option>
-                                </select>
-                                <ChevronDown className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
-                            </div>
-                        </div>
+                        <SearchableSelect
+                            label="Employee Status"
+                            value={candidateForm.employeeStatus || ''}
+                            onChange={(val) => onInputChange('employeeStatus', val)}
+                            placeholder="Select status"
+                            options={[
+                                { id: 'Active', label: 'Active' },
+                                { id: 'Inactive', label: 'Inactive' }
+                            ]}
+                        />
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -191,64 +259,45 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Shift
-                            </label>
-                            <div className="relative">
-                                <select
-                                    value={candidateForm.shift}
-                                    onChange={(e) => onInputChange('shift', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                    <option value="">Select shift</option>
-                                    <option value="Morning">Morning</option>
-                                    <option value="Evening">Evening</option>
-                                    <option value="Night">Night</option>
-                                </select>
-                                <ChevronDown className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
-                            </div>
-                        </div>
+                        <SearchableSelect
+                            label="Shift"
+                            value={candidateForm.shiftType || ''}
+                            onChange={(val) => onInputChange('shiftType', val)}
+                            placeholder="Select shift"
+                            options={shifts.length > 0 ? shifts.map(shift => ({
+                                id: shift.id || shift._id,
+                                label: shift.shiftName || shift.name
+                            })) : [
+                                { id: 'morning', label: 'Morning' },
+                                { id: 'evening', label: 'Evening' },
+                                { id: 'night', label: 'Night' }
+                            ]}
+                        />
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Location
-                            </label>
-                            <div className="relative">
-                                <select
-                                    value={candidateForm.location}
-                                    onChange={(e) => onInputChange('location', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                    <option value="">Select location</option>
-                                    <option value="New York">New York</option>
-                                    <option value="San Francisco">San Francisco</option>
-                                    <option value="London">London</option>
-                                    <option value="Remote">Remote</option>
-                                </select>
-                                <ChevronDown className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
-                            </div>
-                        </div>
+                        <SearchableSelect
+                            label="Location"
+                            value={candidateForm.locationId || ''}
+                            onChange={(val) => onInputChange('locationId', val)}
+                            placeholder="Select location"
+                            options={locations.map(loc => ({
+                                id: loc.id || loc._id,
+                                label: loc.locationName || loc.name
+                            }))}
+                        />
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Time Zone
-                            </label>
-                            <div className="relative">
-                                <select
-                                    value={candidateForm.timeZone}
-                                    onChange={(e) => onInputChange('timeZone', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                    <option value="">Select timezone</option>
-                                    <option value="EST">EST (UTC-5)</option>
-                                    <option value="PST">PST (UTC-8)</option>
-                                    <option value="GMT">GMT (UTC+0)</option>
-                                    <option value="IST">IST (UTC+5:30)</option>
-                                </select>
-                                <ChevronDown className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
-                            </div>
-                        </div>
+                        <SearchableSelect
+                            label="Time Zone"
+                            value={candidateForm.timeZone || ''}
+                            onChange={(val) => onInputChange('timeZone', val)}
+                            placeholder="Select timezone"
+                            options={[
+                                { id: 'Asia/Kolkata', label: 'IST (Asia/Kolkata)' },
+                                { id: 'America/New_York', label: 'EST (America/New_York)' },
+                                { id: 'America/Los_Angeles', label: 'PST (America/Los_Angeles)' },
+                                { id: 'Europe/London', label: 'GMT (Europe/London)' },
+                                { id: 'UTC', label: 'UTC' }
+                            ]}
+                        />
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -257,8 +306,8 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                             <input
                                 type="tel"
                                 placeholder="Enter mobile number"
-                                value={candidateForm.mobileNumber}
-                                onChange={(e) => onInputChange('mobileNumber', e.target.value)}
+                                value={candidateForm.phoneNumber || candidateForm.mobileNumber || ''}
+                                onChange={(e) => onInputChange('phoneNumber', e.target.value)}
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
                         </div>
@@ -266,12 +315,17 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
 
                     <button
                         onClick={onAddCandidate}
-                        className="mt-8 px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 flex items-center justify-center w-full sm:w-auto gap-2"
+                        disabled={isLoading}
+                        className={`mt-8 px-6 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 flex items-center justify-center w-full sm:w-auto gap-2 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Send Onboarding Invitation
+                        {isLoading ? (
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                        )}
+                        {isLoading ? 'Processing...' : 'Send Onboarding Invitation'}
                     </button>
                 </div>
             </div>

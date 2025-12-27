@@ -1,103 +1,116 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Employee, CandidateForm, OnboardingView } from './types';
 import CandidateList from './CandidateList';
 import AddCandidateForm from './AddCandidateForm';
 import BulkImport from './BulkImport';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 
 const EmployeeOnboardingSystem: React.FC = () => {
   const [currentView, setCurrentView] = useState<OnboardingView>('list');
-  const [showPAN, setShowPAN] = useState<{ [key: number]: boolean }>({});
-  const [showAadhaar, setShowAadhaar] = useState<{ [key: number]: boolean }>({});
-  const [showUAN, setShowUAN] = useState<{ [key: number]: boolean }>({});
+  const [showPAN, setShowPAN] = useState<{ [key: string]: boolean }>({});
+  const [showAadhaar, setShowAadhaar] = useState<{ [key: string]: boolean }>({});
+  const [showUAN, setShowUAN] = useState<{ [key: string]: boolean }>({});
   const [importType, setImportType] = useState('new');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // API Data States
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [designations, setDesignations] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
+  const [reportingManagers, setReportingManagers] = useState<any[]>([]);
+  const [shifts, setShifts] = useState<any[]>([]);
 
   // New state for row selection
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  const [employees, setEmployees] = useState<Employee[]>([
-    {
-      id: 1,
-      firstName: 'Sarah',
-      lastName: 'Sanders',
-      emailId: 'sarahsanders@zy...',
-      officialEmail: '',
-      onboardingStatus: '',
-      department: '',
-      sourceOfHire: '',
-      panCard: '**********',
-      aadhaar: '**********',
-      uan: '**********'
-    },
-    {
-      id: 2,
-      firstName: 'Rose',
-      lastName: 'Stacy',
-      emailId: 'rosestacy@zylker...',
-      officialEmail: '',
-      onboardingStatus: '',
-      department: '',
-      sourceOfHire: '',
-      panCard: '**********',
-      aadhaar: '**********',
-      uan: '**********'
-    },
-    {
-      id: 3,
-      firstName: 'Mathew',
-      lastName: 'Morales',
-      emailId: 'mathewmorales...',
-      officialEmail: '',
-      onboardingStatus: '',
-      department: '',
-      sourceOfHire: '',
-      panCard: '**********',
-      aadhaar: '**********',
-      uan: '**********'
-    },
-    {
-      id: 4,
-      firstName: 'Kevin',
-      lastName: 'Parker',
-      emailId: 'kevinparker@zylk...',
-      officialEmail: '',
-      onboardingStatus: '',
-      department: '',
-      sourceOfHire: '',
-      panCard: '**********',
-      aadhaar: '**********',
-      uan: '**********'
-    },
-    {
-      id: 5,
-      firstName: 'David',
-      lastName: 'Rickman',
-      emailId: 'davidrickman@zy...',
-      officialEmail: '',
-      onboardingStatus: '',
-      department: '',
-      sourceOfHire: '',
-      panCard: '**********',
-      aadhaar: '**********',
-      uan: '**********'
-    }
-  ]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
 
   const [candidateForm, setCandidateForm] = useState<CandidateForm>({
     fullName: '',
     email: '',
-    role: '',
-    reportingTo: '',
-    department: '',
+    phoneNumber: '',
+    role: 'employee',
+    departmentId: '',
+    designationId: '',
+    locationId: '',
+    reportingToId: '',
     teamPosition: 'member',
-    shift: '',
-    location: '',
-    timeZone: '',
-    mobileNumber: '',
-    employeeType: '',
-    employeeStatus: ''
+    shiftType: '',
+    timeZone: 'Asia/Kolkata',
+    empType: 'permanent',
+    employeeStatus: 'Active'
   });
+
+  useEffect(() => {
+    const orgId = getOrgId();
+    if (orgId) {
+      fetchOnboardingData();
+      fetchEmployees();
+    }
+  }, []); // Run on mount
+
+  const fetchOnboardingData = async () => {
+    const orgId = getOrgId();
+    const token = getAuthToken();
+    const apiUrl = getApiUrl();
+    if (!orgId || !token) return;
+
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const [deptRes, desigRes, locRes, shiftRes] = await Promise.all([
+        axios.get(`${apiUrl}/org/${orgId}/departments`, { headers }),
+        axios.get(`${apiUrl}/org/${orgId}/designations`, { headers }),
+        axios.get(`${apiUrl}/org/${orgId}/locations`, { headers }),
+        axios.get(`${apiUrl}/org/${orgId}/shifts`, { headers }).catch(() => ({ data: { data: [] } }))
+      ]);
+
+      setDepartments(deptRes.data.data || deptRes.data || []);
+      setDesignations(desigRes.data.data || desigRes.data || []);
+      setLocations(locRes.data.data || locRes.data || []);
+      setShifts(shiftRes.data.data || shiftRes.data || []);
+    } catch (error) {
+      console.error('Error fetching onboarding data:', error);
+    }
+  };
+
+  const fetchEmployees = async () => {
+    const orgId = getOrgId();
+    const token = getAuthToken();
+    const apiUrl = getApiUrl();
+    if (!orgId || !token) return;
+
+    try {
+      const res = await axios.get(`${apiUrl}/org/${orgId}/employees`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const employeeData = res.data.data || res.data || [];
+      const employeeList = Array.isArray(employeeData) ? employeeData : [];
+
+      const formattedEmployees = employeeList.map((emp: any) => ({
+        id: emp.id || emp._id || String(Math.random()),
+        fullName: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unnamed Employee',
+        firstName: emp.firstName || emp.fullName?.split(' ')[0] || '',
+        lastName: emp.lastName || emp.fullName?.split(' ').slice(1).join(' ') || '',
+        emailId: emp.email || emp.emailId || '',
+        officialEmail: emp.officialEmail || emp.email || '',
+        onboardingStatus: emp.onboardingStatus || emp.status || 'Active',
+        department: emp.department?.departmentName || emp.department || '',
+        sourceOfHire: emp.sourceOfHire || 'Direct',
+        panCard: emp.panCard || '**********',
+        aadhaar: emp.aadhaar || '**********',
+        uan: emp.uan || '**********'
+      }));
+
+      setReportingManagers(formattedEmployees);
+      setEmployees(formattedEmployees);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+    }
+  };
 
   const handleInputChange = (field: keyof CandidateForm, value: string) => {
     setCandidateForm(prev => ({ ...prev, [field]: value }));
@@ -113,46 +126,115 @@ const EmployeeOnboardingSystem: React.FC = () => {
     alert(`Onboarding invitation sent to ${email}`);
   };
 
-  const handleAddCandidate = () => {
-    if (candidateForm.fullName && candidateForm.email) {
-      const nameParts = candidateForm.fullName.trim().split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
+  const handleAddCandidate = async () => {
+    // Basic validation for required fields
+    const requiredFields: any = {
+      fullName: 'Full Name',
+      email: 'Email Address',
+      phoneNumber: 'Mobile Number',
+      departmentId: 'Department',
+      designationId: 'Role/Designation',
+      locationId: 'Location',
+      shiftType: 'Shift Type',
+      empType: 'Employee Type'
+    };
 
-      const newEmployee: Employee = {
-        id: employees.length + 1,
-        firstName: firstName,
-        lastName: lastName,
-        emailId: candidateForm.email,
-        officialEmail: candidateForm.email,
-        onboardingStatus: 'Invitation Sent',
-        department: candidateForm.department,
-        sourceOfHire: 'Manual Entry',
-        panCard: '**********',
-        aadhaar: '**********',
-        uan: '**********'
+    // Only require Reporting To if there are existing employees
+    if (reportingManagers.length > 0) {
+      requiredFields.reportingToId = 'Reporting Manager';
+    }
+
+    const missingFields = Object.entries(requiredFields)
+      .filter(([key]) => !candidateForm[key as keyof CandidateForm])
+      .map(([, label]) => label);
+
+    if (missingFields.length > 0) {
+      alert(`Please complete the following required fields: \n- ${missingFields.join('\n- ')}`);
+      return;
+    }
+
+    const orgId = getOrgId();
+    const token = getAuthToken();
+    const apiUrl = getApiUrl();
+
+    if (!orgId || !token) {
+      alert("Authentication error. Please log in again.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const payload = {
+        fullName: candidateForm.fullName,
+        email: candidateForm.email,
+        phoneNumber: candidateForm.phoneNumber || candidateForm.mobileNumber,
+        role: "employee",
+        departmentId: candidateForm.departmentId,
+        designationId: candidateForm.designationId,
+        locationId: candidateForm.locationId,
+        reportingToId: reportingManagers.length > 0 ? candidateForm.reportingToId : null,
+        teamPosition: candidateForm.teamPosition,
+        shiftType: candidateForm.shiftType,
+        timeZone: candidateForm.timeZone,
+        empType: candidateForm.empType
       };
 
-      setEmployees(prev => [...prev, newEmployee]);
-
-      sendOnboardingEmail(candidateForm.fullName, candidateForm.email, candidateForm.role, candidateForm.department);
-
-      setCandidateForm({
-        fullName: '',
-        email: '',
-        role: '',
-        reportingTo: '',
-        department: '',
-        teamPosition: 'member',
-        shift: '',
-        location: '',
-        timeZone: '',
-        mobileNumber: '',
-        employeeType: '',
-        employeeStatus: ''
+      console.log("ONBOARDING DEBUG:", {
+        apiUrl,
+        orgId,
+        token: token ? "Token present" : "Token missing",
+        payload
       });
 
-      setCurrentView('list');
+      const response = await axios.post(
+        `${apiUrl}/org/${orgId}/employees`,
+        payload,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.status === 200 || response.status === 201) {
+        alert("Employee onboarded successfully! An invitation email has been sent.");
+
+        // Refresh employee list
+        fetchEmployees();
+
+        // Reset form and view
+        setCandidateForm({
+          fullName: '',
+          email: '',
+          phoneNumber: '',
+          role: 'employee',
+          departmentId: '',
+          designationId: '',
+          locationId: '',
+          reportingToId: '',
+          teamPosition: 'member',
+          shiftType: '',
+          timeZone: 'Asia/Kolkata',
+          empType: 'permanent',
+          employeeStatus: 'Active'
+        });
+        setCurrentView('list');
+      }
+    } catch (error: any) {
+      console.error('Onboarding ERROR OBJECT:', error);
+      if (error.response) {
+        console.error('Onboarding ERROR RESPONSE:', {
+          data: error.response.data,
+          status: error.response.status,
+          headers: error.response.headers
+        });
+      }
+
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || "Unknown error";
+      alert(`Failed to onboard employee: ${errorMessage}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -165,7 +247,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
     }
   };
 
-  const handleSelectOne = (id: number) => {
+  const handleSelectOne = (id: string) => {
     if (selectedIds.includes(id)) {
       setSelectedIds(selectedIds.filter(itemId => itemId !== id));
     } else {
@@ -256,6 +338,12 @@ const EmployeeOnboardingSystem: React.FC = () => {
           onInputChange={handleInputChange}
           onAddCandidate={handleAddCandidate}
           onCancel={() => setCurrentView('list')}
+          departments={departments}
+          designations={designations}
+          locations={locations}
+          reportingManagers={reportingManagers}
+          shifts={shifts}
+          isLoading={isLoading}
         />
       )}
       {currentView === 'bulkImport' && (

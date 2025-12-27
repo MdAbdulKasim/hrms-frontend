@@ -5,15 +5,15 @@ import { Employee } from './types';
 
 interface CandidateListProps {
     employees: Employee[];
-    selectedIds: number[];
+    selectedIds: string[];
     onSelectAll: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    onSelectOne: (id: number) => void;
-    showPAN: { [key: number]: boolean };
-    setShowPAN: (val: { [key: number]: boolean }) => void;
-    showAadhaar: { [key: number]: boolean };
-    setShowAadhaar: (val: { [key: number]: boolean }) => void;
-    showUAN: { [key: number]: boolean };
-    setShowUAN: (val: { [key: number]: boolean }) => void;
+    onSelectOne: (id: string) => void;
+    showPAN: { [key: string]: boolean };
+    setShowPAN: (val: { [key: string]: boolean }) => void;
+    showAadhaar: { [key: string]: boolean };
+    setShowAadhaar: (val: { [key: string]: boolean }) => void;
+    showUAN: { [key: string]: boolean };
+    setShowUAN: (val: { [key: string]: boolean }) => void;
     onAddCandidateClick: () => void;
     onBulkImportClick: () => void;
 }
@@ -120,7 +120,7 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                         <td className="px-6 py-4 text-sm text-gray-900">{employee.sourceOfHire}</td>
                                         <td className="px-6 py-4 text-sm text-gray-900">
                                             <div className="flex items-center gap-2">
-                                                {showPAN[employee.id] ? 'ABCDE1234F' : employee.panCard}
+                                                {showPAN[employee.id] ? employee.panCard : '**********'}
                                                 <button onClick={() => setShowPAN({ ...showPAN, [employee.id]: !showPAN[employee.id] })}>
                                                     {showPAN[employee.id] ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
                                                 </button>
@@ -128,7 +128,7 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-900">
                                             <div className="flex items-center gap-2">
-                                                {showAadhaar[employee.id] ? '1234 5678 9012' : employee.aadhaar}
+                                                {showAadhaar[employee.id] ? employee.aadhaar : '**********'}
                                                 <button onClick={() => setShowAadhaar({ ...showAadhaar, [employee.id]: !showAadhaar[employee.id] })}>
                                                     {showAadhaar[employee.id] ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
                                                 </button>
@@ -136,7 +136,7 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-900">
                                             <div className="flex items-center gap-2">
-                                                {showUAN[employee.id] ? '123456789012' : employee.uan}
+                                                {showUAN[employee.id] ? employee.uan : '**********'}
                                                 <button onClick={() => setShowUAN({ ...showUAN, [employee.id]: !showUAN[employee.id] })}>
                                                     {showUAN[employee.id] ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
                                                 </button>

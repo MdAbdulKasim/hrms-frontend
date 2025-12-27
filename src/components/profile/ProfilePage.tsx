@@ -10,6 +10,8 @@ import AttendanceTab from './tabs/AttendanceTab';
 import DepartmentTab from './tabs/DepartmentTab';
 import TimeTrackingTab from './tabs/TimeTrackingTab';
 import { Employee, Education, Peer, LeaveBalance, AttendanceRecord } from './types';
+import axios from 'axios';
+import { getApiUrl, getAuthToken } from '@/lib/auth';
 
 // Mock data - replace with actual API calls
 const mockEmployee: Employee = {
@@ -190,15 +192,102 @@ interface ProfilePageProps {
 export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: ProfilePageProps) {
   const [activeTab, setActiveTab] = useState('profile');
   const [currentEmployeeId, setCurrentEmployeeId] = useState(initialEmployeeId || 'S19');
-  const [employee, setEmployee] = useState<Employee>(mockEmployee);
+  const [employee, setEmployee] = useState<Employee | null>(null);
+  const [education, setEducation] = useState<Education[]>([]);
+  const [peers, setPeers] = useState<Peer[]>([]);
+  const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Load employee data based on currentEmployeeId
   useEffect(() => {
-    if (currentEmployeeId && mockEmployeeData[currentEmployeeId]) {
-      setEmployee(mockEmployeeData[currentEmployeeId]);
-    } else {
-      setEmployee(mockEmployee);
-    }
+    const fetchEmployeeData = async () => {
+      try {
+        const token = getAuthToken();
+        const apiUrl = getApiUrl();
+
+        if (!token || !currentEmployeeId) return;
+
+        // Fetch employee details
+        const empRes = await axios.get(`${apiUrl}/employees/${currentEmployeeId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const empData = empRes.data.data || empRes.data;
+        setEmployee({
+          id: empData.id || empData._id,
+          employeeId: empData.employeeId || empData.id,
+          firstName: empData.firstName || '',
+          lastName: empData.lastName || '',
+          nickName: empData.nickName || '',
+          email: empData.email || '',
+          department: empData.department?.name || empData.department || '',
+          designation: empData.designation?.name || empData.designation || '',
+          zohoRole: empData.role || '',
+          employmentType: empData.employmentType || '',
+          employeeStatus: empData.status || 'Active',
+          sourceOfHire: empData.sourceOfHire || '',
+          dateOfJoining: empData.dateOfJoining || '',
+          currentExperience: empData.currentExperience || '',
+          totalExperience: empData.totalExperience || '',
+          reportingManager: empData.reportingManager || '',
+          workPhone: empData.workPhone || '',
+          personalMobile: empData.personalMobile || '',
+          extension: empData.extension || '',
+          seatingLocation: empData.seatingLocation || '',
+          shift: empData.shift || '',
+          shiftTiming: empData.shiftTiming || '',
+          presentAddress: empData.presentAddress || '',
+          dateOfBirth: empData.dateOfBirth || '',
+          age: empData.age || '',
+          gender: empData.gender || '',
+          maritalStatus: empData.maritalStatus || '',
+          profileImage: empData.profileImage || '/api/placeholder/120/120',
+          checkInStatus: 'Yet to check-in' // Default
+        });
+
+        // Fetch education (if available)
+        setEducation([]); // Placeholder
+
+        // Fetch peers (team members)
+        const peersRes = await axios.get(`${apiUrl}/employees`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const peersData = peersRes.data.data || peersRes.data;
+        setPeers(peersData.slice(0, 5).map((p: any) => ({
+          id: p.id || p._id,
+          employeeId: p.employeeId || p.id,
+          name: `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.email,
+          designation: p.designation?.name || p.designation || '',
+          department: p.department?.name || p.department || '',
+          checkInStatus: 'Yet to check-in'
+        })));
+
+        // Fetch leave balances
+        setLeaveBalances([
+          { type: 'Casual Leave', available: 12, booked: 0 },
+          { type: 'Earned Leave', available: 12, booked: 0 },
+          { type: 'Leave Without Pay', available: 0, booked: 0 },
+          { type: 'Paternity Leave', available: 0, booked: 0 },
+          { type: 'Sabbatical', available: 0, booked: 0 },
+        ]);
+
+        // Fetch attendance records
+        setAttendanceRecords([]);
+
+      } catch (error) {
+        console.error('Error fetching employee data:', error);
+        // Fallback to mock data if API fails
+        setEmployee(mockEmployee);
+        setEducation(mockEducation);
+        setPeers(mockPeers);
+        setLeaveBalances(mockLeaveBalances);
+        setAttendanceRecords(mockAttendanceRecords);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEmployeeData();
   }, [currentEmployeeId]);
 
   // Handle clicking on another employee
@@ -218,19 +307,21 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
   };
 
   const renderTabContent = () => {
+    if (!employee) return <div>Loading...</div>;
+
     switch (activeTab) {
       case 'profile':
         return (
           <ProfileTab
             employee={employee}
-            education={mockEducation}
+            education={education}
             dependents={[]}
           />
         );
       case 'peers':
         return (
           <PeersTab
-            peers={mockPeers}
+            peers={peers}
             managerName={employee.reportingManager}
             onEmployeeClick={handleEmployeeClick}
           />
@@ -238,13 +329,13 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
       case 'leave':
         return (
           <LeaveTab
-            leaveBalances={mockLeaveBalances}
+            leaveBalances={leaveBalances}
             year="This Year"
           />
         );
       case 'attendance':
         return (
-          <AttendanceTab records={mockAttendanceRecords} />
+          <AttendanceTab records={attendanceRecords} />
         );
       case 'time-tracking':
         return <TimeTrackingTab />;
@@ -262,6 +353,14 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
         return null;
     }
   };
+
+  if (loading) {
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>;
+  }
+
+  if (!employee) {
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Employee not found</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

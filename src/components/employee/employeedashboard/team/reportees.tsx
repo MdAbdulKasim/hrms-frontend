@@ -1,502 +1,259 @@
 'use client';
-import React, { useState } from 'react';
-import { Search, Grid, List, LayoutGrid, Filter, X, ChevronDown } from 'lucide-react';
 
-// Employee data type
+import React, { useState, useEffect } from 'react';
+import { User } from 'lucide-react';
+import axios from 'axios';
+import { getApiUrl, getAuthToken } from '@/lib/auth';
+
+// --- Type Definitions ---
 interface Employee {
   id: string;
   name: string;
-  designation: string;
-  department: string;
-  status: string;
-  image: string;
-  seniority: string;
+  role: string;
+  imageUrl?: string;
+  count?: number;
+  children?: Employee[];
 }
 
-// Sample employee data
-const employees: Employee[] = [
-  {
-    id: 'S19',
-    name: 'Michael Johnson',
-    designation: 'Administration',
-    department: 'Management',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: 'Above 10 Years'
-  },
-  {
-    id: 'S2',
-    name: 'Lilly Williams',
-    designation: 'Administration',
-    department: 'Management',
-    status: 'Yet to check-in',
-    image: '👩‍💼',
-    seniority: 'Above 10 Years'
-  },
-  {
-    id: 'S20',
-    name: 'Christopher Brown',
-    designation: 'Administration',
-    department: 'Management',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: 'Above 10 Years'
-  },
-  {
-    id: 'S3',
-    name: 'Clarkson Walter',
-    designation: 'Administration',
-    department: 'Management',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '0 - 5 Years'
-  },
-  {
-    id: 'S5',
-    name: 'Andrew Turner',
-    designation: 'Manager',
-    department: 'Management',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S6',
-    name: 'Ember Johnson',
-    designation: 'Assistant Manager',
-    department: 'Management',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S4',
-    name: 'Ethen Anderson',
-    designation: 'Manager',
-    department: 'Operations',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S9',
-    name: 'Caspian Jones',
-    designation: 'Team Member',
-    department: 'Operations',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S8',
-    name: 'Asher Miller',
-    designation: 'Assistant Manager',
-    department: 'Operations',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S7',
-    name: 'Hazel Carter',
-    designation: 'Assistant Manager',
-    department: 'Operations',
-    status: 'Yet to check-in',
-    image: '👩‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S14',
-    name: 'Emily Jones',
-    designation: 'Team Member',
-    department: 'Operations',
-    status: 'Yet to check-in',
-    image: '👩‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S15',
-    name: 'Aparna Acharya',
-    designation: 'Team Member',
-    department: 'Operations',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S18',
-    name: 'William Smith',
-    designation: 'Team Member',
-    department: 'Sales',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S13',
-    name: 'Isabella Lopez',
-    designation: 'Team Member',
-    department: 'Sales',
-    status: 'Yet to check-in',
-    image: '👩‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S11',
-    name: 'Olivia Smith',
-    designation: 'Team Member',
-    department: 'Sales',
-    status: 'Yet to check-in',
-    image: '👩‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S17',
-    name: 'Amardeep Banjeet',
-    designation: 'Team Member',
-    department: 'Sales',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S12',
-    name: 'Sofia Rodriguez',
-    designation: 'Team Member',
-    department: 'Sales',
-    status: 'Yet to check-in',
-    image: '👩‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S16',
-    name: 'Andrea Garcia',
-    designation: 'Team Member',
-    department: 'Sales',
-    status: 'Yet to check-in',
-    image: '👩‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S10',
-    name: 'Lindon Smith',
-    designation: 'Team Member',
-    department: 'Sales',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '5 - 10 Years'
-  }
-];
+export default function OrgChart() {
+  const [activePath, setActivePath] = useState<string[]>(['root']);
+  const [loading, setLoading] = useState(false);
+  const [initialData, setInitialData] = useState<Employee | null>(null);
 
-const EmployeeManagement = () => {
-  const [activeTab, setActiveTab] = useState<'direct' | 'all'>('direct');
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'kanban'>('grid');
-  const [kanbanGroupBy, setKanbanGroupBy] = useState<'seniority' | 'department' | 'designation'>('seniority');
-  const [showKanbanMenu, setShowKanbanMenu] = useState(false);
-  const [showFilter, setShowFilter] = useState(false);
-  const [filterDepartment, setFilterDepartment] = useState('All Departments');
-  const [filterDesignation, setFilterDesignation] = useState('All Designations');
+  // Fetch employee hierarchy from API
+  useEffect(() => {
+    const fetchEmployeeHierarchy = async () => {
+      try {
+        setLoading(true);
+        const apiUrl = getApiUrl();
+        const token = getAuthToken();
 
-  // Filter employees
-  const filteredEmployees = employees.filter(emp => {
-    const deptMatch = filterDepartment === 'All Departments' || emp.department === filterDepartment;
-    const desigMatch = filterDesignation === 'All Designations' || emp.designation === filterDesignation;
-    return deptMatch && desigMatch;
-  });
+        const response = await axios.get(`${apiUrl}/employees/hierarchy`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-  // Get employees for active tab
-  const tabEmployees = activeTab === 'direct' 
-    ? filteredEmployees.filter(emp => ['S19', 'S2', 'S20', 'S3'].includes(emp.id))
-    : filteredEmployees;
-
-  // Group employees for kanban view
-  const groupEmployees = () => {
-    const groups: { [key: string]: Employee[] } = {};
-    
-    tabEmployees.forEach(emp => {
-      let key = '';
-      if (kanbanGroupBy === 'seniority') {
-        key = emp.seniority;
-      } else if (kanbanGroupBy === 'department') {
-        key = emp.department;
-      } else {
-        key = emp.designation;
+        const hierarchyData = response.data.data || response.data || null;
+        setInitialData(hierarchyData);
+      } catch (error) {
+        console.error('Error fetching employee hierarchy:', error);
+        // Fallback to mock data if API fails
+        setInitialData({
+          id: 'root',
+          name: 'mohamed',
+          role: 'CEO',
+          count: 15,
+          children: [
+            { id: '1', name: 'Michael Johnson', role: 'Administration' },
+            {
+              id: '2',
+              name: 'Lilly Williams',
+              role: 'Administration',
+              count: 11,
+              children: [
+                {
+                  id: '2-1',
+                  name: 'Andrew Turner',
+                  role: 'Manager',
+                  count: 3,
+                  children: [
+                    {
+                      id: '2-1-1',
+                      name: 'Asher Miller',
+                      role: 'Assistant Manager',
+                      count: 2,
+                      children: [
+                        { id: '2-1-1-1', name: 'Emily Jones', role: 'Team Member' },
+                        { id: '2-1-1-2', name: 'Isabella Lopez', role: 'Team Member' },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  id: '2-2',
+                  name: 'Ember Johnson',
+                  role: 'Assistant Manager',
+                  count: 2,
+                  children: [
+                    {
+                      id: '2-2-1',
+                      name: 'Caspian Jones',
+                      role: 'Team Member',
+                      count: 1,
+                      children: [
+                        { id: '2-2-1-1', name: 'Amardeep Banjeet', role: 'Team Member' },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  id: '2-3',
+                  name: 'Ethen Anderson',
+                  role: 'Manager',
+                  count: 3,
+                  children: [
+                    {
+                      id: '2-3-1',
+                      name: 'Hazel Carter',
+                      role: 'Assistant Manager',
+                      count: 2,
+                      children: [
+                        { id: '2-3-1-1', name: 'Olivia Smith', role: 'Team Member' },
+                        { id: '2-3-1-2', name: 'Lindon Smith', role: 'Team Member' },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+            { id: '3', name: 'Christopher Brown', role: 'Administration' },
+            { id: '4', name: 'Clarkson Walter', role: 'Administration' },
+          ],
+        });
+      } finally {
+        setLoading(false);
       }
-      
-      if (!groups[key]) {
-        groups[key] = [];
-      }
-      groups[key].push(emp);
-    });
-    
-    return groups;
+    };
+
+    fetchEmployeeHierarchy();
+  }, []);
+
+  const handleNodeClick = (nodeId: string, depth: number) => {
+    const newPath = activePath.slice(0, depth + 1);
+    if (newPath[depth] !== nodeId) {
+      newPath[depth] = nodeId;
+    }
+    setActivePath(newPath);
   };
 
-  const EmployeeCard = ({ employee }: { employee: Employee }) => (
-    <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-      <div className="flex items-start gap-3">
-        <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-2xl flex-shrink-0">
-          {employee.image}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-900 text-sm truncate">
-            {employee.id} - {employee.name}
-          </h3>
-          <p className="text-sm text-gray-600 mt-1 truncate">{employee.designation}</p>
-          <p className="text-sm text-red-500 mt-1">{employee.status}</p>
-        </div>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 md:p-10 font-sans flex items-center justify-center">
+        <p className="text-gray-500">Loading organization chart...</p>
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (!initialData) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 md:p-10 font-sans flex items-center justify-center">
+        <p className="text-gray-500">No organization data available</p>
+      </div>
+    );
+  }
+
+  const columns: { nodes: Employee[], parentId: string | null }[] = [];
+  columns.push({ nodes: [initialData], parentId: null });
+
+  for (let i = 0; i < activePath.length; i++) {
+    const activeId = activePath[i];
+    const currentColumnNodes = columns[i].nodes;
+    const activeNode = currentColumnNodes.find(n => n.id === activeId);
+
+    if (activeNode && activeNode.children && activeNode.children.length > 0) {
+      columns.push({ nodes: activeNode.children, parentId: activeId });
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-              👤
-            </div>
-            <h1 className="text-lg font-semibold text-gray-900">1 - mohamed</h1>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto">
-            {/* Tab Buttons */}
-            <div className="flex items-center gap-2">
-                <button
-                onClick={() => setActiveTab('direct')}
-                className={`px-3 py-2 md:px-4 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                    activeTab === 'direct'
-                    ? 'bg-blue-50 text-blue-600 border-2 border-blue-500'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
-                >
-                Direct <span className="ml-1">4</span>
-                </button>
-                <button
-                onClick={() => setActiveTab('all')}
-                className={`px-3 py-2 md:px-4 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                    activeTab === 'all'
-                    ? 'bg-blue-50 text-blue-600 border-2 border-blue-500'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
-                >
-                All <span className="ml-1">19</span>
-                </button>
-            </div>
-
-            {/* View Mode Buttons */}
-            <div className="flex items-center gap-1 bg-white border border-gray-300 rounded-md p-1 ml-auto md:ml-0">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 rounded ${
-                  viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <Grid size={18} />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded ${
-                  viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <List size={18} />
-              </button>
-              <button
-                onClick={() => {
-                  setViewMode('kanban');
-                  setShowKanbanMenu(false);
-                }}
-                className={`p-2 rounded relative ${
-                  viewMode === 'kanban' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <LayoutGrid size={18} />
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2 ml-auto md:ml-0">
-                <button className="p-2 bg-white border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100">
-                <Search size={18} />
-                </button>
-                <button
-                onClick={() => setShowFilter(!showFilter)}
-                className="p-2 bg-white border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100"
-                >
-                <Filter size={18} />
-                </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Kanban Group Menu */}
-        {viewMode === 'kanban' && (
-          <div className="mb-4 flex justify-end">
-            <div className="relative">
-              <button
-                onClick={() => setShowKanbanMenu(!showKanbanMenu)}
-                className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-              >
-                Group by: {kanbanGroupBy.charAt(0).toUpperCase() + kanbanGroupBy.slice(1)}
-                <ChevronDown size={16} />
-              </button>
+    <div className="min-h-screen bg-gray-50 p-4 md:p-10 font-sans md:overflow-x-auto">
+      <div className="flex flex-col md:flex-row md:items-start items-center">
+        {columns.map((col, colIndex) => {
+          
+          return (
+            <div key={colIndex} className="flex flex-col md:flex-row items-center md:items-stretch">
               
-              {showKanbanMenu && (
-                <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
-                  <button
-                    onClick={() => {
-                      setKanbanGroupBy('seniority');
-                      setShowKanbanMenu(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Seniority
-                  </button>
-                  <button
-                    onClick={() => {
-                      setKanbanGroupBy('department');
-                      setShowKanbanMenu(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Department
-                  </button>
-                  <button
-                    onClick={() => {
-                      setKanbanGroupBy('designation');
-                      setShowKanbanMenu(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Designation
-                  </button>
-                </div>
+              {/* Connector Area (Lines) between columns - Desktop Only */}
+              {colIndex > 0 && (
+                 <div className="hidden md:flex flex-col justify-center relative w-16">
+                    <div className="absolute top-0 bottom-0 left-0 w-full flex items-center justify-center pointer-events-none">
+                    </div>
+                 </div>
               )}
-            </div>
-          </div>
-        )}
 
-        {/* Filter Modal - ShadCN Style */}
-        {showFilter && (
-          <div className="fixed inset-0 bg-black/50 flex items-start justify-end z-50 animate-in fade-in duration-200">
-            <div className="bg-white w-full max-w-md h-full shadow-2xl animate-in slide-in-from-right duration-300">
-              <div className="p-6 h-full flex flex-col">
-                <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-2xl font-semibold text-gray-900">Filter</h2>
-                  <button
-                    onClick={() => setShowFilter(false)}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <X size={20} className="text-gray-500" />
-                  </button>
-                </div>
+              {/* The Column of Nodes */}
+              <div className="flex flex-col justify-center space-y-4 relative py-4 px-2">
+                
+                {/* Vertical Line for siblings - Desktop Only */}
+                {colIndex > 0 && (
+                   <div 
+                     className="absolute left-0 w-[2px] bg-gray-200 hidden md:block"
+                     style={{
+                        top: '2rem', 
+                        bottom: '2rem',
+                     }} 
+                   >
+                   </div>
+                )}
 
-                <div className="flex-1 space-y-6">
-                  <div className="space-y-3">
-                    <label className="text-sm font-medium text-gray-700">
-                      Department
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={filterDepartment}
-                        onChange={(e) => setFilterDepartment(e.target.value)}
-                        className="w-full h-11 px-3 py-2 bg-white border border-gray-200 rounded-lg text-gray-900 text-sm appearance-none cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                {col.nodes.map((node) => {
+                  const isActive = activePath.includes(node.id);
+                  
+                  return (
+                    <div key={node.id} className="flex items-center group relative flex-col md:flex-row">
+                      
+                      {/* Left Connector (Horizontal) - Desktop Only */}
+                      {colIndex > 0 && (
+                         <div className={`hidden md:block w-8 h-[2px] ${isActive ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
+                      )}
+
+                      {/* The Card */}
+                      <div
+                        onClick={() => handleNodeClick(node.id, colIndex)}
+                        className={`
+                          flex items-center p-3 w-64 rounded-xl border-2 cursor-pointer transition-all bg-white z-10
+                          ${isActive 
+                            ? 'border-blue-500 bg-blue-50 shadow-md' 
+                            : 'border-gray-100 hover:border-blue-200 shadow-sm'
+                          }
+                        `}
                       >
-                        <option>All Departments</option>
-                        <option>Management</option>
-                        <option>Operations</option>
-                        <option>Sales</option>
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={16} />
-                    </div>
-                  </div>
+                         <div className="mr-3 shrink-0">
+                           {node.imageUrl ? (
+                             <img src={node.imageUrl} className="w-10 h-10 rounded-full object-cover" alt={node.name} />
+                           ) : (
+                             <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center text-gray-500">
+                               <User size={20} />
+                             </div>
+                           )}
+                         </div>
+                         <div>
+                            <div className="font-bold text-gray-800 text-sm truncate">{node.name}</div>
+                            <div className="text-gray-500 text-xs truncate">{node.role}</div>
+                         </div>
+                      </div>
 
-                  <div className="space-y-3">
-                    <label className="text-sm font-medium text-gray-700">
-                      Designation
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={filterDesignation}
-                        onChange={(e) => setFilterDesignation(e.target.value)}
-                        className="w-full h-11 px-3 py-2 bg-white border border-gray-200 rounded-lg text-gray-900 text-sm appearance-none cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                      >
-                        <option>All Designations</option>
-                        <option>Administration</option>
-                        <option>Manager</option>
-                        <option>Assistant Manager</option>
-                        <option>Team Member</option>
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={16} />
-                    </div>
-                  </div>
-                </div>
+                      {/* Right/Bottom Connector (Outgoing Line + Badge) */}
+                      {isActive && node.children && (
+                        <div className={`
+                            absolute flex items-center justify-center
+                            top-full left-1/2 -translate-x-1/2 flex-col
+                            md:top-1/2 md:left-full md:translate-x-0 md:-translate-y-1/2 md:flex-row
+                        `}>
+                           {/* Line 1 */}
+                           <div className="bg-blue-500 w-[2px] h-6 md:w-8 md:h-[2px]"></div>
+                           
+                           {/* Badge */}
+                           {node.count !== undefined && (
+                             <div className="bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm z-20 -mt-1 md:mt-0 md:-ml-1">
+                               {node.count}
+                             </div>
+                           )}
+                           
+                           {/* Line 2 */}
+                           <div className="bg-blue-500 w-[2px] h-6 -mt-1 md:mt-0 md:-ml-1 md:w-8 md:h-[2px]"></div>
+                        </div>
+                      )}
 
-                <div className="flex gap-3 pt-6 border-t">
-                  <button
-                    onClick={() => setShowFilter(false)}
-                    className="flex-1 h-11 px-6 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-                  >
-                    Apply
-                  </button>
-                  <button
-                    onClick={() => {
-                      setFilterDepartment('All Departments');
-                      setFilterDesignation('All Designations');
-                    }}
-                    className="flex-1 h-11 px-6 bg-white text-gray-700 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-                  >
-                    Reset
-                  </button>
-                </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Content Area */}
-        {viewMode === 'grid' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {tabEmployees.map((employee) => (
-              <EmployeeCard key={employee.id} employee={employee} />
-            ))}
-          </div>
-        )}
-
-        {viewMode === 'list' && (
-          <div className="space-y-3">
-            {tabEmployees.map((employee) => (
-              <EmployeeCard key={employee.id} employee={employee} />
-            ))}
-          </div>
-        )}
-
-        {viewMode === 'kanban' && (
-          <div className="flex gap-4 overflow-x-auto pb-4 snap-x">
-            {Object.entries(groupEmployees()).map(([groupName, groupEmployees]) => (
-              <div key={groupName} className="flex-shrink-0 w-80 snap-center md:snap-align-none">
-                <div className="bg-gray-100 rounded-lg p-4 h-full">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-gray-900">{groupName}</h3>
-                    <span className="text-sm text-gray-600 bg-white px-2 py-1 rounded">
-                      {groupEmployees.length}
-                    </span>
-                  </div>
-                  <div className="space-y-3">
-                    {groupEmployees.map((employee) => (
-                      <EmployeeCard key={employee.id} employee={employee} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+          );
+        })}
       </div>
     </div>
   );
-};
-
-export default EmployeeManagement;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -18,6 +18,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PenLine, Plus, Trash2 } from "lucide-react";
+import axios from 'axios';
+import { getApiUrl, getAuthToken } from '@/lib/auth';
 
 // -----------------------------------------------------
 // TYPES FOR TABLE ROWS
@@ -233,6 +235,7 @@ const EditableTable = <T extends object>({
 // -----------------------------------------------------
 export default function ProfilePage() {
   const [editMode, setEditMode] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // --------------------------------------
   // Profile fields
@@ -311,6 +314,94 @@ export default function ProfilePage() {
     modifiedTime: "03-Dec-2025 12:08 PM",
     onboardingStatus: "-",
   });
+
+  // Fetch profile data
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        const token = getAuthToken();
+        const apiUrl = getApiUrl();
+
+        if (!token) return;
+
+        // Fetch employee profile
+        const profileRes = await axios.get(`${apiUrl}/employees/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const empData = profileRes.data.data || profileRes.data;
+
+        // Update profile state
+        setProfile({
+          employeeId: empData.employeeId || empData.id || "1",
+          firstName: empData.firstName || "Mohamed",
+          lastName: empData.lastName || "-",
+          nickName: empData.nickName || "-",
+          email: empData.email || "user@example.com",
+          department: empData.department?.name || empData.department || "Management",
+          designation: empData.designation?.name || empData.designation || "Assistant Manager",
+          dob: empData.dateOfBirth || "-",
+          gender: empData.gender || "Male",
+          seatingLocation: empData.seatingLocation || "FL_EXEC_1",
+          extension: empData.extension || "1",
+          shift: empData.shift || "General (09:00 AM - 06:00 PM)",
+          timezone: empData.timezone || "(GMT+05:30)",
+          workPhoneNumber: empData.workPhone || empData.workPhoneNumber || "305-555-1212",
+          about: empData.about || "",
+          tags: empData.tags || "",
+        });
+
+        // Update work info
+        setWorkInfo({
+          location: empData.location || "-",
+          zohoRole: empData.role || "Admin",
+          employmentType: empData.employmentType || "Permanent",
+          employeeStatus: empData.status || "Active",
+          sourceOfHire: empData.sourceOfHire || "-",
+          dateOfJoining: empData.dateOfJoining || "02-Feb-2004",
+          currentExperience: empData.currentExperience || "21 year(s) 10 month(s)",
+          totalExperience: empData.totalExperience || "27 year(s) 6 month(s)",
+        });
+
+        // Update hierarchy
+        setHierarchyInfo({
+          reportingManager: empData.reportingManager || "-",
+        });
+
+        // Update personal details
+        setPersonalDetails({
+          dateOfBirth: empData.dateOfBirth || "-",
+          age: empData.age || "-",
+          maritalStatus: empData.maritalStatus || "-",
+          aboutMe: empData.aboutMe || "-",
+          askMeAbout: empData.askMeAbout || "-",
+        });
+
+        // Update contact details
+        setContactDetails({
+          personalMobileNumber: empData.personalMobile || empData.personalMobileNumber || "-",
+          personalEmailAddress: empData.personalEmail || empData.personalEmailAddress || "-",
+          presentAddress: empData.presentAddress || "6422 Collins Ave,\n#APT 302,\nMiami Beach, Florida,\nUNITED STATES, 33141.",
+          permanentAddress: empData.permanentAddress || "-",
+        });
+
+        // Fetch work experience (if available)
+        setWorkRows([]); // Placeholder
+
+        // Fetch education (if available)
+        setEducationRows([]); // Placeholder
+
+        // Fetch dependents (if available)
+        setDependentRows([]); // Placeholder
+
+      } catch (error) {
+        console.error('Error fetching profile data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfileData();
+  }, []);
 
   const updateField = (section: string, field: string, value: string) => {
     switch (section) {
@@ -466,7 +557,13 @@ export default function ProfilePage() {
   return (
     // RESPONSIVE UPDATE: Adjusted padding for different breakpoints
     <div className="p-3 md:p-6 space-y-4 md:space-y-6 max-w-6xl mx-auto w-full">
-      {/* PAGE HEADER */}
+      {loading ? (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-gray-500">Loading profile data...</div>
+        </div>
+      ) : (
+        <>
+          {/* PAGE HEADER */}
       <div className="flex flex-row justify-between items-center gap-4">
         <h1 className="text-xl md:text-2xl font-semibold truncate">Employee Profile</h1>
         <Button
@@ -928,6 +1025,8 @@ export default function ProfilePage() {
           />
         </CardContent>
       </Card>
+        </>
+      )}
     </div>
   );
 }
