@@ -10,7 +10,7 @@ interface LayoutProps {
   userRole?: 'admin' | 'employee';
 }
 
-import { checkSetupStatus, getUserRole, requiresSetup } from '@/lib/auth';
+import { checkSetupStatus, checkEmployeeSetupStatus, getUserRole, requiresSetup } from '@/lib/auth';
 
 export default function Layout({ children }: LayoutProps) {
   const router = useRouter();
@@ -33,7 +33,7 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     if (isChecking) return; // Don't check until role is loaded
 
-    const allowedPaths = ['/admin/setup', '/login', '/register', '/auth'];
+    const allowedPaths = ['/admin/setup', '/employee/setup', '/login', '/register', '/auth'];
     const isAllowedPath = allowedPaths.some((path) => pathname.startsWith(path));
 
     // If we're on an allowed path, don't check setup
@@ -43,7 +43,11 @@ export default function Layout({ children }: LayoutProps) {
 
     // Redirect to setup if required and trying to access protected routes
     if (setupRequired) {
-      router.push('/admin/setup');
+      if (role === 'admin') {
+        router.push('/admin/setup');
+      } else if (role === 'employee') {
+        router.push('/employee/setup');
+      }
     }
   }, [pathname, router, role, isChecking]);
 
@@ -51,7 +55,13 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     const handleSetupComplete = () => {
       // Force re-check when setup is completed
-      if (!requiresSetup(role)) {
+      const setupComplete = role === 'admin' 
+        ? checkSetupStatus() 
+        : role === 'employee' 
+          ? checkEmployeeSetupStatus() 
+          : false;
+      
+      if (setupComplete && !requiresSetup(role)) {
         // Redirect to appropriate dashboard
         if (role === 'admin') {
           router.push('/admin/my-space/overview');

@@ -110,13 +110,29 @@ export const checkSetupStatus = (): boolean => {
     return getCookie('setupCompleted') === 'true' || (typeof window !== 'undefined' && localStorage.getItem('setupCompleted') === 'true');
 };
 
+// Employee Profile Setup Status Helper
+export const checkEmployeeSetupStatus = (): boolean => {
+    const token = getAuthToken();
+    if (token) {
+        const payload = decodeToken(token);
+        // Check if employee onboarding is completed
+        if (payload?.onboardingStatus === 'completed' || payload?.employeeSetupCompleted) return true;
+    }
+    // Fallback to cookie or localStorage
+    return getCookie('employeeSetupCompleted') === 'true' || (typeof window !== 'undefined' && localStorage.getItem('employeeSetupCompleted') === 'true');
+};
+
 /**
  * Returns true if the user of this role MUST complete setup before accessing protected routes.
- * Currently, only admins have a blocking setup requirement.
+ * Admins need to complete organization setup, employees need to complete profile setup.
  */
 export const requiresSetup = (role: 'admin' | 'employee' | string | null): boolean => {
-    if (role !== 'admin') return false; // Employees and others don't have a blocking setup
-    return !checkSetupStatus();
+    if (role === 'admin') {
+        return !checkSetupStatus();
+    } else if (role === 'employee') {
+        return !checkEmployeeSetupStatus();
+    }
+    return false;
 };
 
 // Role Helper
@@ -140,6 +156,7 @@ export const clearSetupData = (): void => {
     deleteCookie('currentLocationId');
     deleteCookie('currentDepartmentId');
     deleteCookie('setupCompleted');
+    deleteCookie('employeeSetupCompleted');
     deleteCookie('organizationSetup');
     deleteCookie('authToken');
     deleteCookie('role');
@@ -227,7 +244,10 @@ export const syncSetupState = async (token: string, orgId?: string): Promise<boo
         if (locId) setLocationId(locId === "exists" ? "" : locId);
         if (deptId) setDepartmentId(deptId === "exists" ? "" : deptId);
 
-        const isComplete = !!(locId || deptId || desigId);
+        // Setup is only complete if ALL required steps are done:
+        // Organization (orgId exists), Location, Department, and Designation
+        // This ensures new users see the tutorial even if org was created during signup
+        const isComplete = !!(locId && deptId && desigId);
 
         console.warn("SYNC_RESULT: Final Assessment ->", {
             hasLocations: !!locId,
@@ -244,6 +264,51 @@ export const syncSetupState = async (token: string, orgId?: string): Promise<boo
         return isComplete;
     } catch (error) {
         console.error('SYNC_FATAL: Error syncing setup state:', error);
+        return false;
+    }
+};
+
+// Sync employee profile setup state from backend
+export const syncEmployeeSetupState = async (token: string, employeeId?: string): Promise<boolean> => {
+    if (!employeeId || typeof window === 'undefined') return false;
+
+    try {
+        const apiUrl = getApiUrl();
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        };
+
+        console.warn(`SYNC_EMPLOYEE_START: Checking profile setup for Employee: ${employeeId}`);
+
+        // Fetch employee data to check onboarding status
+        const res = await fetch(`${apiUrl}/employees/${employeeId}`, { headers });
+        if (!res.ok) {
+            console.warn(`SYNC_EMPLOYEE_FETCH: Failed with ${res.status}`);
+            return false;
+        }
+
+        const data = await res.json();
+        const employee = data.data || data.employee || data;
+        
+        // Check if onboarding is completed
+        const isComplete = employee?.onboardingStatus === 'completed' || 
+                          (employee?.aadharNumber && employee?.PAN && employee?.bloodGroup);
+
+        console.warn("SYNC_EMPLOYEE_RESULT: Final Assessment ->", {
+            onboardingStatus: employee?.onboardingStatus,
+            hasIdentityInfo: !!(employee?.aadharNumber && employee?.PAN),
+            isComplete
+        });
+
+        if (isComplete) {
+            setCookie('employeeSetupCompleted', 'true');
+            if (typeof window !== 'undefined') localStorage.setItem('employeeSetupCompleted', 'true');
+        }
+
+        return isComplete;
+    } catch (error) {
+        console.error('SYNC_EMPLOYEE_FATAL: Error syncing employee setup state:', error);
         return false;
     }
 };

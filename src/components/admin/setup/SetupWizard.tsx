@@ -50,16 +50,8 @@ export default function OrganizationSetupWizard({
   const [locationId, setLocationId] = useState<string | null>(null);
   const [departmentId, setDepartmentId] = useState<string | null>(null);
 
-  // Redirect immediately if setup is already completed
-  useEffect(() => {
-    if (checkSetupStatus()) {
-      console.log("Setup already completed, redirecting to dashboard...");
-      window.location.href = '/admin/my-space/overview';
-    }
-  }, []);
-
   // Load existing IDs and restore progress from localStorage on mount
-  // Load existing IDs and restore progress from localStorage on mount
+  // Also check backend to verify if setup is actually completed
   useEffect(() => {
     const storedOrgId = getOrgId();
     const storedLocationId = getLocationId();
@@ -94,9 +86,13 @@ export default function OrganizationSetupWizard({
     setSteps(newSteps);
     setCurrentStep(maxStep);
 
-    // Fetch Data for Hydration
+    // Fetch Data for Hydration and Check Setup Status
     const fetchData = async () => {
-      if (!token || !storedOrgId) return;
+      if (!token || !storedOrgId) {
+        // If no orgId, setup is definitely not complete
+        return;
+      }
+      
       const apiUrl = getApiUrl();
       const headers = { Authorization: `Bearer ${token}` };
 
@@ -108,10 +104,6 @@ export default function OrganizationSetupWizard({
         // 1. Fetch Organization
         const orgRes = await import('axios').then(a => a.default.get(`${apiUrl}/org/${storedOrgId}`, { headers }));
         if (orgRes.data.data) {
-          // Adapt API response to internal state shape if needed. 
-          // Assuming API returns object matching OrganizationData partially
-          // Note: API might return slightly different shape, so map fields carefully if known.
-          // For now, simple spread or just ensuring name exists.
           setOrgData(prev => ({ ...prev, ...orgRes.data.data }));
         }
 
@@ -139,18 +131,36 @@ export default function OrganizationSetupWizard({
           if (desigList.length > 0) hasDesigs = true;
         }
 
-        // Auto-Complete Check - If even one piece of data exists, consider setup "sufficiently complete"
-        // to allow accessing the dashboard, as requested by the user.
-        if (hasLocs || hasDepts || hasDesigs) {
-          console.log("SetupWizard: Found existing partial/complete setup. Redirecting to Overview...");
+        // Auto-Complete Check - Only mark setup as complete if ALL required steps are done
+        // Check if organization details exist (orgId exists), location exists, department exists, and designation exists
+        const orgDetailsComplete = !!storedOrgId && orgRes?.data?.data?.name; // Org has name/details
+        const allStepsComplete = orgDetailsComplete && hasLocs && hasDepts && hasDesigs;
+        
+        if (allStepsComplete) {
+          console.log("SetupWizard: Found complete setup with all steps done. Redirecting to Overview...");
+          // Mark setup as completed and redirect
           setCookie('setupCompleted', 'true');
           if (typeof window !== 'undefined') localStorage.setItem('setupCompleted', 'true');
           window.dispatchEvent(new Event('storage'));
           window.dispatchEvent(new CustomEvent('setupStatusChanged'));
           window.location.href = '/admin/my-space/overview';
+          return; // Exit early to prevent showing the wizard
+        } else {
+          // If setup is not complete, ensure the setupCompleted flag is cleared
+          // This allows new users to see the tutorial
+          if (checkSetupStatus()) {
+            console.log("SetupWizard: Setup not fully complete, clearing completion flag");
+            setCookie('setupCompleted', 'false');
+            if (typeof window !== 'undefined') localStorage.setItem('setupCompleted', 'false');
+          }
         }
       } catch (err) {
         console.error("Failed to hydrate setup wizard data", err);
+        // On error, check if setup status exists in cookies as fallback
+        if (checkSetupStatus()) {
+          console.log("SetupWizard: Error fetching data, but setup marked as complete. Redirecting...");
+          window.location.href = '/admin/my-space/overview';
+        }
       }
     };
 

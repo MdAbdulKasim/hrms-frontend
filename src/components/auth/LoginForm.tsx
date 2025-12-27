@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { getCookie, setCookie, setOrgId, getApiUrl, syncSetupState, clearSetupData, checkSetupStatus } from "@/lib/auth";
+import { getCookie, setCookie, setOrgId, getApiUrl, syncSetupState, syncEmployeeSetupState, clearSetupData, checkSetupStatus, checkEmployeeSetupStatus } from "@/lib/auth";
 
 interface FormData {
   email: string;
@@ -108,7 +108,11 @@ export default function LoginForm() {
           if (firstName) setCookie('hrms_user_firstName', firstName, 7);
           if (lastName) setCookie('hrms_user_lastName', lastName, 7);
 
-          let isSetupCompleted = checkSetupStatus();
+          // Always sync setup state from backend to get accurate status
+          // Note: clearSetupData() is called on login page mount, so cookies are cleared
+          // We need to check backend to see if setup is actually completed
+          let isSetupCompleted = false;
+          let isEmployeeSetupCompleted = false;
 
           const orgIdRaw = employee?.organization?.orgId ||
             employee?.organizationId ||
@@ -121,25 +125,48 @@ export default function LoginForm() {
 
           const orgId = orgIdRaw ? String(orgIdRaw) : null;
 
-          if (orgId && orgId !== 'undefined' && role === 'admin') {
+          if (role === 'admin' && orgId && orgId !== 'undefined') {
             setOrgId(orgId);
+            // Always sync setup state from backend to check if setup is actually completed
+            // This ensures that once setup is completed, it's properly detected on subsequent logins
             try {
               const syncResult = await syncSetupState(token, orgId);
+              isSetupCompleted = syncResult;
               if (syncResult) {
-                isSetupCompleted = true;
+                // Setup is completed - ensure cookie is set
                 setCookie('setupCompleted', 'true');
                 if (typeof window !== 'undefined') localStorage.setItem('setupCompleted', 'true');
               }
             } catch (err) {
               console.error("LOGIN_DEBUG: Sync failed", err);
+              // If sync fails, check existing status as fallback
+              isSetupCompleted = checkSetupStatus();
+            }
+          } else if (role === 'employee' && id) {
+            // Always sync employee setup status from backend
+            try {
+              const syncResult = await syncEmployeeSetupState(token, id);
+              isEmployeeSetupCompleted = syncResult;
+              if (syncResult) {
+                // Employee setup is completed - ensure cookie is set
+                setCookie('employeeSetupCompleted', 'true');
+                if (typeof window !== 'undefined') localStorage.setItem('employeeSetupCompleted', 'true');
+              }
+            } catch (err) {
+              console.error("LOGIN_DEBUG: Employee sync failed", err);
+              // If sync fails, check existing status as fallback
+              isEmployeeSetupCompleted = checkEmployeeSetupStatus();
             }
           }
 
           if (role === 'admin') {
+            // Redirect based on actual setup status from backend
             const dest = isSetupCompleted ? "/admin/my-space/overview" : "/admin/setup";
             window.location.href = dest;
           } else {
-            window.location.href = "/employee/my-space/overview";
+            // Redirect employees based on actual profile setup status from backend
+            const dest = isEmployeeSetupCompleted ? "/employee/my-space/overview" : "/employee/setup";
+            window.location.href = dest;
           }
         } else {
           setErrors(prev => ({
