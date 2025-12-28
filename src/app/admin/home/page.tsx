@@ -1,8 +1,5 @@
+import Dashboard from "@/components/admin/home";
 import Layout from "@/components/layout/Layout";
-import Dashboard from "@/components/admin/myspace/dashboard";
-
-
-
 
 export default function onboarding(){
     return (
