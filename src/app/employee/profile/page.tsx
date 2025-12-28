@@ -1,4 +1,4 @@
-import ProfilePage from "@/components/employee/profile";
+import ProfilePage from "@/components/employee/profile/Eprofilepage";
 import Layout from "@/components/layout/Layout";
 
 
