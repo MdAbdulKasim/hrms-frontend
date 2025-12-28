@@ -39,6 +39,11 @@ export default function OrgChart() {
         const apiUrl = getApiUrl();
         const orgId = getOrgId();
 
+        if (!orgId) {
+          console.error('Organization ID not found');
+          return;
+        }
+
         const response = await axios.get(`${apiUrl}/org/${orgId}/employees`, {
           headers: { Authorization: `Bearer ${token}` }
         });

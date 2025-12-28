@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, ReactNode } from "react";
+import { useState, useEffect, ReactNode } from "react";
 import {
   Megaphone,
   MessageSquare,
@@ -8,6 +8,9 @@ import {
   Bell,
   Calendar,
 } from "lucide-react";
+import axios from 'axios';
+import { getApiUrl, getAuthToken, getOrgId, getLocationId } from '@/lib/auth';
+import statusService from '@/lib/statusService';
 
 /* ================= TYPES ================= */
 
@@ -37,6 +40,14 @@ interface HolidayRowProps {
 
 export default function FeedsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("all");
+  const [loading, setLoading] = useState(false);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [holidays, setHolidays] = useState<any[]>([]);
+  const [approvals, setApprovals] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [statuses, setStatuses] = useState<any[]>([]);
+  const [statusInput, setStatusInput] = useState('');
+  const [statusCreating, setStatusCreating] = useState(false);
 
   const tabs = [
     { key: "all", label: "All" },
@@ -46,6 +57,118 @@ export default function FeedsPage() {
     { key: "alerts", label: "Alerts" },
     { key: "holidays", label: "Holidays" },
   ];
+
+  // Fetch feed data from API
+  useEffect(() => {
+    const fetchFeedData = async () => {
+      try {
+        setLoading(true);
+        const apiUrl = getApiUrl();
+        const token = getAuthToken();
+        const orgId = getOrgId();
+
+        if (!token || !orgId) {
+          console.warn('Missing authentication token or orgId');
+          return;
+        }
+
+        // Fetch announcements
+        try {
+          const announcementsRes = await axios.get(`${apiUrl}/org/${orgId}/announcements`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setAnnouncements(announcementsRes.data.data || announcementsRes.data || []);
+        } catch (error) {
+          console.error('Error fetching announcements:', error);
+          setAnnouncements([]);
+        }
+
+        // Fetch holidays
+        try {
+          const holidaysRes = await axios.get(`${apiUrl}/org/${orgId}/holidays`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setHolidays(holidaysRes.data.data || holidaysRes.data || []);
+        } catch (error) {
+          console.error('Error fetching holidays:', error);
+          setHolidays([]);
+        }
+
+        // Fetch approvals (leave requests)
+        try {
+          const approvalsRes = await axios.get(`${apiUrl}/org/${orgId}/leaves`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setApprovals(approvalsRes.data.data || approvalsRes.data || []);
+        } catch (error) {
+          console.error('Error fetching approvals:', error);
+          setApprovals([]);
+        }
+
+        // Alerts - set empty for now as there's no notifications endpoint
+        setAlerts([]);
+
+        // Fetch statuses from backend (requires orgId and locationId)
+        try {
+          const locationId = getLocationId();
+          if (locationId) {
+            const statusRes = await statusService.getStatuses(orgId, locationId);
+            setStatuses(statusRes.data || []);
+          } else {
+            console.warn('No locationId found, skipping status fetch');
+            setStatuses([]);
+          }
+        } catch (error) {
+          console.error('Error fetching statuses:', error);
+          setStatuses([]);
+        }
+
+      } catch (error) {
+        console.error('Error fetching feed data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFeedData();
+  }, []);
+
+  // Handle creating a new status
+  const handleCreateStatus = async () => {
+    if (!statusInput.trim()) return;
+    
+    try {
+      setStatusCreating(true);
+      const orgId = getOrgId();
+      if (!orgId) {
+        alert('Organization not found');
+        return;
+      }
+
+      const locationId = getLocationId();
+      if (!locationId) {
+        alert('Location not found');
+        return;
+      }
+
+      const response = await statusService.createStatus(orgId, locationId, { content: statusInput.trim() });
+      if (response.error) {
+        alert(response.error);
+        return;
+      }
+
+      const newStatus = response.data;
+      if (newStatus) {
+        setStatuses([newStatus, ...statuses]);
+        setStatusInput('');
+      }
+    } catch (error) {
+      console.error('Error creating status:', error);
+      alert('Failed to create status');
+    } finally {
+      setStatusCreating(false);
+    }
+  };
 
   return (
     // Changed p-6 to p-4 for mobile, md:p-6 for desktop
@@ -74,115 +197,182 @@ export default function FeedsPage() {
 
       {/* CONTENT */}
       <div className="space-y-4">
-        {/* ================= ALL ================= */}
-        {activeTab === "all" && (
+        {loading ? (
+          <div className="text-center text-gray-500">Loading feeds...</div>
+        ) : (
           <>
-            <FeedCard
-              icon={<Megaphone className="text-orange-600" />}
-              title="Year End Party"
-              text="Join us for the annual celebration on Dec 20!"
-              tag="Announcement"
-              tagColor="bg-orange-100 text-orange-700"
-              timestamp="2 hours ago"
-            />
+            {/* ================= ALL ================= */}
+            {activeTab === "all" && (
+              <>
+                {announcements.map((item) => (
+                  <FeedCard
+                    key={item.id}
+                    icon={<Megaphone className="text-orange-600" />}
+                    title={item.title}
+                    text={item.description}
+                    tag="Announcement"
+                    tagColor="bg-orange-100 text-orange-700"
+                    timestamp={item.createdAt}
+                  />
+                ))}
+                {approvals.map((item) => (
+                  <FeedCard
+                    key={item.id}
+                    icon={<CheckCircle className="text-green-600" />}
+                    title={item.title || 'Leave Request'}
+                    text={item.description || `Leave from ${item.startDate} to ${item.endDate}`}
+                    tag="Approval"
+                    tagColor="bg-green-100 text-green-700"
+                    timestamp={item.createdAt}
+                  />
+                ))}
+                {statuses.map((item) => (
+                  <FeedCard
+                    key={item.id}
+                    icon={<MessageSquare className="text-blue-600" />}
+                    title={item.createdBy?.firstName || 'Employee'}
+                    text={item.content}
+                    tag="Status"
+                    tagColor="bg-blue-100 text-blue-700"
+                    timestamp={item.createdAt}
+                  />
+                ))}
+                {alerts.map((item) => (
+                  <FeedCard
+                    key={item.id}
+                    icon={<Bell className="text-red-600" />}
+                    title={item.title}
+                    text={item.message}
+                    tag="Alert"
+                    tagColor="bg-red-100 text-red-700"
+                    timestamp={item.createdAt}
+                  />
+                ))}
+              </>
+            )}
 
-            <FeedCard
-              icon={<CheckCircle className="text-green-600" />}
-              title="Leave Approved"
-              text="Your leave request for Dec 26–27 has been approved."
-              tag="Approval"
-              tagColor="bg-green-100 text-green-700"
-              timestamp="4 hours ago"
-            />
+            {/* ================= STATUS ================= */}
+            {activeTab === "status" && (
+              <>
+                {/* Status Creation Form */}
+                <div className="bg-white p-4 rounded-lg shadow mb-4">
+                  <textarea
+                    value={statusInput}
+                    onChange={(e) => setStatusInput(e.target.value)}
+                    placeholder="What's on your mind?"
+                    className="w-full border rounded-lg p-3 h-24 focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                  />
+                  <button 
+                    onClick={handleCreateStatus}
+                    disabled={statusCreating || !statusInput.trim()}
+                    className={`mt-2 w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg transition ${
+                      statusCreating || !statusInput.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
+                    }`}
+                  >
+                    {statusCreating ? 'Posting...' : 'Post'}
+                  </button>
+                </div>
 
-            <FeedCard
-              icon={<MessageSquare className="text-blue-600" />}
-              title="Alice Johnson"
-              text="Working on the new dashboard design today!"
-              tag="Status"
-              tagColor="bg-blue-100 text-blue-700"
-              timestamp="5 hours ago"
-            />
+                {statuses.length > 0 ? (
+                  statuses.map((item) => (
+                    <FeedCard
+                      key={item.id}
+                      icon={<MessageSquare className="text-blue-600" />}
+                      title={item.createdBy?.firstName || 'Employee'}
+                      text={item.content}
+                      timestamp={item.createdAt}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center text-gray-500">No statuses available</div>
+                )}
+              </>
+            )}
 
-            <FeedCard
-              icon={<Bell className="text-red-600" />}
-              title="Reminder"
-              text="Please submit your timesheets by end of day."
-              tag="Alert"
-              tagColor="bg-red-100 text-red-700"
-              timestamp="1 day ago"
-            />
+            {/* ================= ANNOUNCEMENTS ================= */}
+            {activeTab === "announcements" && (
+              <>
+                {announcements.length > 0 ? (
+                  announcements.map((item) => (
+                    <FeedCard
+                      key={item.id}
+                      icon={<Megaphone className="text-orange-600" />}
+                      title={item.title}
+                      text={item.description}
+                      tag="Announcement"
+                      tagColor="bg-orange-100 text-orange-700"
+                      timestamp={item.createdAt}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center text-gray-500">No announcements available</div>
+                )}
+              </>
+            )}
+
+            {/* ================= APPROVALS ================= */}
+            {activeTab === "approvals" && (
+              <>
+                {approvals.length > 0 ? (
+                  approvals.map((item) => (
+                    <FeedCard
+                      key={item.id}
+                      icon={<CheckCircle className="text-green-600" />}
+                      title={item.title || 'Leave Request'}
+                      text={item.description || `Leave from ${item.startDate} to ${item.endDate}`}
+                      tag="Approval"
+                      tagColor="bg-green-100 text-green-700"
+                      timestamp={item.createdAt}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center text-gray-500">No approvals available</div>
+                )}
+              </>
+            )}
+
+            {/* ================= ALERTS ================= */}
+            {activeTab === "alerts" && (
+              <>
+                {alerts.length > 0 ? (
+                  alerts.map((item) => (
+                    <FeedCard
+                      key={item.id}
+                      icon={<Bell className="text-red-600" />}
+                      title={item.title}
+                      text={item.message}
+                      tag="Alert"
+                      tagColor="bg-red-100 text-red-700"
+                      timestamp={item.createdAt}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center text-gray-500">No alerts available</div>
+                )}
+              </>
+            )}
+
+            {/* ================= HOLIDAYS ================= */}
+            {activeTab === "holidays" && (
+              <div className="space-y-3">
+                {holidays.length > 0 ? (
+                  holidays.map((holiday) => (
+                    <HolidayRow
+                      key={holiday.id}
+                      title={holiday.holidayName || holiday.name || holiday.title}
+                      date={new Date(holiday.date).toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center text-gray-500">No holidays available</div>
+                )}
+              </div>
+            )}
           </>
-        )}
-
-        {/* ================= STATUS ================= */}
-        {activeTab === "status" && (
-          <>
-            <div className="bg-white p-4 rounded-lg shadow">
-              <textarea
-                placeholder="What's on your mind?"
-                className="w-full border rounded-lg p-3 h-24 focus:ring-2 focus:ring-blue-400"
-              />
-              <button className="mt-2 w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                Post
-              </button>
-            </div>
-
-            <FeedCard
-              icon={<MessageSquare className="text-blue-600" />}
-              title="Alice Johnson"
-              text="Working on the new dashboard design today!"
-              timestamp="5 hours ago"
-            />
-          </>
-        )}
-
-        {/* ================= ANNOUNCEMENTS ================= */}
-        {activeTab === "announcements" && (
-          <FeedCard
-            icon={<Megaphone className="text-orange-600" />}
-            title="Year End Party"
-            text="Join us for the annual celebration on Dec 20!"
-            tag="Announcement"
-            tagColor="bg-orange-100 text-orange-700"
-            timestamp="2 hours ago"
-          />
-        )}
-
-        {/* ================= APPROVALS ================= */}
-        {activeTab === "approvals" && (
-          <FeedCard
-            icon={<CheckCircle className="text-green-600" />}
-            title="Leave Approved"
-            text="Your leave request for Dec 26–27 has been approved."
-            tag="Approval"
-            tagColor="bg-green-100 text-green-700"
-            timestamp="4 hours ago"
-          />
-        )}
-
-        {/* ================= ALERTS ================= */}
-        {activeTab === "alerts" && (
-          <FeedCard
-            icon={<Bell className="text-red-600" />}
-            title="Reminder"
-            text="Please submit your timesheets by end of day."
-            tag="Alert"
-            tagColor="bg-red-100 text-red-700"
-            timestamp="1 day ago"
-          />
-        )}
-
-        {/* ================= HOLIDAYS ================= */}
-        {activeTab === "holidays" && (
-          <div className="space-y-3">
-            <HolidayRow title="Christmas" date="December 25, 2024" />
-            <HolidayRow title="New Year's Day" date="January 1, 2025" />
-            <HolidayRow
-              title="Martin Luther King Jr. Day"
-              date="January 20, 2025"
-            />
-          </div>
         )}
       </div>
     </div>

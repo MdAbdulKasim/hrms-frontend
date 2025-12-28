@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { Plus, Play, Square, Target, Clock, Briefcase, CheckCircle, ChevronDown } from "lucide-react"
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
+import projectService from '@/lib/projectService';
 import {
   Dialog,
   DialogContent,
@@ -141,11 +142,20 @@ export default function TimeTrackingPage() {
   const [activeFilter, setActiveFilter] = useState<"All" | "Today" | "Weekly" | "Monthly" | "Yearly">("All")
 
   const [entries, setEntries] = useState<TimeEntry[]>([])
+  
+  // Statistics state - calculated from API data
+  const [weeklyTarget] = useState(0) // This could come from org settings
+  const [hoursLogged, setHoursLogged] = useState(0)
+  const [billableHours, setBillableHours] = useState(0)
+  const [nonBillableHours, setNonBillableHours] = useState(0)
+  const [todayTotal, setTodayTotal] = useState(0)
+  const [weekTotal, setWeekTotal] = useState(0)
 
-  const [projects, setProjects] = useState<string[]>([])
+  const [projects, setProjects] = useState<any[]>([])
   const [tasks, setTasks] = useState<string[]>([])
   const [statuses, setStatuses] = useState<string[]>(defaultStatuses)
   const [loading, setLoading] = useState(true)
+  const [creatingProject, setCreatingProject] = useState(false)
   const [newTimerProjectInput, setNewTimerProjectInput] = useState("")
   const [newTimerTaskInput, setNewTimerTaskInput] = useState("")
   const [newTimerStatusInput, setNewTimerStatusInput] = useState("")
@@ -190,36 +200,92 @@ export default function TimeTrackingPage() {
         const orgId = getOrgId();
         const apiUrl = getApiUrl();
 
-        if (!token || !orgId) return;
+        if (!token || !orgId) {
+          console.warn('Missing authentication token or orgId');
+          return;
+        }
 
         // Fetch all time entries (admin view)
         const entriesRes = await axios.get(`${apiUrl}/org/${orgId}/time-entries`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const entriesData = entriesRes.data.data || entriesRes.data || [];
-        setEntries((Array.isArray(entriesData) ? entriesData : []).map((entry: any) => ({
-          project: entry.projectId?.name || entry.project || 'Unknown Project',
-          task: entry.taskName || 'General Task',
-          date: entry.date || new Date().toISOString().split('T')[0],
-          hours: `${Math.round((entry.duration || 0) / 3600 * 10) / 10}h`,
-          status: entry.status || 'Pending',
-          description: entry.description || ''
-        })));
-
-        // Fetch projects
-        const projectsRes = await axios.get(`${apiUrl}/org/${orgId}/projects`, {
-          headers: { Authorization: `Bearer ${token}` }
+        const entriesArray = Array.isArray(entriesData) ? entriesData : [];
+        
+        // Calculate statistics from API data
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        
+        let totalHours = 0;
+        let billable = 0;
+        let nonBillable = 0;
+        let todayHours = 0;
+        let weekHours = 0;
+        
+        entriesArray.forEach((entry: any) => {
+          const hours = (entry.duration || 0) / 3600;
+          totalHours += hours;
+          
+          if (entry.isBillable) {
+            billable += hours;
+          } else {
+            nonBillable += hours;
+          }
+          
+          const entryDate = new Date(entry.date);
+          if (entryDate.getTime() >= today.getTime() && entryDate.getTime() < today.getTime() + 86400000) {
+            todayHours += hours;
+          }
+          if (entryDate >= startOfWeek && entryDate <= now) {
+            weekHours += hours;
+          }
         });
-        const projectsData = projectsRes.data.data || projectsRes.data || [];
-        setProjects((Array.isArray(projectsData) ? projectsData : []).map((p: any) => p.name || p.title || 'Unnamed Project'));
+        
+        setHoursLogged(Math.round(totalHours * 10) / 10);
+        setBillableHours(Math.round(billable * 10) / 10);
+        setNonBillableHours(Math.round(nonBillable * 10) / 10);
+        setTodayTotal(Math.round(todayHours * 10) / 10);
+        setWeekTotal(Math.round(weekHours * 10) / 10);
+        
+        setEntries(entriesArray.map((entry: any) => {
+          // Handle project - could be object, string, or nested in projectId
+          let projectName = 'Unknown Project';
+          if (entry.projectId && typeof entry.projectId === 'object') {
+            projectName = entry.projectId.name || entry.projectId.title || 'Unknown Project';
+          } else if (entry.project && typeof entry.project === 'object') {
+            projectName = entry.project.name || entry.project.title || 'Unknown Project';
+          } else if (typeof entry.projectId === 'string') {
+            projectName = entry.projectId;
+          } else if (typeof entry.project === 'string') {
+            projectName = entry.project;
+          }
+          
+          return {
+            project: projectName,
+            task: entry.taskName || entry.task || 'General Task',
+            date: entry.date || new Date().toISOString().split('T')[0],
+            hours: `${Math.round((entry.duration || 0) / 3600 * 10) / 10}h`,
+            status: entry.status || 'Pending',
+            description: entry.description || ''
+          };
+        }));
 
-        setTasks(["Frontend Development", "Backend Development", "UI Design", "Testing", "API Integration"]);
+        // Fetch projects using service
+        const projectsRes = await projectService.getAll(orgId);
+        setProjects(projectsRes.data || []);
 
       } catch (error) {
         console.error('Error fetching time tracking data:', error);
         setProjects([]);
-        setTasks(["Frontend Development", "Backend Development", "UI Design", "Testing"]);
+        setTasks([]);
         setEntries([]);
+        setHoursLogged(0);
+        setBillableHours(0);
+        setNonBillableHours(0);
+        setTodayTotal(0);
+        setWeekTotal(0);
       } finally {
         setLoading(false);
       }
@@ -276,11 +342,25 @@ export default function TimeTrackingPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
       const projectsData = projectsRes.data.data || projectsRes.data || [];
-      const selectedProject = (Array.isArray(projectsData) ? projectsData : []).find((p: any) => (p.name || p.title) === timerProject);
+      let selectedProject = (Array.isArray(projectsData) ? projectsData : []).find((p: any) => (p.name || p.title) === timerProject);
 
+      // If project not found, create it first
       if (!selectedProject) {
-        alert('Selected project not found');
-        return;
+        const createResponse = await projectService.create(orgId, {
+          name: timerProject,
+          description: '',
+          startDate: new Date().toISOString().split('T')[0],
+          status: 'in_progress'
+        });
+
+        if (createResponse.error) {
+          alert(`Failed to create project: ${createResponse.error}`);
+          return;
+        }
+
+        selectedProject = createResponse.data || createResponse;
+        // Update local projects list
+        setProjects([...projects, selectedProject]);
       }
 
       const response = await axios.post(
@@ -362,11 +442,24 @@ export default function TimeTrackingPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
       const projectsData = projectsRes.data.data || projectsRes.data || [];
-      const selectedProject = (Array.isArray(projectsData) ? projectsData : []).find((p: any) => (p.name || p.title) === entry.project);
+      let selectedProject = (Array.isArray(projectsData) ? projectsData : []).find((p: any) => (p.name || p.title) === entry.project);
 
+      // If project not found, create it first
       if (!selectedProject) {
-        alert('Selected project not found');
-        return;
+        const createResponse = await projectService.create(orgId, {
+          name: entry.project,
+          description: '',
+          startDate: new Date().toISOString().split('T')[0],
+          status: 'in_progress'
+        });
+
+        if (createResponse.error) {
+          alert(`Failed to create project: ${createResponse.error}`);
+          return;
+        }
+
+        selectedProject = createResponse.data || createResponse;
+        setProjects([...projects, selectedProject]);
       }
 
       const response = await axios.post(
@@ -463,12 +556,54 @@ export default function TimeTrackingPage() {
   const isTimerFormComplete =
     timerProject.trim() !== "" && timerTask.trim() !== "" && timerDescription.trim() !== "" && timerStatus.trim() !== ""
 
-  const handleCreateTimerProject = () => {
-    if (newTimerProjectInput.trim() !== "" && !projects.includes(newTimerProjectInput.trim())) {
-      setProjects([...projects, newTimerProjectInput.trim()])
-      setTimerProject(newTimerProjectInput.trim())
-      setNewTimerProjectInput("")
-      setShowTimerProjectDropdown(false)
+  const handleCreateTimerProject = async () => {
+    if (newTimerProjectInput.trim() === "") return;
+    
+    // Check if project already exists in local state
+    const existingProject = projects.find((p: any) => 
+      (typeof p === 'object' ? (p.name || p.title) : p) === newTimerProjectInput.trim()
+    );
+    
+    if (existingProject) {
+      setTimerProject(newTimerProjectInput.trim());
+      setNewTimerProjectInput("");
+      setShowTimerProjectDropdown(false);
+      return;
+    }
+
+    try {
+      setCreatingProject(true);
+      const orgId = getOrgId();
+      
+      if (!orgId) {
+        alert('Organization not found');
+        return;
+      }
+
+      // Create project in database
+      const response = await projectService.create(orgId, {
+        name: newTimerProjectInput.trim(),
+        description: '',
+        startDate: new Date().toISOString().split('T')[0],
+        status: 'in_progress'
+      });
+
+      if (response.error) {
+        alert(`Failed to create project: ${response.error}`);
+        return;
+      }
+
+      // Add to local state and select it
+      const newProject = response.data || response;
+      setProjects([...projects, newProject]);
+      setTimerProject(newTimerProjectInput.trim());
+      setNewTimerProjectInput("");
+      setShowTimerProjectDropdown(false);
+    } catch (error) {
+      console.error('Error creating project:', error);
+      alert('Failed to create project');
+    } finally {
+      setCreatingProject(false);
     }
   }
 
@@ -501,18 +636,26 @@ export default function TimeTrackingPage() {
 
   return (
     <div className="min-h-screen bg-white p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Time Tracking</h1>
-            <p className="text-gray-500 mt-1 text-sm sm:text-base">Track time spent on projects and tasks</p>
+      {loading ? (
+        <div className="max-w-7xl mx-auto flex items-center justify-center min-h-[400px]">
+          <div className="text-gray-500 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            Loading time tracking data...
           </div>
-          <button
-            onClick={() => setIsDialogOpen(true)}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus size={20} />
-            <span className="font-medium">Manual Entry</span>
+        </div>
+      ) : (
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Time Tracking</h1>
+              <p className="text-gray-500 mt-1 text-sm sm:text-base">Track time spent on projects and tasks</p>
+            </div>
+            <button
+              onClick={() => setIsDialogOpen(true)}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus size={20} />
+              <span className="font-medium">Manual Entry</span>
           </button>
         </div>
 
@@ -552,8 +695,15 @@ export default function TimeTrackingPage() {
                     </div>
                     <div className="border-t border-gray-200">
                       {projects.map((p) => (
-                        <div key={p} onClick={() => { setTimerProject(p); setShowTimerProjectDropdown(false); }} className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm text-gray-700">
-                          {p}
+                        <div 
+                          key={typeof p === 'object' ? p.id : p} 
+                          onClick={() => { 
+                            setTimerProject(typeof p === 'object' ? (p.name || p.title) : p); 
+                            setShowTimerProjectDropdown(false); 
+                          }} 
+                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm text-gray-700"
+                        >
+                          {typeof p === 'object' ? (p.name || p.title) : p}
                         </div>
                       ))}
                     </div>
@@ -593,11 +743,11 @@ export default function TimeTrackingPage() {
               <div className="flex justify-between lg:block">
                 <div className="lg:mb-3">
                   <p className="text-sm text-gray-500 mb-1">Today's Total</p>
-                  <p className="text-xl sm:text-2xl font-bold text-gray-900">7h 30m</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900">{Math.floor(todayTotal)}h {Math.round((todayTotal % 1) * 60)}m</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500 mb-1">This Week</p>
-                  <p className="text-xl sm:text-2xl font-bold text-gray-900">32.5h</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900">{weekTotal}h</p>
                 </div>
               </div>
             </div>
@@ -676,28 +826,28 @@ export default function TimeTrackingPage() {
               <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center"><Target size={20} className="text-gray-600" /></div>
               <p className="text-sm text-gray-500">Weekly Target</p>
             </div>
-            <p className="text-3xl font-bold text-gray-900">40h</p>
+            <p className="text-3xl font-bold text-gray-900">{weeklyTarget}h</p>
           </div>
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center"><Clock size={20} className="text-green-600" /></div>
               <p className="text-sm text-gray-500">Hours Logged</p>
             </div>
-            <p className="text-3xl font-bold text-green-600">32.5h</p>
+            <p className="text-3xl font-bold text-green-600">{weekTotal}h</p>
           </div>
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center"><Briefcase size={20} className="text-blue-600" /></div>
               <p className="text-sm text-gray-500">Billable</p>
             </div>
-            <p className="text-3xl font-bold text-blue-600">28h</p>
+            <p className="text-3xl font-bold text-blue-600">{billableHours}h</p>
           </div>
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center"><CheckCircle size={20} className="text-gray-600" /></div>
               <p className="text-sm text-gray-500">Non-Billable</p>
             </div>
-            <p className="text-3xl font-bold text-gray-900">4.5h</p>
+            <p className="text-3xl font-bold text-gray-900">{nonBillableHours}h</p>
           </div>
         </div>
 
@@ -705,10 +855,10 @@ export default function TimeTrackingPage() {
         <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
           <div className="flex justify-between items-center mb-3">
             <h3 className="font-semibold text-blue-600 text-sm sm:text-base">Weekly Progress</h3>
-            <span className="text-sm text-blue-600">32.5h / 40h (81%)</span>
+            <span className="text-sm text-blue-600">{weekTotal}h / {weeklyTarget}h ({weeklyTarget > 0 ? Math.round((weekTotal / weeklyTarget) * 100) : 0}%)</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-3">
-            <div className="bg-blue-600 h-3 rounded-full transition-all duration-500" style={{ width: "81%" }}></div>
+            <div className="bg-blue-600 h-3 rounded-full transition-all duration-500" style={{ width: `${weeklyTarget > 0 ? Math.min((weekTotal / weeklyTarget) * 100, 100) : 0}%` }}></div>
           </div>
         </div>
 
@@ -791,7 +941,8 @@ export default function TimeTrackingPage() {
             </table>
           </div>
         </div>
-      </div>
+        </div>
+      )}
 
       <TimeEntryDialog
         open={isDialogOpen}
@@ -800,7 +951,7 @@ export default function TimeTrackingPage() {
         projects={projects}
         tasks={tasks}
         statuses={statuses}
-        onCreateProject={(name) => setProjects([...projects, name])}
+        onCreateProject={(project) => setProjects([...projects, project])}
         onCreateTask={(name) => setTasks([...tasks, name])}
         onCreateStatus={(name) => setStatuses([...statuses, name])}
       />

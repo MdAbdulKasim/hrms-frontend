@@ -29,6 +29,12 @@ const UpcomingHolidaysSection: React.FC = () => {
         const token = getAuthToken();
         const orgId = getOrgId();
 
+        if (!orgId) {
+          console.error('No organization ID found');
+          setHolidays([]);
+          return;
+        }
+
         const response = await axios.get(`${apiUrl}/org/${orgId}/holidays`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -67,6 +73,11 @@ const UpcomingHolidaysSection: React.FC = () => {
         const apiUrl = getApiUrl();
         const token = getAuthToken();
         const orgId = getOrgId();
+
+        if (!orgId) {
+          alert('Organization not found');
+          return;
+        }
 
         // Call API to create holiday
         const response = await axios.post(

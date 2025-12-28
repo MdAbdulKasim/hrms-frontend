@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Grid, List, LayoutGrid, Filter, X, ChevronDown, ArrowLeft } from 'lucide-react';
 import ProfilePage from "@/components/profile/ProfilePage";
 import axios from 'axios';
-import { getApiUrl, getAuthToken } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 
 // Employee data type
 interface Employee {
@@ -43,8 +43,14 @@ const EmployeeManagement = () => {
         setLoading(true);
         const apiUrl = getApiUrl();
         const token = getAuthToken();
+        const orgId = getOrgId();
 
-        const response = await axios.get(`${apiUrl}/employees`, {
+        if (!orgId) {
+          console.error('Organization ID not found');
+          return;
+        }
+
+        const response = await axios.get(`${apiUrl}/org/${orgId}/employees`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },

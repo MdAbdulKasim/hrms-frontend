@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { User } from 'lucide-react';
 import axios from 'axios';
-import { getApiUrl, getAuthToken } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 
 // --- Type Definitions ---
 interface Employee {
@@ -27,8 +27,14 @@ export default function OrgChart() {
         setLoading(true);
         const apiUrl = getApiUrl();
         const token = getAuthToken();
+        const orgId = getOrgId();
 
-        const response = await axios.get(`${apiUrl}/employees/hierarchy`, {
+        if (!orgId) {
+          console.error('Organization ID not found');
+          return;
+        }
+
+        const response = await axios.get(`${apiUrl}/org/${orgId}/employees`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },

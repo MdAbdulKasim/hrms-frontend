@@ -35,6 +35,12 @@ const AnnouncementsSection: React.FC = () => {
         const token = getAuthToken();
         const orgId = getOrgId();
 
+        if (!orgId) {
+          console.error('No organization ID found');
+          setAnnouncements([]);
+          return;
+        }
+
         const response = await axios.get(`${apiUrl}/org/${orgId}/announcements`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -74,6 +80,11 @@ const AnnouncementsSection: React.FC = () => {
         const apiUrl = getApiUrl();
         const token = getAuthToken();
         const orgId = getOrgId();
+
+        if (!orgId) {
+          alert('Organization not found');
+          return;
+        }
 
         // Call API to create announcement
         const response = await axios.post(

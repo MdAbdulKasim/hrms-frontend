@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { PenLine, Plus, Trash2 } from "lucide-react";
 import axios from 'axios';
-import { getApiUrl, getAuthToken } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId, getCookie } from '@/lib/auth';
 
 // -----------------------------------------------------
 // TYPES FOR TABLE ROWS
@@ -320,11 +320,13 @@ export default function ProfilePage() {
       try {
         const token = getAuthToken();
         const apiUrl = getApiUrl();
+        const orgId = getOrgId();
+        const employeeId = getCookie('hrms_user_id');
 
-        if (!token) return;
+        if (!token || !orgId || !employeeId) return;
 
         // Fetch employee profile
-        const profileRes = await axios.get(`${apiUrl}/employees/me`, {
+        const profileRes = await axios.get(`${apiUrl}/org/${orgId}/employees/${employeeId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const empData = profileRes.data.data || profileRes.data;

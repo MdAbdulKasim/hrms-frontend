@@ -9,7 +9,8 @@ import {
   Calendar,
 } from "lucide-react";
 import axios from 'axios';
-import { getApiUrl, getAuthToken } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId, getLocationId } from '@/lib/auth';
+import statusService from '@/lib/statusService';
 
 /* ================= TYPES ================= */
 
@@ -44,6 +45,11 @@ export default function FeedsPage() {
   const [holidays, setHolidays] = useState<any[]>([]);
   const [approvals, setApprovals] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
+  const [statuses, setStatuses] = useState<any[]>([]);
+  const [statusInput, setStatusInput] = useState('');
+  const [statusCreating, setStatusCreating] = useState(false);
+  const [expandedStatusId, setExpandedStatusId] = useState<string | null>(null);
+  const [statusReplies, setStatusReplies] = useState<Record<string, any[]>>({});
 
   const tabs = [
     { key: "all", label: "All" },
@@ -61,10 +67,16 @@ export default function FeedsPage() {
         setLoading(true);
         const apiUrl = getApiUrl();
         const token = getAuthToken();
+        const orgId = getOrgId();
+
+        if (!token || !orgId) {
+          console.warn('Missing authentication token or orgId');
+          return;
+        }
 
         // Fetch announcements
         try {
-          const announcementsRes = await axios.get(`${apiUrl}/announcements`, {
+          const announcementsRes = await axios.get(`${apiUrl}/org/${orgId}/announcements`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           setAnnouncements(announcementsRes.data.data || announcementsRes.data || []);
@@ -75,7 +87,7 @@ export default function FeedsPage() {
 
         // Fetch holidays
         try {
-          const holidaysRes = await axios.get(`${apiUrl}/holidays`, {
+          const holidaysRes = await axios.get(`${apiUrl}/org/${orgId}/holidays`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           setHolidays(holidaysRes.data.data || holidaysRes.data || []);
@@ -84,9 +96,9 @@ export default function FeedsPage() {
           setHolidays([]);
         }
 
-        // Fetch approvals (leave requests, etc.)
+        // Fetch approvals (leave requests)
         try {
-          const approvalsRes = await axios.get(`${apiUrl}/leave-requests`, {
+          const approvalsRes = await axios.get(`${apiUrl}/org/${orgId}/leaves`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           setApprovals(approvalsRes.data.data || approvalsRes.data || []);
@@ -95,15 +107,22 @@ export default function FeedsPage() {
           setApprovals([]);
         }
 
-        // Fetch alerts/notifications
+        // Alerts - set empty for now as there's no notifications endpoint
+        setAlerts([]);
+
+        // Fetch statuses from backend (requires orgId and locationId)
         try {
-          const alertsRes = await axios.get(`${apiUrl}/notifications`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          setAlerts(alertsRes.data.data || alertsRes.data || []);
+          const locationId = getLocationId();
+          if (locationId) {
+            const statusRes = await statusService.getStatuses(orgId, locationId);
+            setStatuses(statusRes.data || []);
+          } else {
+            console.warn('No locationId found, skipping status fetch');
+            setStatuses([]);
+          }
         } catch (error) {
-          console.error('Error fetching alerts:', error);
-          setAlerts([]);
+          console.error('Error fetching statuses:', error);
+          setStatuses([]);
         }
 
       } catch (error) {
@@ -115,6 +134,68 @@ export default function FeedsPage() {
 
     fetchFeedData();
   }, []);
+
+  const handleCreateStatus = async () => {
+    if (!statusInput.trim()) return;
+
+    try {
+      setStatusCreating(true);
+      const orgId = getOrgId();
+      if (!orgId) {
+        alert('Organization not found');
+        return;
+      }
+
+      const locationId = getLocationId();
+      if (!locationId) {
+        alert('Location not found');
+        return;
+      }
+
+      const response = await statusService.createStatus(orgId, locationId, {
+        content: statusInput,
+        text: statusInput
+      });
+
+      if (response.error) {
+        alert(response.error);
+        return;
+      }
+
+      // Add new status to list
+      const newStatus = response.data as any;
+      if (newStatus) {
+        setStatuses([newStatus, ...statuses]);
+        setStatusInput('');
+      }
+    } catch (error) {
+      console.error('Error creating status:', error);
+      alert('Failed to create status');
+    } finally {
+      setStatusCreating(false);
+    }
+  };
+
+  const handleLoadReplies = async (statusId: string) => {
+    if (statusReplies[statusId]) {
+      setExpandedStatusId(expandedStatusId === statusId ? null : statusId);
+      return;
+    }
+
+    try {
+      const orgId = getOrgId();
+      if (!orgId) return;
+
+      const response = await statusService.getReplies(orgId, getLocationId() || '', statusId);
+      setStatusReplies({
+        ...statusReplies,
+        [statusId]: Array.isArray(response.data) ? response.data : []
+      });
+      setExpandedStatusId(statusId);
+    } catch (error) {
+      console.error('Error fetching replies:', error);
+    }
+  };
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
@@ -196,19 +277,64 @@ export default function FeedsPage() {
                 <div className="bg-white p-4 rounded-lg shadow">
                   <textarea
                     placeholder="What's on your mind?"
+                    value={statusInput}
+                    onChange={(e) => setStatusInput(e.target.value)}
                     className="w-full border rounded-lg p-3 h-24 focus:ring-2 focus:ring-blue-400"
                   />
-                  <button className="mt-2 w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                    Post
+                  <button 
+                    onClick={handleCreateStatus}
+                    disabled={statusCreating || !statusInput.trim()}
+                    className="mt-2 w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {statusCreating ? 'Posting...' : 'Post'}
                   </button>
                 </div>
 
-                <FeedCard
-                  icon={<MessageSquare className="text-blue-600" />}
-                  title="Alice Johnson"
-                  text="Working on the new dashboard design today!"
-                  timestamp="5 hours ago"
-                />
+                {statuses.length > 0 ? (
+                  statuses.map((status) => (
+                    <div key={status.id} className="bg-white p-4 rounded-lg shadow">
+                      <div className="flex items-start gap-3">
+                        <MessageSquare className="text-blue-600 shrink-0 mt-1" />
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-sm truncate">
+                            {status.createdBy?.firstName || 'User'}
+                          </h3>
+                          <p className="text-gray-600 text-sm mt-1 break-words">
+                            {status.content || status.text || 'No content'}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-2">
+                            {new Date(status.createdAt).toLocaleString()}
+                          </p>
+                          <button
+                            onClick={() => handleLoadReplies(status.id)}
+                            className="text-blue-500 text-xs mt-2 hover:underline"
+                          >
+                            {statusReplies[status.id] ? 'Hide' : 'Show'} Replies ({statusReplies[status.id]?.length || 0})
+                          </button>
+                          
+                          {expandedStatusId === status.id && statusReplies[status.id] && (
+                            <div className="mt-3 space-y-2 border-t pt-3">
+                              {statusReplies[status.id].map((reply) => (
+                                <div key={reply.id} className="bg-gray-50 p-2 rounded text-sm">
+                                  <p className="font-medium text-xs text-gray-700">
+                                    {reply.createdBy?.firstName || 'User'}
+                                  </p>
+                                  <p className="text-gray-600 text-xs mt-1">
+                                    {reply.content || reply.text}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No statuses yet</p>
+                  </div>
+                )}
               </>
             )}
 
@@ -292,7 +418,7 @@ export default function FeedsPage() {
                     {holidays.map((holiday, index) => (
                       <HolidayRow 
                         key={index} 
-                        title={holiday.title || holiday.holidayName} 
+                        title={holiday.holidayName || holiday.title} 
                         date={holiday.date} 
                       />
                     ))}

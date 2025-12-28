@@ -9,7 +9,7 @@ import EmployeeIdentityInfoStep from './EmployeeIdentityInfoStep';
 import EmployeeWorkExperienceStep from './EmployeeWorkExperienceStep';
 import EmployeeEducationStep from './EmployeeEducationStep';
 import axios from 'axios';
-import { getApiUrl, getAuthToken, checkEmployeeSetupStatus, syncEmployeeSetupState, getCookie, setCookie } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId, checkEmployeeSetupStatus, syncEmployeeSetupState, getCookie, setCookie } from '@/lib/auth';
 
 export default function EmployeeSetupWizard({
   initialStep = 1,
@@ -116,13 +116,14 @@ export default function EmployeeSetupWizard({
       if (!token) return;
 
       const apiUrl = getApiUrl();
+      const orgId = getOrgId();
       const employeeId = getCookie('hrms_user_id');
       
-      if (!employeeId) return;
+      if (!employeeId || !orgId) return;
 
       try {
         // Fetch employee data to check if profile is already completed
-        const res = await axios.get(`${apiUrl}/employees/${employeeId}`, {
+        const res = await axios.get(`${apiUrl}/org/${orgId}/employees/${employeeId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -260,8 +261,14 @@ export default function EmployeeSetupWizard({
       // Save to API
       const apiUrl = getApiUrl();
       const token = getAuthToken();
+      const orgId = getOrgId();
+      const employeeId = getCookie('hrms_user_id');
 
-      await axios.put(`${apiUrl}/employees/me`, completeData, {
+      if (!orgId || !employeeId) {
+        throw new Error('Organization or Employee ID not found');
+      }
+
+      await axios.put(`${apiUrl}/org/${orgId}/employees/${employeeId}`, completeData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

@@ -36,7 +36,8 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import axios from 'axios';
-import { getApiUrl, getAuthToken } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
+import attendanceService from '@/lib/attendanceService';
 
 interface AttendanceRecord {
   date: string; // Dynamic date string or ISO
@@ -76,16 +77,23 @@ const AttendanceTracker: React.FC = () => {
     const fetchAttendanceData = async () => {
       try {
         setLoading(true);
-        const apiUrl = getApiUrl();
-        const token = getAuthToken();
+        const orgId = getOrgId();
+        
+        if (!orgId) {
+          console.error('Organization ID not found');
+          setAllAttendanceData([]);
+          return;
+        }
 
-        const response = await axios.get(`${apiUrl}/attendance`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await attendanceService.getDailyAttendance(orgId);
 
-        const attendanceData = response.data.data || response.data || [];
+        if (response.error) {
+          console.error('Error fetching attendance:', response.error);
+          setAllAttendanceData([]);
+          return;
+        }
+
+        const attendanceData = Array.isArray(response.data) ? response.data : [];
 
         // Transform API data to match component interface
         const transformedData: AttendanceRecord[] = attendanceData.map((record: any) => ({

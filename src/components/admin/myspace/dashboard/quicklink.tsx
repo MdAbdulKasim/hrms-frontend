@@ -6,7 +6,8 @@ import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 
 interface QuickLink {
   id: string;
-  title: string;
+  name?: string;
+  title?: string;
   url: string;
   icon?: string;
 }
@@ -68,7 +69,7 @@ const QuickLinksSection: React.FC<QuickLinksSectionProps> = ({ className = '' })
       const response = await axios.post(
         `${apiUrl}/org/${orgId}/quick-links`,
         {
-          title: quickLinkForm.title,
+          name: quickLinkForm.title,
           url: quickLinkForm.url,
           isPublic: true
         },
@@ -116,7 +117,7 @@ const QuickLinksSection: React.FC<QuickLinksSectionProps> = ({ className = '' })
                 rel="noopener noreferrer"
                 className="flex items-center justify-between text-sm text-slate-700 hover:bg-slate-50 p-2 rounded -mx-2 transition-colors"
               >
-                <span className="truncate mr-2">{link.title}</span>
+                <span className="truncate mr-2">{link.name || link.title}</span>
                 <ExternalLink className="w-4 h-4 text-slate-400 shrink-0" />
               </a>
             ))

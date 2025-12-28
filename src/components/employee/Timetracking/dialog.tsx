@@ -7,6 +7,8 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog"
+import projectService from "@/lib/projectService"
+import { getOrgId } from "@/lib/auth"
 
 interface TimeEntryDialogProps {
   open: boolean
@@ -19,10 +21,10 @@ interface TimeEntryDialogProps {
     description: string
     status: string
   }) => void
-  projects: string[]
+  projects: any[]
   tasks: string[]
   statuses: string[]
-  onCreateProject: (name: string) => void
+  onCreateProject: (project: any) => void
   onCreateTask: (name: string) => void
   onCreateStatus: (name: string) => void
 }
@@ -94,12 +96,48 @@ export default function TimeEntryDialog({
     }
   }
 
-  const handleCreateProject = () => {
-    if (newProjectInput.trim() && !projects.includes(newProjectInput.trim())) {
-      onCreateProject(newProjectInput.trim())
-      setProject(newProjectInput.trim())
-      setNewProjectInput("")
-      setShowProjectDropdown(false)
+  const [creatingProject, setCreatingProject] = useState(false)
+
+  const handleCreateProject = async () => {
+    if (!newProjectInput.trim()) return;
+
+    // Check if project already exists
+    const projectExists = projects.some(p => p === newProjectInput.trim() || (typeof p === 'object' && p.name === newProjectInput.trim()));
+    if (projectExists) {
+      setProject(newProjectInput.trim());
+      setNewProjectInput("");
+      setShowProjectDropdown(false);
+      return;
+    }
+
+    try {
+      setCreatingProject(true);
+      const orgId = getOrgId();
+      if (!orgId) {
+        alert('Organization not found');
+        return;
+      }
+
+      const response = await projectService.create(orgId, {
+        name: newProjectInput.trim(),
+        startDate: new Date().toISOString()
+      });
+
+      if (response.error) {
+        alert(response.error);
+        return;
+      }
+
+      const newProject = response.data || response;
+      onCreateProject(newProject);
+      setProject(newProjectInput.trim());
+      setNewProjectInput("");
+      setShowProjectDropdown(false);
+    } catch (error) {
+      console.error('Error creating project:', error);
+      alert('Failed to create project');
+    } finally {
+      setCreatingProject(false);
     }
   }
 
@@ -183,14 +221,14 @@ export default function TimeEntryDialog({
                     <div className="border-t border-gray-200">
                       {projects.map((p) => (
                         <div
-                          key={p}
+                          key={typeof p === 'object' ? p.id : p}
                           onClick={() => {
-                            setProject(p)
+                            setProject(typeof p === 'object' ? (p.name || p.title) : p)
                             setShowProjectDropdown(false)
                           }}
                           className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm"
                         >
-                          {p}
+                          {typeof p === 'object' ? (p.name || p.title) : p}
                         </div>
                       ))}
                     </div>

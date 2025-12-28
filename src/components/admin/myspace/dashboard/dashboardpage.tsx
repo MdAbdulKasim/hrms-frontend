@@ -24,6 +24,12 @@ const Dashboard: React.FC = () => {
         const apiUrl = getApiUrl();
         const orgId = getOrgId();
 
+        if (!orgId) {
+          console.error('No organization ID found');
+          setLoading(false);
+          return;
+        }
+
         // Fetch employees for birthdays and new hires
         try {
           const employeesRes = await axios.get(`${apiUrl}/org/${orgId}/employees`, {
