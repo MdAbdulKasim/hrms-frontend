@@ -416,11 +416,53 @@ export default function EmployeeProfileForm() {
     }
   }
 
-  const states = ["Select State", "California", "Texas", "New York", "Florida"]
-  const countries = ["Select Country", "India", "USA", "UK", "Canada"]
-  const genders = ["Select Gender", "Male", "Female", "Other"]
-  const maritalStatuses = ["Select Marital Status", "Single", "Married", "Divorced", "Widowed"]
-  const bloodGroups = ["Select Blood Group", "A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"]
+  // Dynamic dropdown data states
+  const [states, setStates] = useState<string[]>(["Select State"])
+  const [countries, setCountries] = useState<string[]>(["Select Country"])
+  const [genders] = useState<string[]>(["Select Gender", "Male", "Female", "Other"])
+  const [maritalStatuses] = useState<string[]>(["Select Marital Status", "Single", "Married", "Divorced", "Widowed"])
+  const [bloodGroups] = useState<string[]>(["Select Blood Group", "A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"])
+
+  // Fetch dropdown options
+  useEffect(() => {
+    const fetchDropdownOptions = async () => {
+      try {
+        const token = getAuthToken()
+        const orgId = getOrgId()
+        const apiUrl = getApiUrl()
+
+        if (!token || !orgId) return
+
+        // Fetch states
+        try {
+          const statesRes = await axios.get(`${apiUrl}/org/${orgId}/states`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (statesRes.data && Array.isArray(statesRes.data)) {
+            setStates(["Select State", ...statesRes.data.map((s: any) => s.name || s)])
+          }
+        } catch (error) {
+          console.log("States API not available, using defaults")
+        }
+
+        // Fetch countries
+        try {
+          const countriesRes = await axios.get(`${apiUrl}/org/${orgId}/countries`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (countriesRes.data && Array.isArray(countriesRes.data)) {
+            setCountries(["Select Country", ...countriesRes.data.map((c: any) => c.name || c)])
+          }
+        } catch (error) {
+          console.log("Countries API not available, using defaults")
+        }
+      } catch (error) {
+        console.error("Error fetching dropdown options:", error)
+      }
+    }
+
+    fetchDropdownOptions()
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
