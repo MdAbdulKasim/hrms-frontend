@@ -2,13 +2,15 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import axios from "axios"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card } from "@/components/ui/card"
 import { ChevronLeft, Edit } from "lucide-react"
+import { getApiUrl, getAuthToken, getOrgId, getEmployeeId } from "@/lib/auth"
 
 interface FormData {
   // Personal Details
@@ -17,6 +19,7 @@ interface FormData {
   mobileNumber: string
   role: string
   department: string
+  designation: string
   reportingTo: string
   teamPosition: string
   shift: string
@@ -84,6 +87,7 @@ const initialFormData: FormData = {
   mobileNumber: "",
   role: "",
   department: "",
+  designation: "",
   reportingTo: "",
   teamPosition: "",
   shift: "",
@@ -149,6 +153,95 @@ export default function EmployeeProfileForm() {
     contact: true,
     education: true,
   })
+
+  // Fetch employee profile data on component mount
+  useEffect(() => {
+    const fetchEmployeeData = async () => {
+      try {
+        const token = getAuthToken()
+        const orgId = getOrgId()
+        const employeeId = getEmployeeId()
+        const apiUrl = getApiUrl()
+
+        if (!token || !orgId || !employeeId) {
+          console.error("Authentication, organization ID, or employee ID missing")
+          return
+        }
+
+        // Fetch employee data using the correct endpoint with employee ID
+        const response = await axios.get(`${apiUrl}/org/${orgId}/employees/${employeeId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+
+        const employee = response.data
+
+         // Map API response fields to form data interface
+        setFormData({
+          fullName: employee.fullName || "",
+          emailAddress: employee.email || "",
+          mobileNumber: employee.phoneNumber || "",
+          role: employee.role || "",
+          department: employee.department?.name || "",
+          designation: employee.designation?.name || "",
+          reportingTo: employee.reportingTo?.fullName || "",
+          teamPosition: employee.teamPosition || "",
+          shift: employee.shiftType || "",
+          location: employee.location?.name || "",
+          timeZone: employee.timeZone || "",
+          dateOfBirth: employee.dateOfBirth ? employee.dateOfBirth.split("T")[0] : "",
+          gender: employee.gender || "",
+          maritalStatus: employee.maritalStatus || "",
+          bloodGroup: employee.bloodGroup || "",
+          uan: employee.UAN || "",
+          pan: employee.PAN || "",
+          aadhaarNumber: employee.aadharNumber || "",
+          passportNumber: employee.passportNumber || "",
+          drivingLicenseNumber: employee.drivingLicenseNumber || "",
+          workExperience: (employee.experience || []).map((exp: any) => ({
+            companyName: exp.companyName || "",
+            jobTitle: exp.jobTitle || "",
+            fromDate: exp.fromDate ? exp.fromDate.split("T")[0] : "",
+            toDate: exp.toDate ? exp.toDate.split("T")[0] : "",
+            currentlyWorkHere: !exp.toDate,
+            jobDescription: exp.jobDescription || "",
+          })),
+          presentAddress: {
+            addressLine1: employee.presentAddressLine1 || "",
+            addressLine2: employee.presentAddressLine2 || "",
+            city: employee.presentCity || "",
+            state: employee.presentState || "",
+            country: employee.presentCountry || "",
+            pinCode: employee.presentPinCode || "",
+          },
+          sameAsPresentAddress: false,
+          permanentAddress: {
+            addressLine1: employee.permanentAddressLine1 || "",
+            addressLine2: employee.permanentAddressLine2 || "",
+            city: employee.permanentCity || "",
+            state: employee.permanentState || "",
+            country: employee.permanentCountry || "",
+            pinCode: employee.permanentPinCode || "",
+          },
+          emergencyContact: {
+            contactName: employee.emergencyContactName || "",
+            relation: employee.emergencyContactRelation || "",
+            contactNumber: employee.emergencyContactNumber || "",
+          },
+          education: (employee.education || []).map((edu: any) => ({
+            instituteName: edu.instituteName || "",
+            degree: edu.degree || "",
+            fieldOfStudy: edu.specialization || "",
+            startYear: edu.startYear || "",
+            endYear: edu.dateOfCompletion ? new Date(edu.dateOfCompletion).getFullYear().toString() : "",
+          })),
+        })
+      } catch (error) {
+        console.error("Failed to fetch employee data:", error)
+      }
+    }
+
+    fetchEmployeeData()
+  }, [])
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -234,10 +327,29 @@ export default function EmployeeProfileForm() {
     }))
   }
 
-  const handleSave = () => {
-    console.log("Form Data Saved:", formData)
-    setIsEditing(false)
-    // Here you would typically make an API call to save the data
+  const handleSave = async () => {
+    try {
+      const token = getAuthToken()
+      const orgId = getOrgId()
+      const employeeId = getEmployeeId()
+      const apiUrl = getApiUrl()
+
+      if (!token || !orgId || !employeeId) {
+        console.error("Authentication, organization ID, or employee ID missing")
+        return
+      }
+
+      // Send profile update to API using the correct endpoint with employee ID
+      const response = await axios.put(`${apiUrl}/org/${orgId}/employees/${employeeId}`, formData, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      console.log("Profile saved successfully:", response.data)
+      setIsEditing(false)
+    } catch (error) {
+      console.error("Failed to save profile:", error)
+      alert("Failed to save profile. Please try again.")
+    }
   }
 
   const states = ["Select State", "California", "Texas", "New York", "Florida"]
@@ -331,6 +443,19 @@ export default function EmployeeProfileForm() {
               />
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Designation</label>
+              <Input
+                name="designation"
+                value={formData.designation}
+                onChange={handleInputChange}
+                disabled={!isEditing}
+                placeholder="Designation"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Reporting To</label>
               <Input
                 name="reportingTo"
@@ -340,9 +465,6 @@ export default function EmployeeProfileForm() {
                 placeholder="Reporting To"
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Team Position</label>
               <Input
@@ -353,6 +475,9 @@ export default function EmployeeProfileForm() {
                 placeholder="Team Position"
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Shift</label>
               <Input
@@ -363,9 +488,6 @@ export default function EmployeeProfileForm() {
                 placeholder="Shift"
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
               <Input
@@ -375,6 +497,22 @@ export default function EmployeeProfileForm() {
                 disabled={!isEditing}
                 placeholder="Location"
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Time Zone</label>
+              <Input
+                name="timeZone"
+                value={formData.timeZone}
+                onChange={handleInputChange}
+                disabled={!isEditing}
+                placeholder="Time Zone"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2"></label>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Time Zone</label>

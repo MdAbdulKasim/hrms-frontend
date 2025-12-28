@@ -83,6 +83,23 @@ export const setOrgId = (orgId: string): void => {
     if (typeof window !== 'undefined') localStorage.setItem('currentOrgId', orgId);
 };
 
+export const getEmployeeId = (): string | null => {
+    const token = getAuthToken();
+    if (token) {
+        const payload = decodeToken(token);
+        // JWT uses 'sub' for subject (the employee ID)
+        const fromToken = payload?.sub || payload?.employeeId || payload?.employee?.id || payload?.id;
+        if (fromToken) return String(fromToken);
+    }
+    // Fallback to cookie from login response
+    return getCookie('hrms_user_id') || (typeof window !== 'undefined' ? localStorage.getItem('hrms_user_id') : null);
+};
+
+export const setEmployeeId = (employeeId: string): void => {
+    setCookie('hrms_user_id', employeeId);
+    if (typeof window !== 'undefined') localStorage.setItem('hrms_user_id', employeeId);
+};
+
 export const getLocationId = (): string | null => {
     const token = getAuthToken();
     if (token) {
