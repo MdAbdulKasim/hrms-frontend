@@ -55,12 +55,12 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     const handleSetupComplete = () => {
       // Force re-check when setup is completed
-      const setupComplete = role === 'admin' 
-        ? checkSetupStatus() 
-        : role === 'employee' 
-          ? checkEmployeeSetupStatus() 
+      const setupComplete = role === 'admin'
+        ? checkSetupStatus()
+        : role === 'employee'
+          ? checkEmployeeSetupStatus()
           : false;
-      
+
       if (setupComplete && !requiresSetup(role)) {
         // Redirect to appropriate dashboard
         if (role === 'admin') {
@@ -122,16 +122,20 @@ export default function Layout({ children }: LayoutProps) {
     );
   }
 
+  const isAuthPage = pathname.startsWith('/auth') || pathname.startsWith('/login') || pathname.startsWith('/register');
+
   return (
     <div className="flex h-screen overflow-hidden bg-[#F8FAFC]">
 
       {/* Sidebar */}
-      <Sidebar
-        isDesktopCollapsed={isDesktopCollapsed}
-        isMobileOpen={isMobileOpen}
-        closeMobileMenu={closeMobileMenu}
-        userRole={role}
-      />
+      {!isAuthPage && (
+        <Sidebar
+          isDesktopCollapsed={isDesktopCollapsed}
+          isMobileOpen={isMobileOpen}
+          closeMobileMenu={closeMobileMenu}
+          userRole={role}
+        />
+      )}
 
       {/* Mobile overlay */}
       {isMobileOpen && (
@@ -143,10 +147,12 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <NavigationHeader
-          toggleSidebar={toggleSidebar}
-          userRole={role}
-        />
+        {!isAuthPage && (
+          <NavigationHeader
+            toggleSidebar={toggleSidebar}
+            userRole={role}
+          />
+        )}
 
         <main className="flex-1 overflow-y-auto scrollbar-hide">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 animate-in fade-in slide-in-from-bottom-2 duration-500">

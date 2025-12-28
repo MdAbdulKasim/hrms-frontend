@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card } from "@/components/ui/card"
-import { ChevronLeft, Edit } from "lucide-react"
+import { ChevronLeft, Edit, Upload, User } from "lucide-react"
 import { getApiUrl, getAuthToken, getOrgId, getEmployeeId } from "@/lib/auth"
 
 interface FormData {
@@ -154,6 +154,10 @@ export default function EmployeeProfileForm() {
     education: true,
   })
 
+  // Profile Picture State
+  const [selectedProfilePicFile, setSelectedProfilePicFile] = useState<File | null>(null)
+  const [profilePicUrl, setProfilePicUrl] = useState<string | null>(null)
+
   // Fetch employee profile data on component mount
   useEffect(() => {
     const fetchEmployeeData = async () => {
@@ -235,6 +239,18 @@ export default function EmployeeProfileForm() {
             endYear: edu.dateOfCompletion ? new Date(edu.dateOfCompletion).getFullYear().toString() : "",
           })),
         })
+
+        // Fetch profile picture
+        try {
+          const picResponse = await axios.get(`${apiUrl}/org/${orgId}/employees/${employeeId}/profile-pic`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (picResponse.data.success && picResponse.data.imageUrl) {
+            setProfilePicUrl(picResponse.data.imageUrl)
+          }
+        } catch (error) {
+          console.error("Failed to fetch profile picture:", error)
+        }
       } catch (error) {
         console.error("Failed to fetch employee data:", error)
       }
@@ -284,6 +300,16 @@ export default function EmployeeProfileForm() {
       ...prev,
       [fieldName]: value,
     }))
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      setSelectedProfilePicFile(file)
+      // Create local preview URL
+      const previewUrl = URL.createObjectURL(file)
+      setProfilePicUrl(previewUrl)
+    }
   }
 
   const handleAddWorkExperience = () => {
@@ -339,13 +365,48 @@ export default function EmployeeProfileForm() {
         return
       }
 
+      // Convert to FormData
+      const formDataToSend = new FormData()
+
+      // Append all primitive fields
+      Object.keys(formData).forEach(key => {
+        const value = formData[key as keyof FormData]
+        if (
+          key === 'workExperience' ||
+          key === 'education' ||
+          key === 'presentAddress' ||
+          key === 'permanentAddress' ||
+          key === 'emergencyContact'
+        ) {
+          // Send complex objects as JSON strings
+          formDataToSend.append(key, JSON.stringify(value))
+        } else {
+          // Check if value is boolean, convert to string
+          if (typeof value === 'boolean') {
+            formDataToSend.append(key, String(value));
+          } else {
+            formDataToSend.append(key, String(value || ''))
+          }
+        }
+      })
+
+      // Append profile pic file if it exists
+      if (selectedProfilePicFile) {
+        formDataToSend.append('profilePic', selectedProfilePicFile)
+      }
+
       // Send profile update to API using the correct endpoint with employee ID
-      const response = await axios.put(`${apiUrl}/org/${orgId}/employees/${employeeId}`, formData, {
-        headers: { Authorization: `Bearer ${token}` },
+      // Change to FormData and allow multipart/form-data
+      const response = await axios.put(`${apiUrl}/org/${orgId}/employees/${employeeId}`, formDataToSend, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        },
       })
 
       console.log("Profile saved successfully:", response.data)
       setIsEditing(false)
+
     } catch (error) {
       console.error("Failed to save profile:", error)
       alert("Failed to save profile. Please try again.")
@@ -380,6 +441,56 @@ export default function EmployeeProfileForm() {
             )}
           </div>
         </div>
+
+        {/* Profile Picture Section */}
+        <Card className="mb-6 p-6">
+          <h2 className="text-xl font-bold mb-4 text-gray-900">Profile Picture</h2>
+          <div className="flex items-center gap-6">
+            <div className="w-32 h-32 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-gray-50 relative">
+              {profilePicUrl ? (
+                <img
+                  src={profilePicUrl}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User className="w-12 h-12 text-gray-400" />
+              )}
+            </div>
+            <div>
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-gray-600 mb-2">
+                  Upload a profile picture. Max size 10MB.
+                  <br />
+                  Allowed formats: JPG, PNG, GIF.
+                </p>
+
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="profile-pic-upload"
+                    disabled={!isEditing}
+                  />
+                  <label
+                    htmlFor="profile-pic-upload"
+                    className={`inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Select Image
+                  </label>
+                </div>
+                {selectedProfilePicFile && (
+                  <p className="text-xs text-green-600 mt-1">
+                    Selected: {selectedProfilePicFile.name}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
 
         {/* Personal Details Section */}
         <Card className="mb-6 p-6">

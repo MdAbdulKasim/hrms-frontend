@@ -31,4 +31,4 @@ export interface CandidateForm {
     employeeStatus?: string;
 }
 
-export type OnboardingView = 'list' | 'addCandidate' | 'bulkImport';
+export type OnboardingView = 'list' | 'addCandidate' | 'bulkImport' | 'viewCandidate';

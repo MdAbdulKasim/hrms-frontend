@@ -5,16 +5,16 @@
 // Get the API base URL with proper formatting
 export const getApiUrl = (): string => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-    
+
     // Validate the URL is not empty or "undefined"
     if (!apiUrl || apiUrl === 'undefined') {
         console.error("ERROR: NEXT_PUBLIC_API_URL is not set or is undefined");
         throw new Error("API URL is not configured. Please set NEXT_PUBLIC_API_URL environment variable.");
     }
-    
+
     // Remove trailing slash if present
     const cleanUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
-    
+
     if (typeof window !== 'undefined' && (window as any).DEBUG_AUTH) {
         console.log("DEBUG_API_URL:", cleanUrl);
     }
@@ -189,6 +189,11 @@ export const clearSetupData = (): void => {
     deleteCookie('role');
     deleteCookie('hrms_user_id');
     deleteCookie('hrms_user_email');
+    deleteCookie('hrms_user_firstName');
+    deleteCookie('hrms_user_lastName');
+    deleteCookie('registrationFirstName');
+    deleteCookie('registrationLastName');
+    deleteCookie('registrationEmail');
     // Clear any localStorage just in case legacy code exists
     if (typeof window !== 'undefined') {
         localStorage.clear();
@@ -308,8 +313,9 @@ export const syncEmployeeSetupState = async (token: string, employeeId?: string)
 
         console.warn(`SYNC_EMPLOYEE_START: Checking profile setup for Employee: ${employeeId}`);
 
-        // Fetch employee data to check onboarding status
-        const res = await fetch(`${apiUrl}/employees/${employeeId}`, { headers });
+        const orgId = getOrgId();
+        // Fetch employee data using the organizational prefix
+        const res = await fetch(`${apiUrl}/org/${orgId}/employees/${employeeId}`, { headers });
         if (!res.ok) {
             console.warn(`SYNC_EMPLOYEE_FETCH: Failed with ${res.status}`);
             return false;
@@ -317,10 +323,10 @@ export const syncEmployeeSetupState = async (token: string, employeeId?: string)
 
         const data = await res.json();
         const employee = data.data || data.employee || data;
-        
+
         // Check if onboarding is completed
-        const isComplete = employee?.onboardingStatus === 'completed' || 
-                          (employee?.aadharNumber && employee?.PAN && employee?.bloodGroup);
+        const isComplete = employee?.onboardingStatus === 'completed' ||
+            (employee?.aadharNumber && employee?.PAN && employee?.bloodGroup);
 
         console.warn("SYNC_EMPLOYEE_RESULT: Final Assessment ->", {
             onboardingStatus: employee?.onboardingStatus,
@@ -338,4 +344,68 @@ export const syncEmployeeSetupState = async (token: string, employeeId?: string)
         console.error('SYNC_EMPLOYEE_FATAL: Error syncing employee setup state:', error);
         return false;
     }
+};
+
+export const getUserDetails = (): {
+    firstName: string;
+    lastName: string;
+    email: string;
+    fullName: string;
+    initials: string;
+} => {
+    // Try cookies first
+    let firstName = getCookie('hrms_user_firstName') || getCookie('registrationFirstName') || '';
+    let lastName = getCookie('hrms_user_lastName') || getCookie('registrationLastName') || '';
+    let email = getCookie('hrms_user_email') || getCookie('registrationEmail') || '';
+
+    // Fallback to localStorage
+    if ((!firstName || firstName === 'undefined') && typeof window !== 'undefined') firstName = localStorage.getItem('hrms_user_firstName') || localStorage.getItem('registrationFirstName') || '';
+    if ((!lastName || lastName === 'undefined') && typeof window !== 'undefined') lastName = localStorage.getItem('hrms_user_lastName') || localStorage.getItem('registrationLastName') || '';
+    if ((!email || email === 'undefined') && typeof window !== 'undefined') email = localStorage.getItem('hrms_user_email') || localStorage.getItem('registrationEmail') || '';
+
+    let fullName = '';
+    const token = getAuthToken();
+    let tokenData: any = null;
+    if (token) {
+        tokenData = decodeToken(token);
+    }
+
+    // Clean up "undefined" strings potentially stored in cookies
+    if (firstName === 'undefined') firstName = '';
+    if (lastName === 'undefined') lastName = '';
+
+    if (firstName || lastName) {
+        fullName = `${firstName} ${lastName}`.trim();
+    } else if (tokenData) {
+        // Try getting name from token structure
+        // Some JWTs have 'name', some 'fullName', some 'firstName'/'lastName'
+        fullName = tokenData.name ||
+            tokenData.fullName ||
+            (tokenData.firstName && tokenData.lastName ? `${tokenData.firstName} ${tokenData.lastName}` : '') ||
+            'User';
+
+        if ((!email || email === 'undefined') && tokenData.email) email = tokenData.email;
+    } else {
+        fullName = 'User';
+    }
+
+    if (!fullName || fullName === ' ') fullName = 'User';
+
+    // Initials
+    const getInitials = (name: string) => {
+        if (!name || name === 'User') return 'U';
+        const parts = name.trim().split(' ').filter(Boolean);
+        if (parts.length >= 2) {
+            return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+        }
+        return name.substring(0, 2).toUpperCase();
+    };
+
+    return {
+        firstName,
+        lastName,
+        email,
+        fullName,
+        initials: getInitials(fullName)
+    };
 };
