@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, Briefcase } from 'lucide-react';
 import axios from 'axios';
-import { getApiUrl, getAuthToken } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 import ProfilePage from "@/components/profile/ProfilePage";
 
 // --- DATA & TYPES ---
@@ -46,15 +46,21 @@ export default function DepartmentTree() {
       try {
         const token = getAuthToken();
         const apiUrl = getApiUrl();
+        const orgId = getOrgId();
+
+        if (!orgId) {
+          console.error('Organization ID not found');
+          return;
+        }
 
         // Fetch departments
-        const deptResponse = await axios.get(`${apiUrl}/departments`, {
+        const deptResponse = await axios.get(`${apiUrl}/org/${orgId}/departments`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const departmentsData = deptResponse.data?.data || deptResponse.data || [];
 
         // Fetch employees
-        const empResponse = await axios.get(`${apiUrl}/employees`, {
+        const empResponse = await axios.get(`${apiUrl}/org/${orgId}/employees`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const employeesData = empResponse.data?.data || empResponse.data || [];

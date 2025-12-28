@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, X } from 'lucide-react';
 import axios from 'axios';
-import { getApiUrl, getAuthToken } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 
 interface Holiday {
   id: string;
@@ -27,8 +27,15 @@ const UpcomingHolidaysSection: React.FC = () => {
         setLoading(true);
         const apiUrl = getApiUrl();
         const token = getAuthToken();
+        const orgId = getOrgId();
 
-        const response = await axios.get(`${apiUrl}/holidays`, {
+        if (!orgId) {
+          console.error('No organization ID found');
+          setHolidays([]);
+          return;
+        }
+
+        const response = await axios.get(`${apiUrl}/org/${orgId}/holidays`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -65,10 +72,16 @@ const UpcomingHolidaysSection: React.FC = () => {
         setLoading(true);
         const apiUrl = getApiUrl();
         const token = getAuthToken();
+        const orgId = getOrgId();
+
+        if (!orgId) {
+          alert('Organization not found');
+          return;
+        }
 
         // Call API to create holiday
         const response = await axios.post(
-          `${apiUrl}/holidays`,
+          `${apiUrl}/org/${orgId}/holidays`,
           {
             holidayName: holidayForm.holidayName,
             date: holidayForm.date

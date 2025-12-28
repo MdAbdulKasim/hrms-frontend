@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId, getCookie } from '@/lib/auth';
+import attendanceService from '@/lib/attendanceService';
 
 
 // --- Types ---
@@ -49,6 +50,8 @@ const ProfileCard = ({ currentUser }: ProfileCardProps) => {
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -56,7 +59,36 @@ const ProfileCard = ({ currentUser }: ProfileCardProps) => {
       interval = setInterval(() => { setSeconds((prev) => prev + 1); }, 1000);
     } 
     return () => { if (interval) clearInterval(interval); };
-  }, [isCheckedIn]); 
+  }, [isCheckedIn]);
+
+  // Fetch current status on component mount
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const orgId = getOrgId();
+        if (!orgId) return;
+
+        const response = await attendanceService.getStatus(orgId);
+        if (response.data) {
+          const record = response.data as any;
+          if (record.checkIn && !record.checkOut) {
+            setIsCheckedIn(true);
+            // Calculate seconds if we have checkIn time
+            if (record.checkIn) {
+              const checkInTime = new Date(record.checkIn);
+              const now = new Date();
+              const diffSeconds = Math.floor((now.getTime() - checkInTime.getTime()) / 1000);
+              setSeconds(Math.max(0, diffSeconds));
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching attendance status:', err);
+      }
+    };
+
+    fetchStatus();
+  }, []);
 
   const formatTime = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -66,9 +98,44 @@ const ProfileCard = ({ currentUser }: ProfileCardProps) => {
     return `${pad(hours)} : ${pad(minutes)} : ${pad(secs)}`;
   };
 
-  const handleToggleCheckIn = () => {
-    if (isCheckedIn) { setIsCheckedIn(false); } 
-    else { setSeconds(0); setIsCheckedIn(true); }
+  const handleToggleCheckIn = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const orgId = getOrgId();
+      if (!orgId) {
+        setError('Organization ID not found');
+        return;
+      }
+
+      let response;
+      if (isCheckedIn) {
+        // Check out
+        response = await attendanceService.checkOut(orgId);
+      } else {
+        // Check in
+        response = await attendanceService.checkIn(orgId);
+      }
+
+      if (response.error) {
+        setError(response.error);
+        return;
+      }
+
+      // Update UI state
+      if (!isCheckedIn) {
+        setSeconds(0);
+        setIsCheckedIn(true);
+      } else {
+        setIsCheckedIn(false);
+        setSeconds(0);
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,13 +199,19 @@ const ProfileCard = ({ currentUser }: ProfileCardProps) => {
       <div className={`bg-gray-100 px-4 py-2 rounded-md mt-3 font-mono font-medium tracking-wider w-full sm:w-auto ${isCheckedIn ? 'text-gray-900' : 'text-gray-600'}`}>
         {formatTime(seconds)}
       </div>
+      {error && (
+        <p className="text-red-500 text-xs mt-2 text-center">{error}</p>
+      )}
       <button 
         onClick={handleToggleCheckIn}
+        disabled={isLoading}
         className={`mt-4 w-full py-2 border rounded-md transition-colors text-sm font-medium ${
-          isCheckedIn ? 'border-red-500 text-red-500 hover:bg-red-50' : 'border-green-500 text-green-500 hover:bg-green-50'
+          isLoading ? 'opacity-50 cursor-not-allowed' : ''
+        } ${
+          isCheckedIn ? 'border-red-500 text-red-500 hover:bg-red-50 disabled:hover:bg-transparent' : 'border-green-500 text-green-500 hover:bg-green-50 disabled:hover:bg-transparent'
         }`}
       >
-        {isCheckedIn ? 'Check-out' : 'Check-in'}
+        {isLoading ? 'Processing...' : (isCheckedIn ? 'Check-out' : 'Check-in')}
       </button>
     </div>
   );

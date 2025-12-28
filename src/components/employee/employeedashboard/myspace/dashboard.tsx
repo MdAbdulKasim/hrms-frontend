@@ -1,6 +1,8 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Calendar, Users, ExternalLink, Megaphone, List, UserCheck } from 'lucide-react';
+import { getOrgId } from '@/lib/auth';
+import quickLinkService, { QuickLink as QuickLinkType } from '@/lib/quickLinkService';
 
 interface Announcement {
   id: string;
@@ -18,6 +20,10 @@ interface QuickLink {
 const Dashboard: React.FC = () => {
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [showQuickLinkModal, setShowQuickLinkModal] = useState(false);
+  const [quickLinks, setQuickLinks] = useState<QuickLinkType[]>([]);
+  const [quickLinksLoading, setQuickLinksLoading] = useState(true);
+  const [quickLinksError, setQuickLinksError] = useState<string | null>(null);
+  const [quickLinkCreating, setQuickLinkCreating] = useState(false);
   const [announcements, setAnnouncements] = useState<Announcement[]>([
     {
       id: '1',
@@ -31,11 +37,6 @@ const Dashboard: React.FC = () => {
       description: 'New leave policy effective January',
       date: 'Dec 15, 2024'
     }
-  ]);
-  const [quickLinks, setQuickLinks] = useState<QuickLink[]>([
-    { id: '1', title: 'Company Wiki', url: 'https://wiki.company.com' },
-    { id: '2', title: 'HR Policies', url: 'https://hr.company.com' },
-    { id: '3', title: 'Benefits Portal', url: 'https://benefits.company.com' }
   ]);
 
   const [announcementForm, setAnnouncementForm] = useState({
@@ -51,6 +52,38 @@ const Dashboard: React.FC = () => {
     title: '',
     url: ''
   });
+
+  // Fetch quick links on mount
+  useEffect(() => {
+    const fetchQuickLinks = async () => {
+      try {
+        setQuickLinksLoading(true);
+        const orgId = getOrgId();
+        if (!orgId) {
+          setQuickLinksError('Organization ID not found');
+          setQuickLinks([]);
+          return;
+        }
+
+        const response = await quickLinkService.getAll(orgId);
+        if (response.error) {
+          setQuickLinksError(response.error);
+          setQuickLinks([]);
+        } else {
+          setQuickLinks(response.data || []);
+          setQuickLinksError(null);
+        }
+      } catch (error) {
+        console.error('Error fetching quick links:', error);
+        setQuickLinksError('Failed to load quick links');
+        setQuickLinks([]);
+      } finally {
+        setQuickLinksLoading(false);
+      }
+    };
+
+    fetchQuickLinks();
+  }, []);
 
   const handleCreateAnnouncement = () => {
     if (announcementForm.title && announcementForm.message) {
@@ -73,16 +106,44 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const handleAddQuickLink = () => {
-    if (quickLinkForm.title && quickLinkForm.url) {
-      const newLink: QuickLink = {
-        id: Date.now().toString(),
-        title: quickLinkForm.title,
+  const handleAddQuickLink = async () => {
+    if (!quickLinkForm.title || !quickLinkForm.url) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    try {
+      setQuickLinkCreating(true);
+      const orgId = getOrgId();
+      if (!orgId) {
+        setQuickLinksError('Organization ID not found');
+        return;
+      }
+
+      const response = await quickLinkService.create(orgId, {
+        name: quickLinkForm.title,
         url: quickLinkForm.url
-      };
-      setQuickLinks([...quickLinks, newLink]);
-      setQuickLinkForm({ title: '', url: '' });
-      setShowQuickLinkModal(false);
+      });
+
+      if (response.error) {
+        setQuickLinksError(response.error);
+        alert('Failed to create quick link');
+        return;
+      }
+
+      // Add new link to list
+      const newLink = response.data as QuickLinkType;
+      if (newLink && newLink.id) {
+        setQuickLinks([...quickLinks, newLink]);
+        setQuickLinkForm({ title: '', url: '' });
+        setShowQuickLinkModal(false);
+        setQuickLinksError(null);
+      }
+    } catch (error) {
+      console.error('Error creating quick link:', error);
+      setQuickLinksError('Failed to create quick link');
+    } finally {
+      setQuickLinkCreating(false);
     }
   };
 
@@ -162,18 +223,26 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
             <div className="space-y-2">
-              {quickLinks.map((link) => (
-                <a
-                  key={link.id}
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between text-sm hover:bg-gray-50 p-2 rounded -mx-2"
-                >
-                  <span className="truncate mr-2">{link.title}</span>
-                  <ExternalLink className="w-4 h-4 text-gray-400 shrink-0" />
-                </a>
-              ))}
+              {quickLinksLoading ? (
+                <p className="text-sm text-gray-500">Loading quick links...</p>
+              ) : quickLinksError ? (
+                <p className="text-sm text-red-500">{quickLinksError}</p>
+              ) : quickLinks.length > 0 ? (
+                quickLinks.map((link) => (
+                  <a
+                    key={link.id}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between text-sm hover:bg-gray-50 p-2 rounded -mx-2"
+                  >
+                    <span className="truncate mr-2">{link.name || link.title}</span>
+                    <ExternalLink className="w-4 h-4 text-gray-400 shrink-0" />
+                  </a>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">No quick links yet</p>
+              )}
             </div>
           </div>
         </div>
@@ -416,10 +485,14 @@ const Dashboard: React.FC = () => {
 
                 <button
                   onClick={handleAddQuickLink}
-                  className="w-full bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+                  disabled={quickLinkCreating}
+                  className="w-full bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Add Link
+                  {quickLinkCreating ? 'Adding...' : 'Add Link'}
                 </button>
+                {quickLinksError && (
+                  <p className="text-red-500 text-sm">{quickLinksError}</p>
+                )}
               </div>
             </div>
           </div>

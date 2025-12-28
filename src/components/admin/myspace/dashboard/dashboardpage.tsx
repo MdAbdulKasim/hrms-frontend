@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Users, List, UserCheck } from 'lucide-react';
 import axios from 'axios';
-import { getApiUrl, getAuthToken } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 import QuickLinksSection from './quicklink';
 import AnnouncementsSection from './announcement';
 import UpcomingHolidaysSection from './holidays';
@@ -22,10 +22,17 @@ const Dashboard: React.FC = () => {
       try {
         const token = getAuthToken();
         const apiUrl = getApiUrl();
+        const orgId = getOrgId();
+
+        if (!orgId) {
+          console.error('No organization ID found');
+          setLoading(false);
+          return;
+        }
 
         // Fetch employees for birthdays and new hires
         try {
-          const employeesRes = await axios.get(`${apiUrl}/employees`, {
+          const employeesRes = await axios.get(`${apiUrl}/org/${orgId}/employees`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           const employees = employeesRes.data?.data || employeesRes.data || [];

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
+import projectService from '@/lib/projectService';
 
 import TimeEntryDialog from "./dialog"
 
@@ -140,9 +141,9 @@ export default function TimeTrackingPage() {
   const [activeFilter, setActiveFilter] = useState<"All" | "Today" | "Weekly" | "Monthly" | "Yearly">("All")
 
   const [entries, setEntries] = useState<TimeEntry[]>([])
-  const [projects, setProjects] = useState<string[]>([])
+  const [projects, setProjects] = useState<any[]>([])
   const [tasks, setTasks] = useState<string[]>([])
-  const [statuses, setStatuses] = useState<string[]>(["Approved", "Pending", "Rejected"])
+  const [statuses, setStatuses] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [newTimerProjectInput, setNewTimerProjectInput] = useState("")
   const [newTimerTaskInput, setNewTimerTaskInput] = useState("")
@@ -150,6 +151,7 @@ export default function TimeTrackingPage() {
   const [showTimerProjectDropdown, setShowTimerProjectDropdown] = useState(false)
   const [showTimerTaskDropdown, setShowTimerTaskDropdown] = useState(false)
   const [showTimerStatusDropdown, setShowTimerStatusDropdown] = useState(false)
+  const [creatingProject, setCreatingProject] = useState(false)
 
   const timerProjectDropdownRef = useRef<HTMLDivElement>(null)
   const timerTaskDropdownRef = useRef<HTMLDivElement>(null)
@@ -195,28 +197,37 @@ export default function TimeTrackingPage() {
           headers: { Authorization: `Bearer ${token}` }
         });
         const entriesData = entriesRes.data.data || entriesRes.data || [];
-        setEntries((Array.isArray(entriesData) ? entriesData : []).map((entry: any) => ({
-          project: entry.projectId?.name || entry.project || 'Unknown Project',
-          task: entry.taskName || 'General Task',
-          date: entry.date || new Date().toISOString().split('T')[0],
-          hours: `${Math.round((entry.duration || 0) / 3600 * 10) / 10}h`,
-          status: entry.status || 'Pending',
-          description: entry.description || ''
-        })));
+        setEntries((Array.isArray(entriesData) ? entriesData : []).map((entry: any) => {
+          // Handle project - could be object, string, or nested in projectId
+          let projectName = 'Unknown Project';
+          if (entry.projectId && typeof entry.projectId === 'object') {
+            projectName = entry.projectId.name || entry.projectId.title || 'Unknown Project';
+          } else if (entry.project && typeof entry.project === 'object') {
+            projectName = entry.project.name || entry.project.title || 'Unknown Project';
+          } else if (typeof entry.projectId === 'string') {
+            projectName = entry.projectId;
+          } else if (typeof entry.project === 'string') {
+            projectName = entry.project;
+          }
+          
+          return {
+            project: projectName,
+            task: entry.taskName || entry.task || 'General Task',
+            date: entry.date || new Date().toISOString().split('T')[0],
+            hours: `${Math.round((entry.duration || 0) / 3600 * 10) / 10}h`,
+            status: entry.status || 'Pending',
+            description: entry.description || ''
+          };
+        }));
 
-        // Fetch projects
-        const projectsRes = await axios.get(`${apiUrl}/org/${orgId}/projects`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const projectsData = projectsRes.data.data || projectsRes.data || [];
-        setProjects((Array.isArray(projectsData) ? projectsData : []).map((p: any) => p.name || p.title || 'Unnamed Project'));
-
-        setTasks(["Frontend Development", "Backend Development", "UI Design", "Testing", "API Integration"]);
+        // Fetch projects using service
+        const projectsRes = await projectService.getAll(orgId);
+        setProjects(projectsRes.data || []);
 
       } catch (error) {
         console.error('Error fetching time tracking data:', error);
         setProjects([]);
-        setTasks(["Frontend Development", "Backend Development", "UI Design", "Testing"]);
+        setTasks([]);
         setEntries([]);
       } finally {
         setLoading(false);
@@ -273,11 +284,25 @@ export default function TimeTrackingPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
       const projectsData = projectsRes.data.data || projectsRes.data || [];
-      const selectedProject = (Array.isArray(projectsData) ? projectsData : []).find((p: any) => (p.name || p.title) === timerProject);
+      let selectedProject = (Array.isArray(projectsData) ? projectsData : []).find((p: any) => (p.name || p.title) === timerProject);
 
+      // If project not found, create it first
       if (!selectedProject) {
-        alert('Selected project not found');
-        return;
+        const createResponse = await projectService.create(orgId, {
+          name: timerProject,
+          description: '',
+          startDate: new Date().toISOString().split('T')[0],
+          status: 'in_progress'
+        });
+
+        if (createResponse.error) {
+          alert(`Failed to create project: ${createResponse.error}`);
+          return;
+        }
+
+        selectedProject = createResponse.data || createResponse;
+        // Update local projects list
+        setProjects([...projects, selectedProject]);
       }
 
       const response = await axios.post(
@@ -359,11 +384,24 @@ export default function TimeTrackingPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
       const projectsData = projectsRes.data.data || projectsRes.data || [];
-      const selectedProject = (Array.isArray(projectsData) ? projectsData : []).find((p: any) => (p.name || p.title) === entry.project);
+      let selectedProject = (Array.isArray(projectsData) ? projectsData : []).find((p: any) => (p.name || p.title) === entry.project);
 
+      // If project not found, create it first
       if (!selectedProject) {
-        alert('Selected project not found');
-        return;
+        const createResponse = await projectService.create(orgId, {
+          name: entry.project,
+          description: '',
+          startDate: new Date().toISOString().split('T')[0],
+          status: 'in_progress'
+        });
+
+        if (createResponse.error) {
+          alert(`Failed to create project: ${createResponse.error}`);
+          return;
+        }
+
+        selectedProject = createResponse.data || createResponse;
+        setProjects([...projects, selectedProject]);
       }
 
       const response = await axios.post(
@@ -400,12 +438,48 @@ export default function TimeTrackingPage() {
   const isTimerFormComplete =
     timerProject.trim() !== "" && timerTask.trim() !== "" && timerDescription.trim() !== "" && timerStatus.trim() !== ""
 
-  const handleCreateTimerProject = () => {
-    if (newTimerProjectInput.trim() !== "" && !projects.includes(newTimerProjectInput.trim())) {
-      setProjects([...projects, newTimerProjectInput.trim()])
-      setTimerProject(newTimerProjectInput.trim())
-      setNewTimerProjectInput("")
-      setShowTimerProjectDropdown(false)
+  const handleCreateTimerProject = async () => {
+    if (!newTimerProjectInput.trim()) return;
+    
+    // Check if project name already exists
+    const projectExists = projects.some(p => p.name === newTimerProjectInput.trim() || p === newTimerProjectInput.trim());
+    if (projectExists) {
+      setTimerProject(typeof projects[0] === 'object' ? projects.find(p => p.name === newTimerProjectInput.trim())?.name : newTimerProjectInput.trim());
+      setNewTimerProjectInput("");
+      setShowTimerProjectDropdown(false);
+      return;
+    }
+
+    try {
+      setCreatingProject(true);
+      const orgId = getOrgId();
+      if (!orgId) {
+        alert('Organization not found');
+        return;
+      }
+
+      const response = await projectService.create(orgId, {
+        name: newTimerProjectInput.trim(),
+        startDate: new Date().toISOString()
+      });
+
+      if (response.error) {
+        alert(response.error);
+        return;
+      }
+
+      const newProject = response.data as any;
+      if (newProject) {
+        setProjects([...projects, newProject]);
+        setTimerProject(newProject.name);
+        setNewTimerProjectInput("");
+        setShowTimerProjectDropdown(false);
+      }
+    } catch (error) {
+      console.error('Error creating project:', error);
+      alert('Failed to create project');
+    } finally {
+      setCreatingProject(false);
     }
   }
 
@@ -454,7 +528,7 @@ export default function TimeTrackingPage() {
             projects={projects}
             tasks={tasks}
             statuses={statuses}
-            onCreateProject={(name) => setProjects([...projects, name])}
+            onCreateProject={(project) => setProjects([...projects, project])}
             onCreateTask={(name) => setTasks([...tasks, name])}
             onCreateStatus={(name) => setStatuses([...statuses, name])}
           />

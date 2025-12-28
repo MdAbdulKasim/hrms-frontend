@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, Briefcase, Calendar, MapPin } from 'lucide-react';
 import axios from 'axios';
-import { getApiUrl, getAuthToken } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 import ProfilePage from "@/components/profile/ProfilePage";
 
 // Define Employee type
@@ -37,8 +37,14 @@ export default function OrgChart() {
       try {
         const token = getAuthToken();
         const apiUrl = getApiUrl();
+        const orgId = getOrgId();
 
-        const response = await axios.get(`${apiUrl}/employees`, {
+        if (!orgId) {
+          console.error('Organization ID not found');
+          return;
+        }
+
+        const response = await axios.get(`${apiUrl}/org/${orgId}/employees`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const employees = response.data?.data || response.data || [];

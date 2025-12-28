@@ -1,5 +1,5 @@
 import Layout from "@/components/layout/Layout";
-import TimeTrackingPage from "@/components/employee/Timetracking/timetracking";
+import TimeTrackingPage from "@/components/admin/Timetracking/timetracking";
 
 
 

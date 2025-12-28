@@ -13,6 +13,7 @@ import {
 import ProfilePage from '../profile/ProfilePage'; // Import ProfilePage from profile folder
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId, getCookie } from '@/lib/auth';
+import attendanceService from '@/lib/attendanceService';
 
 
 // --- Types ---
@@ -27,7 +28,7 @@ type Reportee = {
 type ScheduleDay = {
   day: string;
   date: string;
-  status: 'Weekend' | 'Absent' | 'Present' | 'Upcoming';
+  status: 'Weekend' | 'Absent' | 'Present' | 'Upcoming' | 'Ongoing' | 'Pending';
   isToday?: boolean;
 };
 
@@ -46,12 +47,17 @@ type CurrentUser = {
 
 interface ProfileCardProps {
   currentUser: CurrentUser | null;
+  token: string | null;
+  orgId: string | null;
+  currentEmployeeId: string | null;
+  onCheckInStatusChange?: (isCheckedIn: boolean) => void;
 }
 
-const ProfileCard = ({ currentUser }: ProfileCardProps) => {
+const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInStatusChange }: ProfileCardProps) => {
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -69,9 +75,41 @@ const ProfileCard = ({ currentUser }: ProfileCardProps) => {
     return `${pad(hours)} : ${pad(minutes)} : ${pad(secs)}`;
   };
 
-  const handleToggleCheckIn = () => {
-    if (isCheckedIn) { setIsCheckedIn(false); } 
-    else { setSeconds(0); setIsCheckedIn(true); }
+  const handleToggleCheckIn = async () => {
+    if (!token || !orgId) {
+      alert('Authentication required');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      if (isCheckedIn) {
+        // Check out
+        const response = await attendanceService.checkOut(orgId);
+        if (response.error) {
+          alert('Failed to check out: ' + response.error);
+          return;
+        }
+        setIsCheckedIn(false);
+        setSeconds(0);
+        onCheckInStatusChange?.(false);
+      } else {
+        // Check in
+        const response = await attendanceService.checkIn(orgId);
+        if (response.error) {
+          alert('Failed to check in: ' + response.error);
+          return;
+        }
+        setIsCheckedIn(true);
+        setSeconds(0);
+        onCheckInStatusChange?.(true);
+      }
+    } catch (error) {
+      console.error('Error toggling check-in:', error);
+      alert('Error toggling check-in');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,11 +175,13 @@ const ProfileCard = ({ currentUser }: ProfileCardProps) => {
       </div>
       <button 
         onClick={handleToggleCheckIn}
+        disabled={loading}
         className={`mt-4 w-full py-2 border rounded-md transition-colors text-sm font-medium ${
+          loading ? 'opacity-50 cursor-not-allowed' :
           isCheckedIn ? 'border-red-500 text-red-500 hover:bg-red-50' : 'border-green-500 text-green-500 hover:bg-green-50'
         }`}
       >
-        {isCheckedIn ? 'Check-out' : 'Check-in'}
+        {loading ? 'Processing...' : isCheckedIn ? 'Check-out' : 'Check-in'}
       </button>
     </div>
   );
@@ -278,20 +318,28 @@ export default function Dashboard() {
   const [schedule, setSchedule] = useState<ScheduleDay[]>([]);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
+  const [currentEmployeeId, setCurrentEmployeeId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const token = getAuthToken();
-        const orgId = getOrgId();
+        const authToken = getAuthToken();
+        const authOrgId = getOrgId();
         const apiUrl = getApiUrl();
-        const currentEmployeeId = getCookie('hrms_user_id');
+        const authEmployeeId = getCookie('hrms_user_id');
 
-        if (!token || !orgId || !currentEmployeeId) return;
+        if (!authToken || !authOrgId || !authEmployeeId) return;
+        
+        // Store in state for ProfileCard
+        setToken(authToken);
+        setOrgId(authOrgId);
+        setCurrentEmployeeId(authEmployeeId);
 
         // Fetch current user data
-        const currentUserRes = await axios.get(`${apiUrl}/org/${orgId}/employees/${currentEmployeeId}`, {
-          headers: { Authorization: `Bearer ${token}` }
+        const currentUserRes = await axios.get(`${apiUrl}/org/${authOrgId}/employees/${authEmployeeId}`, {
+          headers: { Authorization: `Bearer ${authToken}` }
         });
         const userData = currentUserRes.data.data || currentUserRes.data;
         
@@ -310,8 +358,8 @@ export default function Dashboard() {
         });
 
         // Fetch reportees
-        const reporteesRes = await axios.get(`${apiUrl}/org/${orgId}/employees`, {
-          headers: { Authorization: `Bearer ${token}` }
+        const reporteesRes = await axios.get(`${apiUrl}/org/${authOrgId}/employees`, {
+          headers: { Authorization: `Bearer ${authToken}` }
         });
         const reporteesData = reporteesRes.data.data || reporteesRes.data;
         setReportees(reporteesData.slice(0, 5).map((emp: any) => ({
@@ -322,24 +370,58 @@ export default function Dashboard() {
           employeeId: emp.id || emp._id
         })));
 
-        // Fetch attendance for schedule (mock for now, replace with real API)
-        const today = new Date();
-        const weekSchedule: ScheduleDay[] = [];
-        for (let i = 0; i < 7; i++) {
-          const date = new Date(today);
-          date.setDate(today.getDate() - today.getDay() + i);
-          const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-          const dateStr = date.getDate().toString().padStart(2, '0');
-          const isToday = date.toDateString() === today.toDateString();
-          const isWeekend = i === 0 || i === 6;
-          weekSchedule.push({
-            day: dayName,
-            date: dateStr,
-            status: isWeekend ? 'Weekend' : isToday ? 'Upcoming' : 'Absent',
-            isToday
-          });
+        // Fetch attendance schedule from API
+        try {
+          const attendanceRes = await axios.get(
+            `${apiUrl}/org/${authOrgId}/attendance/${authEmployeeId}/weekly`,
+            { headers: { Authorization: `Bearer ${authToken}` } }
+          );
+          const attendanceData = attendanceRes.data.data || attendanceRes.data || [];
+          
+          const today = new Date();
+          const weekSchedule: ScheduleDay[] = [];
+          for (let i = 0; i < 7; i++) {
+            const date = new Date(today);
+            date.setDate(today.getDate() - today.getDay() + i);
+            const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+            const dateStr = date.getDate().toString().padStart(2, '0');
+            const isToday = date.toDateString() === today.toDateString();
+            const isWeekend = i === 0 || i === 6;
+            
+            // Check if attendance exists for this date
+            const dateKey = date.toISOString().split('T')[0];
+            const attendance = attendanceData.find((a: any) => a.date === dateKey);
+            const attendanceStatus = attendance ? (attendance.checkOutTime ? 'Present' : 'Ongoing') : 'Absent';
+            
+            weekSchedule.push({
+              day: dayName,
+              date: dateStr,
+              status: isWeekend ? 'Weekend' : attendanceStatus,
+              isToday
+            });
+          }
+          setSchedule(weekSchedule);
+        } catch (error) {
+          console.error('Error fetching attendance schedule:', error);
+          // Fallback to basic schedule
+          const today = new Date();
+          const weekSchedule: ScheduleDay[] = [];
+          for (let i = 0; i < 7; i++) {
+            const date = new Date(today);
+            date.setDate(today.getDate() - today.getDay() + i);
+            const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+            const dateStr = date.getDate().toString().padStart(2, '0');
+            const isToday = date.toDateString() === today.toDateString();
+            const isWeekend = i === 0 || i === 6;
+            weekSchedule.push({
+              day: dayName,
+              date: dateStr,
+              status: isWeekend ? 'Weekend' : 'Pending',
+              isToday
+            });
+          }
+          setSchedule(weekSchedule);
         }
-        setSchedule(weekSchedule);
 
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -386,7 +468,12 @@ export default function Dashboard() {
           
           {/* Left Column: Profile & Reportees */}
           <div className="lg:col-span-1 flex flex-col gap-6">
-            <ProfileCard currentUser={currentUser} />
+            <ProfileCard 
+              currentUser={currentUser} 
+              token={token}
+              orgId={orgId}
+              currentEmployeeId={currentEmployeeId}
+            />
             <ReporteesCard onEmployeeClick={handleEmployeeClick} reportees={reportees} />
           </div>
 
