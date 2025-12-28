@@ -196,7 +196,7 @@ export default function EmployeeWorkExperienceStep({
                   )}
                 </div>
                 <button
-                  onClick={() => handleDeleteExperience(exp.id)}
+                  onClick={() => exp.id && handleDeleteExperience(exp.id)}
                   className="text-red-500 hover:text-red-700 p-2"
                 >
                   <Trash2 className="w-4 h-4" />

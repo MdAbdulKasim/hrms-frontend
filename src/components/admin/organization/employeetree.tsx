@@ -83,6 +83,7 @@ export default function OrgChart() {
             children: buildTree(employees, rootEmployee.id)
           };
           setEmployeeTree(tree);
+          setActivePath([tree.id]);
         }
       } catch (error) {
         console.error('Error fetching employee tree:', error);

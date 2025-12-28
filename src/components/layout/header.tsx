@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Settings, Bell, User, PanelLeft, Menu } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { getAuthToken, decodeToken, getCookie } from '@/lib/auth';
+import { getAuthToken, decodeToken, getCookie, getUserDetails, setCookie, getOrgId, getEmployeeId, getUserRole } from '@/lib/auth';
 
 type SubTab = {
   name: string;
@@ -94,72 +94,84 @@ export default function NavigationHeader({
     initials: 'U'
   });
 
-  // Helper function to get initials
-  const getInitials = (name: string) => {
-    if (!name || name === 'User') return 'U';
-    const parts = name.trim().split(' ').filter(Boolean);
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    }
-    return name.substring(0, 2).toUpperCase();
-  };
+
 
   // Fetch user data from multiple sources
   useEffect(() => {
     const fetchUserData = () => {
-      // Priority order: cookies > localStorage > JWT
-      let firstName = '';
-      let lastName = '';
-      let email = '';
-      let fullName = '';
+      const details = getUserDetails();
 
-      // Try cookies first
-      firstName = getCookie('hrms_user_firstName') || getCookie('registrationFirstName') || '';
-      lastName = getCookie('hrms_user_lastName') || getCookie('registrationLastName') || '';
-      email = getCookie('hrms_user_email') || getCookie('registrationEmail') || '';
-
-      // Fallback to localStorage if cookies are empty
-      if (!firstName) firstName = localStorage.getItem('hrms_user_firstName') || localStorage.getItem('registrationFirstName') || '';
-      if (!lastName) lastName = localStorage.getItem('hrms_user_lastName') || localStorage.getItem('registrationLastName') || '';
-      if (!email) email = localStorage.getItem('hrms_user_email') || localStorage.getItem('registrationEmail') || '';
-
-      console.log('Header - Retrieved data:', { firstName, lastName, email });
-
-      // Try JWT token as last resort
-      const token = getAuthToken();
-      let tokenData = null;
-      if (token) {
-        try {
-          tokenData = decodeToken(token);
-          console.log('Header - JWT token data:', tokenData);
-        } catch (error) {
-          console.error('Header - Error decoding token:', error);
-        }
-      }
-
-      // Construct full name with priority
-      if (firstName || lastName) {
-        fullName = `${firstName} ${lastName}`.trim();
-      } else if (tokenData?.firstName && tokenData?.lastName) {
-        fullName = `${tokenData.firstName} ${tokenData.lastName}`.trim();
-      } else if (tokenData?.fullName) {
-        fullName = tokenData.fullName;
-      } else if (tokenData?.name) {
-        fullName = tokenData.name;
-      } else {
-        fullName = 'User';
-      }
-
-      // Get email with fallback
-      const finalEmail = email || tokenData?.email || '';
-
-      console.log('Header - Final user data:', { fullName, finalEmail });
+      console.log('Header - Retrieved user details:', details);
 
       setUserData({
-        name: fullName,
-        email: finalEmail,
-        initials: getInitials(fullName)
+        name: details.fullName,
+        email: details.email,
+        initials: details.initials
       });
+
+      // Self-healing: if name is "User", try to fetch from API
+      if (details.fullName === 'User') {
+        const token = getAuthToken();
+        const orgId = getOrgId();
+        const empId = getEmployeeId();
+        const role = getUserRole();
+
+        if (token && orgId && empId && role) {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+          const endpoint = role === 'admin'
+            ? `${apiUrl}/org/${orgId}/employees/${empId}`
+            : `${apiUrl}/org/${orgId}/employees/onboarding/status`;
+
+          fetch(endpoint, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+            .then(res => res.json())
+            .then(data => {
+              const emp = data.data || data.employee || data; // handle different responses
+              if (emp && emp.fullName) {
+                // Parse names
+                let first = emp.firstName;
+                let last = emp.lastName;
+                if (!first && emp.fullName) {
+                  const parts = emp.fullName.split(' ');
+                  first = parts[0];
+                  last = parts.slice(1).join(' ');
+                }
+
+                // Helper to check if string looks like an ID (uuid-ish)
+                const isId = (s: string) => s && s.length > 20 && /\d/.test(s);
+
+                if (isId(first)) {
+                  // If first name is ID, and we have a valid email, maybe use email prefix?
+                  // Or just "Admin"
+                  if (role === 'admin') first = "Admin";
+                  else first = "Employee";
+                  last = "";
+                }
+
+                const newFull = `${first} ${last}`.trim();
+
+                // Update state
+                setUserData({
+                  name: newFull,
+                  email: emp.email || details.email,
+                  initials: newFull.substring(0, 2).toUpperCase()
+                });
+
+                // Persist
+                if (first) {
+                  setCookie('hrms_user_firstName', first, 7);
+                  if (typeof window !== 'undefined') localStorage.setItem('hrms_user_firstName', first);
+                }
+                if (last) {
+                  setCookie('hrms_user_lastName', last, 7);
+                  if (typeof window !== 'undefined') localStorage.setItem('hrms_user_lastName', last);
+                }
+              }
+            })
+            .catch(err => console.error("Header auto-fetch failed", err));
+        }
+      }
     };
 
     fetchUserData();
@@ -172,7 +184,7 @@ export default function NavigationHeader({
     };
 
     window.addEventListener('storage', handleStorageChange);
-    
+
     // Also listen for custom events if you dispatch them after registration/login
     const handleUserDataUpdate = () => {
       fetchUserData();

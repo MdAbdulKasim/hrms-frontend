@@ -71,7 +71,7 @@ const Dashboard: React.FC = () => {
 
         // Fetch pending tasks (leave requests that need approval)
         try {
-          const leaveRequestsRes = await axios.get(`${apiUrl}/leave-requests`, {
+          const leaveRequestsRes = await axios.get(`${apiUrl}/org/${orgId}/leave-requests`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           const leaveRequests = leaveRequestsRes.data?.data || leaveRequestsRes.data || [];
@@ -106,7 +106,7 @@ const Dashboard: React.FC = () => {
 
         // Fetch employees on leave today
         try {
-          const attendanceRes = await axios.get(`${apiUrl}/attendance`, {
+          const attendanceRes = await axios.get(`${apiUrl}/org/${orgId}/attendance`, {
             headers: { Authorization: `Bearer ${token}` },
             params: { date: new Date().toISOString().split('T')[0] }
           });

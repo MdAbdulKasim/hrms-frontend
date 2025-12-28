@@ -121,7 +121,7 @@ const EditableTable = <T extends object>({
         <CardTitle className="text-sm font-semibold">{title}</CardTitle>
         {editMode && (
           <Button size="sm" variant="outline" onClick={onAddRow}>
-            <Plus size={14} className="mr-1" /> 
+            <Plus size={14} className="mr-1" />
             <span className="hidden sm:inline">Add Row</span>
             <span className="sm:hidden">Add</span>
           </Button>
@@ -173,7 +173,7 @@ const EditableTable = <T extends object>({
                         />
                       ) : (
                         <div className="whitespace-nowrap md:whitespace-normal truncate md:overflow-visible max-w-[150px] md:max-w-none">
-                           {(row[col] as string) || "-"}
+                          {(row[col] as string) || "-"}
                         </div>
                       )}
                     </td>
@@ -241,78 +241,77 @@ export default function ProfilePage() {
   // Profile fields
   // --------------------------------------
   const [profile, setProfile] = useState({
-    employeeId: "1",
-    firstName: "Mohamed",
-    lastName: "-",
-    nickName: "-",
-    email: "farhanbasheerfarhan399@gmail.com",
-    department: "Management",
-    designation: "Assistant Manager",
-    dob: "-",
-    gender: "Male",
-    seatingLocation: "FL_EXEC_1",
-    extension: "1",
-    shift: "General (09:00 AM - 06:00 PM)",
-    timezone: "(GMT+05:30)",
-    workPhoneNumber: "305-555-1212",
+    employeeId: "",
+    firstName: "",
+    lastName: "",
+    nickName: "",
+    email: "",
+    department: "",
+    designation: "",
+    dob: "",
+    gender: "",
+    seatingLocation: "",
+    extension: "",
+    shift: "",
+    timezone: "",
+    workPhoneNumber: "",
     about: "",
     tags: "",
   });
 
   // Work Information fields
   const [workInfo, setWorkInfo] = useState({
-    location: "-",
-    zohoRole: "Admin",
-    employmentType: "Permanent",
-    employeeStatus: "Active",
-    sourceOfHire: "-",
-    dateOfJoining: "02-Feb-2004",
-    currentExperience: "21 year(s) 10 month(s)",
-    totalExperience: "27 year(s) 6 month(s)",
+    location: "",
+    zohoRole: "",
+    employmentType: "",
+    employeeStatus: "",
+    sourceOfHire: "",
+    dateOfJoining: "",
+    currentExperience: "",
+    totalExperience: "",
   });
 
   // Hierarchy Information
   const [hierarchyInfo, setHierarchyInfo] = useState({
-    reportingManager: "-",
+    reportingManager: "",
   });
 
   // Personal Details
   const [personalDetails, setPersonalDetails] = useState({
-    dateOfBirth: "-",
-    age: "-",
-    maritalStatus: "-",
-    aboutMe: "-",
-    askMeAbout: "-",
+    dateOfBirth: "",
+    age: "",
+    maritalStatus: "",
+    aboutMe: "",
+    askMeAbout: "",
   });
 
   // Identity Information
   const [identityInfo, setIdentityInfo] = useState({
-    uan: "-",
-    pan: "**********",
-    aadhaar: "**********",
+    uan: "",
+    pan: "",
+    aadhaar: "",
   });
 
   // Contact Details
   const [contactDetails, setContactDetails] = useState({
-    personalMobileNumber: "-",
-    personalEmailAddress: "-",
-    presentAddress:
-      "6422 Collins Ave,\n#APT 302,\nMiami Beach, Florida,\nUNITED STATES, 33141.",
-    permanentAddress: "-",
+    personalMobileNumber: "",
+    personalEmailAddress: "",
+    presentAddress: "",
+    permanentAddress: "",
   });
 
   // Separation Information
   const [separationInfo, setSeparationInfo] = useState({
-    dateOfExit: "-",
+    dateOfExit: "",
   });
 
   // System Fields
   const [systemFields] = useState({
-    addedBy: "1 - mohamed -",
-    addedTime: "03-Dec-2025 12:08 PM",
-    modifiedBy: "1 - mohamed -",
-    modifiedTime: "03-Dec-2025 12:08 PM",
-    onboardingStatus: "-",
+    addedBy: "",
+    addedTime: "",
+    modifiedBy: "",
+    modifiedTime: "",
+    onboardingStatus: "",
   });
 
   // Fetch profile data
@@ -334,66 +333,103 @@ export default function ProfilePage() {
 
         // Update profile state
         setProfile({
-          employeeId: empData.employeeId || empData.id || "1",
-          firstName: empData.firstName || "Mohamed",
-          lastName: empData.lastName || "-",
-          nickName: empData.nickName || "-",
-          email: empData.email || "user@example.com",
-          department: empData.department?.name || empData.department || "Management",
-          designation: empData.designation?.name || empData.designation || "Assistant Manager",
-          dob: empData.dateOfBirth || "-",
-          gender: empData.gender || "Male",
-          seatingLocation: empData.seatingLocation || "FL_EXEC_1",
-          extension: empData.extension || "1",
-          shift: empData.shift || "General (09:00 AM - 06:00 PM)",
-          timezone: empData.timezone || "(GMT+05:30)",
-          workPhoneNumber: empData.workPhone || empData.workPhoneNumber || "305-555-1212",
+          employeeId: empData.employeeId || empData.id || "",
+          firstName: empData.firstName || "",
+          lastName: empData.lastName || "",
+          nickName: empData.nickName || "",
+          email: empData.email || "",
+          department: empData.department?.name || empData.department || "",
+          designation: empData.designation?.name || empData.designation || "",
+          dob: empData.dateOfBirth || "",
+          gender: empData.gender || "",
+          seatingLocation: empData.seatingLocation || "",
+          extension: empData.extension || "",
+          shift: empData.shift || "",
+          timezone: empData.timezone || "",
+          workPhoneNumber: empData.workPhone || empData.workPhoneNumber || "",
           about: empData.about || "",
           tags: empData.tags || "",
         });
 
         // Update work info
         setWorkInfo({
-          location: empData.location || "-",
-          zohoRole: empData.role || "Admin",
-          employmentType: empData.employmentType || "Permanent",
-          employeeStatus: empData.status || "Active",
-          sourceOfHire: empData.sourceOfHire || "-",
-          dateOfJoining: empData.dateOfJoining || "02-Feb-2004",
-          currentExperience: empData.currentExperience || "21 year(s) 10 month(s)",
-          totalExperience: empData.totalExperience || "27 year(s) 6 month(s)",
+          location: empData.location || "",
+          zohoRole: empData.role || "",
+          employmentType: empData.employmentType || "",
+          employeeStatus: empData.status || "",
+          sourceOfHire: empData.sourceOfHire || "",
+          dateOfJoining: empData.dateOfJoining || "",
+          currentExperience: empData.currentExperience || "",
+          totalExperience: empData.totalExperience || "",
         });
 
         // Update hierarchy
         setHierarchyInfo({
-          reportingManager: empData.reportingManager || "-",
+          reportingManager: empData.reportingManager || "",
         });
 
         // Update personal details
         setPersonalDetails({
-          dateOfBirth: empData.dateOfBirth || "-",
-          age: empData.age || "-",
-          maritalStatus: empData.maritalStatus || "-",
-          aboutMe: empData.aboutMe || "-",
-          askMeAbout: empData.askMeAbout || "-",
+          dateOfBirth: empData.dateOfBirth || "",
+          age: empData.age || "",
+          maritalStatus: empData.maritalStatus || "",
+          aboutMe: empData.aboutMe || "",
+          askMeAbout: empData.askMeAbout || "",
+        });
+
+        // Update identity information
+        setIdentityInfo({
+          uan: empData.uan || empData.UAN || "",
+          pan: empData.pan || empData.PAN || "",
+          aadhaar: empData.aadhaar || empData.aadharNumber || "",
         });
 
         // Update contact details
         setContactDetails({
-          personalMobileNumber: empData.personalMobile || empData.personalMobileNumber || "-",
-          personalEmailAddress: empData.personalEmail || empData.personalEmailAddress || "-",
-          presentAddress: empData.presentAddress || "6422 Collins Ave,\n#APT 302,\nMiami Beach, Florida,\nUNITED STATES, 33141.",
-          permanentAddress: empData.permanentAddress || "-",
+          personalMobileNumber: empData.personalMobile || empData.personalMobileNumber || "",
+          personalEmailAddress: empData.personalEmail || empData.personalEmailAddress || "",
+          presentAddress: empData.presentAddress || "",
+          permanentAddress: empData.permanentAddress || "",
         });
 
-        // Fetch work experience (if available)
-        setWorkRows([]); // Placeholder
+        // Update separation info
+        setSeparationInfo({
+          dateOfExit: empData.dateOfExit || "",
+        });
 
-        // Fetch education (if available)
-        setEducationRows([]); // Placeholder
+        // Populate work experience from API
+        if (empData.experience && Array.isArray(empData.experience)) {
+          const workExperience = empData.experience.map((exp: any) => ({
+            companyName: exp.companyName || "",
+            jobTitle: exp.jobTitle || "",
+            fromDate: exp.fromDate ? new Date(exp.fromDate).toLocaleDateString() : "",
+            toDate: exp.toDate ? new Date(exp.toDate).toLocaleDateString() : "",
+            jobDescription: exp.jobDescription || "",
+            relevant: exp.relevant || "",
+          }));
+          setWorkRows(workExperience);
+        }
 
-        // Fetch dependents (if available)
-        setDependentRows([]); // Placeholder
+        // Populate education from API
+        if (empData.education && Array.isArray(empData.education)) {
+          const education = empData.education.map((edu: any) => ({
+            instituteName: edu.instituteName || "",
+            degree: edu.degree || "",
+            specialization: edu.specialization || "",
+            dateOfCompletion: edu.dateOfCompletion ? new Date(edu.dateOfCompletion).toLocaleDateString() : "",
+          }));
+          setEducationRows(education);
+        }
+
+        // Populate dependents from API
+        if (empData.dependents && Array.isArray(empData.dependents)) {
+          const dependents = empData.dependents.map((dep: any) => ({
+            name: dep.name || "",
+            relationship: dep.relationship || "",
+            dob: dep.dob ? new Date(dep.dob).toLocaleDateString() : "",
+          }));
+          setDependentRows(dependents);
+        }
 
       } catch (error) {
         console.error('Error fetching profile data:', error);
@@ -434,16 +470,7 @@ export default function ProfilePage() {
   // --------------------------------------
   // Work Experience Table
   // --------------------------------------
-  const [workRows, setWorkRows] = useState<WorkExperienceRow[]>([
-    {
-      companyName: "Infomax",
-      jobTitle: "Assistant Manager",
-      fromDate: "30-Apr-1998",
-      toDate: "01-Jan-2004",
-      jobDescription: "-",
-      relevant: "Yes",
-    },
-  ]);
+  const [workRows, setWorkRows] = useState<WorkExperienceRow[]>([]);
 
   const workColumns: (keyof WorkExperienceRow)[] = [
     "companyName",
@@ -484,14 +511,7 @@ export default function ProfilePage() {
   // --------------------------------------
   // Education Table
   // --------------------------------------
-  const [educationRows, setEducationRows] = useState<EducationRow[]>([
-    {
-      instituteName: "Pacifica University",
-      degree: "Doctorate",
-      specialization: "Software Development",
-      dateOfCompletion: "-",
-    },
-  ]);
+  const [educationRows, setEducationRows] = useState<EducationRow[]>([]);
 
   const educationColumns: (keyof EducationRow)[] = [
     "instituteName",
@@ -566,467 +586,467 @@ export default function ProfilePage() {
       ) : (
         <>
           {/* PAGE HEADER */}
-      <div className="flex flex-row justify-between items-center gap-4">
-        <h1 className="text-xl md:text-2xl font-semibold truncate">Employee Profile</h1>
-        <Button
-          onClick={() => setEditMode(!editMode)}
-          className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
-        >
-          <PenLine className="mr-2 h-4 w-4" />
-          {editMode ? "Save" : "Edit"}
-        </Button>
-      </div>
+          <div className="flex flex-row justify-between items-center gap-4">
+            <h1 className="text-xl md:text-2xl font-semibold truncate">Employee Profile</h1>
+            <Button
+              onClick={() => setEditMode(!editMode)}
+              className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+            >
+              <PenLine className="mr-2 h-4 w-4" />
+              {editMode ? "Save" : "Edit"}
+            </Button>
+          </div>
 
-      {/* BASIC INFORMATION */}
-      <Card>
-        <CardHeader className="py-4 px-4 md:px-6">
-          <CardTitle className="text-sm font-semibold">
-            Basic Information
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 md:px-6">
-          <EditableRow
-            label="Employee ID"
-            value={profile.employeeId}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "employeeId", v)}
-          />
-          <EditableRow
-            label="First Name"
-            value={profile.firstName}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "firstName", v)}
-          />
-          <EditableRow
-            label="Last Name"
-            value={profile.lastName}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "lastName", v)}
-          />
-          <EditableRow
-            label="Nick Name"
-            value={profile.nickName}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "nickName", v)}
-          />
-          <EditableRow
-            label="Email"
-            value={profile.email}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "email", v)}
-            type="email"
-          />
-          <EditableRow
-            label="Department"
-            value={profile.department}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "department", v)}
-          />
-          <EditableRow
-            label="Designation"
-            value={profile.designation}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "designation", v)}
-          />
-          <EditableRow
-            label="Seating Location"
-            value={profile.seatingLocation}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "seatingLocation", v)}
-          />
-          <EditableRow
-            label="Extension"
-            value={profile.extension}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "extension", v)}
-          />
-          <EditableRow
-            label="Shift"
-            value={profile.shift}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "shift", v)}
-          />
-          <EditableRow
-            label="Time zone"
-            value={profile.timezone}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "timezone", v)}
-          />
-          <EditableRow
-            label="Work Phone Number"
-            value={profile.workPhoneNumber}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "workPhoneNumber", v)}
-            type="tel"
-          />
-        </CardContent>
-      </Card>
+          {/* BASIC INFORMATION */}
+          <Card>
+            <CardHeader className="py-4 px-4 md:px-6">
+              <CardTitle className="text-sm font-semibold">
+                Basic Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 md:px-6">
+              <EditableRow
+                label="Employee ID"
+                value={profile.employeeId}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "employeeId", v)}
+              />
+              <EditableRow
+                label="First Name"
+                value={profile.firstName}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "firstName", v)}
+              />
+              <EditableRow
+                label="Last Name"
+                value={profile.lastName}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "lastName", v)}
+              />
+              <EditableRow
+                label="Nick Name"
+                value={profile.nickName}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "nickName", v)}
+              />
+              <EditableRow
+                label="Email"
+                value={profile.email}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "email", v)}
+                type="email"
+              />
+              <EditableRow
+                label="Department"
+                value={profile.department}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "department", v)}
+              />
+              <EditableRow
+                label="Designation"
+                value={profile.designation}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "designation", v)}
+              />
+              <EditableRow
+                label="Seating Location"
+                value={profile.seatingLocation}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "seatingLocation", v)}
+              />
+              <EditableRow
+                label="Extension"
+                value={profile.extension}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "extension", v)}
+              />
+              <EditableRow
+                label="Shift"
+                value={profile.shift}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "shift", v)}
+              />
+              <EditableRow
+                label="Time zone"
+                value={profile.timezone}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "timezone", v)}
+              />
+              <EditableRow
+                label="Work Phone Number"
+                value={profile.workPhoneNumber}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "workPhoneNumber", v)}
+                type="tel"
+              />
+            </CardContent>
+          </Card>
 
-      {/* ABOUT */}
-      <Card>
-        <CardHeader className="py-4 px-4 md:px-6">
-          <CardTitle className="text-sm font-semibold">About</CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 md:px-6">
-          <EditableRow
-            label="About"
-            value={profile.about}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "about", v)}
-            isTextarea={true}
-          />
-        </CardContent>
-      </Card>
+          {/* ABOUT */}
+          <Card>
+            <CardHeader className="py-4 px-4 md:px-6">
+              <CardTitle className="text-sm font-semibold">About</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 md:px-6">
+              <EditableRow
+                label="About"
+                value={profile.about}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "about", v)}
+                isTextarea={true}
+              />
+            </CardContent>
+          </Card>
 
-      {/* TAGS */}
-      <Card>
-        <CardHeader className="py-4 px-4 md:px-6">
-          <CardTitle className="text-sm font-semibold">Tags</CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 md:px-6">
-          <EditableRow
-            label="Tags"
-            value={profile.tags}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "tags", v)}
-          />
-        </CardContent>
-      </Card>
+          {/* TAGS */}
+          <Card>
+            <CardHeader className="py-4 px-4 md:px-6">
+              <CardTitle className="text-sm font-semibold">Tags</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 md:px-6">
+              <EditableRow
+                label="Tags"
+                value={profile.tags}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "tags", v)}
+              />
+            </CardContent>
+          </Card>
 
-      {/* WORK INFORMATION */}
-      <Card>
-        <CardHeader className="py-4 px-4 md:px-6">
-          <CardTitle className="text-sm font-semibold">
-            Work Information
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 md:px-6">
-          <EditableRow
-            label="Department"
-            value={profile.department}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "department", v)}
-          />
-          <EditableRow
-            label="Location"
-            value={workInfo.location}
-            editMode={editMode}
-            onChange={(v) => updateField("workInfo", "location", v)}
-          />
-          <EditableRow
-            label="Designation"
-            value={profile.designation}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "designation", v)}
-          />
-          <EditableRow
-            label="Zoho Role"
-            value={workInfo.zohoRole}
-            editMode={editMode}
-            onChange={(v) => updateField("workInfo", "zohoRole", v)}
-          />
-          <EditableRow
-            label="Employment Type"
-            value={workInfo.employmentType}
-            editMode={editMode}
-            onChange={(v) => updateField("workInfo", "employmentType", v)}
-          />
-          <EditableRow
-            label="Employee Status"
-            value={workInfo.employeeStatus}
-            editMode={editMode}
-            onChange={(v) => updateField("workInfo", "employeeStatus", v)}
-          />
-          <EditableRow
-            label="Source of Hire"
-            value={workInfo.sourceOfHire}
-            editMode={editMode}
-            onChange={(v) => updateField("workInfo", "sourceOfHire", v)}
-          />
-          <EditableRow
-            label="Date of Joining"
-            value={workInfo.dateOfJoining}
-            editMode={editMode}
-            onChange={(v) => updateField("workInfo", "dateOfJoining", v)}
-            type="date"
-          />
-          <EditableRow
-            label="Current Experience"
-            value={workInfo.currentExperience}
-            editMode={false}
-            onChange={() => {}}
-          />
-          <EditableRow
-            label="Total Experience"
-            value={workInfo.totalExperience}
-            editMode={false}
-            onChange={() => {}}
-          />
-        </CardContent>
-      </Card>
+          {/* WORK INFORMATION */}
+          <Card>
+            <CardHeader className="py-4 px-4 md:px-6">
+              <CardTitle className="text-sm font-semibold">
+                Work Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 md:px-6">
+              <EditableRow
+                label="Department"
+                value={profile.department}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "department", v)}
+              />
+              <EditableRow
+                label="Location"
+                value={workInfo.location}
+                editMode={editMode}
+                onChange={(v) => updateField("workInfo", "location", v)}
+              />
+              <EditableRow
+                label="Designation"
+                value={profile.designation}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "designation", v)}
+              />
+              <EditableRow
+                label="Zoho Role"
+                value={workInfo.zohoRole}
+                editMode={editMode}
+                onChange={(v) => updateField("workInfo", "zohoRole", v)}
+              />
+              <EditableRow
+                label="Employment Type"
+                value={workInfo.employmentType}
+                editMode={editMode}
+                onChange={(v) => updateField("workInfo", "employmentType", v)}
+              />
+              <EditableRow
+                label="Employee Status"
+                value={workInfo.employeeStatus}
+                editMode={editMode}
+                onChange={(v) => updateField("workInfo", "employeeStatus", v)}
+              />
+              <EditableRow
+                label="Source of Hire"
+                value={workInfo.sourceOfHire}
+                editMode={editMode}
+                onChange={(v) => updateField("workInfo", "sourceOfHire", v)}
+              />
+              <EditableRow
+                label="Date of Joining"
+                value={workInfo.dateOfJoining}
+                editMode={editMode}
+                onChange={(v) => updateField("workInfo", "dateOfJoining", v)}
+                type="date"
+              />
+              <EditableRow
+                label="Current Experience"
+                value={workInfo.currentExperience}
+                editMode={false}
+                onChange={() => { }}
+              />
+              <EditableRow
+                label="Total Experience"
+                value={workInfo.totalExperience}
+                editMode={false}
+                onChange={() => { }}
+              />
+            </CardContent>
+          </Card>
 
-      {/* HIERARCHY INFORMATION */}
-      <Card>
-        <CardHeader className="py-4 px-4 md:px-6">
-          <CardTitle className="text-sm font-semibold">
-            Hierarchy Information
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 md:px-6">
-          <EditableRow
-            label="Reporting Manager"
-            value={hierarchyInfo.reportingManager}
+          {/* HIERARCHY INFORMATION */}
+          <Card>
+            <CardHeader className="py-4 px-4 md:px-6">
+              <CardTitle className="text-sm font-semibold">
+                Hierarchy Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 md:px-6">
+              <EditableRow
+                label="Reporting Manager"
+                value={hierarchyInfo.reportingManager}
+                editMode={editMode}
+                onChange={(v) =>
+                  updateField("hierarchyInfo", "reportingManager", v)
+                }
+              />
+            </CardContent>
+          </Card>
+
+          {/* PERSONAL DETAILS */}
+          <Card>
+            <CardHeader className="py-4 px-4 md:px-6">
+              <CardTitle className="text-sm font-semibold">
+                Personal Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 md:px-6">
+              <EditableRow
+                label="Date of Birth"
+                value={personalDetails.dateOfBirth}
+                editMode={editMode}
+                onChange={(v) => updateField("personalDetails", "dateOfBirth", v)}
+                type="date"
+              />
+              <EditableRow
+                label="Age"
+                value={personalDetails.age}
+                editMode={editMode}
+                onChange={(v) => updateField("personalDetails", "age", v)}
+              />
+              <EditableRow
+                label="Gender"
+                value={profile.gender}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "gender", v)}
+              />
+              <EditableRow
+                label="Marital Status"
+                value={personalDetails.maritalStatus}
+                editMode={editMode}
+                onChange={(v) => updateField("personalDetails", "maritalStatus", v)}
+              />
+              <EditableRow
+                label="About Me"
+                value={personalDetails.aboutMe}
+                editMode={editMode}
+                onChange={(v) => updateField("personalDetails", "aboutMe", v)}
+                isTextarea={true}
+              />
+              <EditableRow
+                label="Ask me about/Expertise"
+                value={personalDetails.askMeAbout}
+                editMode={editMode}
+                onChange={(v) => updateField("personalDetails", "askMeAbout", v)}
+              />
+            </CardContent>
+          </Card>
+
+          {/* IDENTITY INFORMATION */}
+          <Card>
+            <CardHeader className="py-4 px-4 md:px-6">
+              <CardTitle className="text-sm font-semibold">
+                Identity Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 md:px-6">
+              <EditableRow
+                label="UAN"
+                value={identityInfo.uan}
+                editMode={editMode}
+                onChange={(v) => updateField("identityInfo", "uan", v)}
+              />
+              <EditableRow
+                label="PAN"
+                value={identityInfo.pan}
+                editMode={editMode}
+                onChange={(v) => updateField("identityInfo", "pan", v)}
+              />
+              <EditableRow
+                label="Aadhaar"
+                value={identityInfo.aadhaar}
+                editMode={editMode}
+                onChange={(v) => updateField("identityInfo", "aadhaar", v)}
+              />
+            </CardContent>
+          </Card>
+
+          {/* WORK EXPERIENCE TABLE */}
+          <EditableTable
+            title="Work Experience"
+            columns={workColumns}
+            rows={workRows}
             editMode={editMode}
-            onChange={(v) =>
-              updateField("hierarchyInfo", "reportingManager", v)
+            onChange={(i, field, value) =>
+              updateWorkRow(i, field as keyof WorkExperienceRow, value)
             }
+            onAddRow={addWorkRow}
+            onDeleteRow={deleteWorkRow}
           />
-        </CardContent>
-      </Card>
 
-      {/* PERSONAL DETAILS */}
-      <Card>
-        <CardHeader className="py-4 px-4 md:px-6">
-          <CardTitle className="text-sm font-semibold">
-            Personal Details
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 md:px-6">
-          <EditableRow
-            label="Date of Birth"
-            value={personalDetails.dateOfBirth}
+          {/* EDUCATION DETAILS TABLE */}
+          <EditableTable
+            title="Education Details"
+            columns={educationColumns}
+            rows={educationRows}
             editMode={editMode}
-            onChange={(v) => updateField("personalDetails", "dateOfBirth", v)}
-            type="date"
-          />
-          <EditableRow
-            label="Age"
-            value={personalDetails.age}
-            editMode={editMode}
-            onChange={(v) => updateField("personalDetails", "age", v)}
-          />
-          <EditableRow
-            label="Gender"
-            value={profile.gender}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "gender", v)}
-          />
-          <EditableRow
-            label="Marital Status"
-            value={personalDetails.maritalStatus}
-            editMode={editMode}
-            onChange={(v) => updateField("personalDetails", "maritalStatus", v)}
-          />
-          <EditableRow
-            label="About Me"
-            value={personalDetails.aboutMe}
-            editMode={editMode}
-            onChange={(v) => updateField("personalDetails", "aboutMe", v)}
-            isTextarea={true}
-          />
-          <EditableRow
-            label="Ask me about/Expertise"
-            value={personalDetails.askMeAbout}
-            editMode={editMode}
-            onChange={(v) => updateField("personalDetails", "askMeAbout", v)}
-          />
-        </CardContent>
-      </Card>
-
-      {/* IDENTITY INFORMATION */}
-      <Card>
-        <CardHeader className="py-4 px-4 md:px-6">
-          <CardTitle className="text-sm font-semibold">
-            Identity Information
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 md:px-6">
-          <EditableRow
-            label="UAN"
-            value={identityInfo.uan}
-            editMode={editMode}
-            onChange={(v) => updateField("identityInfo", "uan", v)}
-          />
-          <EditableRow
-            label="PAN"
-            value={identityInfo.pan}
-            editMode={editMode}
-            onChange={(v) => updateField("identityInfo", "pan", v)}
-          />
-          <EditableRow
-            label="Aadhaar"
-            value={identityInfo.aadhaar}
-            editMode={editMode}
-            onChange={(v) => updateField("identityInfo", "aadhaar", v)}
-          />
-        </CardContent>
-      </Card>
-
-      {/* WORK EXPERIENCE TABLE */}
-      <EditableTable
-        title="Work Experience"
-        columns={workColumns}
-        rows={workRows}
-        editMode={editMode}
-        onChange={(i, field, value) =>
-          updateWorkRow(i, field as keyof WorkExperienceRow, value)
-        }
-        onAddRow={addWorkRow}
-        onDeleteRow={deleteWorkRow}
-      />
-
-      {/* EDUCATION DETAILS TABLE */}
-      <EditableTable
-        title="Education Details"
-        columns={educationColumns}
-        rows={educationRows}
-        editMode={editMode}
-        onChange={(i, field, value) =>
-          updateEducationRow(i, field as keyof EducationRow, value)
-        }
-        onAddRow={addEducationRow}
-        onDeleteRow={deleteEducationRow}
-      />
-
-      {/* DEPENDENT DETAILS TABLE */}
-      <EditableTable
-        title="Dependent Details"
-        columns={dependentColumns}
-        rows={dependentRows}
-        editMode={editMode}
-        onChange={(i, field, value) =>
-          updateDependentRow(i, field as keyof DependentRow, value)
-        }
-        onAddRow={addDependentRow}
-        onDeleteRow={deleteDependentRow}
-      />
-
-      {/* CONTACT DETAILS */}
-      <Card>
-        <CardHeader className="py-4 px-4 md:px-6">
-          <CardTitle className="text-sm font-semibold">
-            Contact Details
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 md:px-6">
-          <EditableRow
-            label="Work Phone Number"
-            value={profile.workPhoneNumber}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "workPhoneNumber", v)}
-            type="tel"
-          />
-          <EditableRow
-            label="Extension"
-            value={profile.extension}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "extension", v)}
-          />
-          <EditableRow
-            label="Seating Location"
-            value={profile.seatingLocation}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "seatingLocation", v)}
-          />
-          <EditableRow
-            label="Tags"
-            value={profile.tags}
-            editMode={editMode}
-            onChange={(v) => updateField("profile", "tags", v)}
-          />
-          <EditableRow
-            label="Personal Mobile Number"
-            value={contactDetails.personalMobileNumber}
-            editMode={editMode}
-            onChange={(v) =>
-              updateField("contactDetails", "personalMobileNumber", v)
+            onChange={(i, field, value) =>
+              updateEducationRow(i, field as keyof EducationRow, value)
             }
-            type="tel"
+            onAddRow={addEducationRow}
+            onDeleteRow={deleteEducationRow}
           />
-          <EditableRow
-            label="Personal Email Address"
-            value={contactDetails.personalEmailAddress}
-            editMode={editMode}
-            onChange={(v) =>
-              updateField("contactDetails", "personalEmailAddress", v)
-            }
-            type="email"
-          />
-          <EditableRow
-            label="Present Address"
-            value={contactDetails.presentAddress}
-            editMode={editMode}
-            onChange={(v) => updateField("contactDetails", "presentAddress", v)}
-            isTextarea={true}
-          />
-          <EditableRow
-            label="Permanent Address"
-            value={contactDetails.permanentAddress}
-            editMode={editMode}
-            onChange={(v) =>
-              updateField("contactDetails", "permanentAddress", v)
-            }
-            isTextarea={true}
-          />
-        </CardContent>
-      </Card>
 
-      {/* SEPARATION INFORMATION */}
-      <Card>
-        <CardHeader className="py-4 px-4 md:px-6">
-          <CardTitle className="text-sm font-semibold">
-            Separation Information
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 md:px-6">
-          <EditableRow
-            label="Date of Exit"
-            value={separationInfo.dateOfExit}
+          {/* DEPENDENT DETAILS TABLE */}
+          <EditableTable
+            title="Dependent Details"
+            columns={dependentColumns}
+            rows={dependentRows}
             editMode={editMode}
-            onChange={(v) => updateField("separationInfo", "dateOfExit", v)}
-            type="date"
+            onChange={(i, field, value) =>
+              updateDependentRow(i, field as keyof DependentRow, value)
+            }
+            onAddRow={addDependentRow}
+            onDeleteRow={deleteDependentRow}
           />
-        </CardContent>
-      </Card>
 
-      {/* SYSTEM FIELDS */}
-      <Card>
-        <CardHeader className="py-4 px-4 md:px-6">
-          <CardTitle className="text-sm font-semibold">System Fields</CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 md:px-6">
-          <EditableRow
-            label="Added By"
-            value={systemFields.addedBy}
-            editMode={false}
-            onChange={() => {}}
-          />
-          <EditableRow
-            label="Added Time"
-            value={systemFields.addedTime}
-            editMode={false}
-            onChange={() => {}}
-          />
-          <EditableRow
-            label="Modified By"
-            value={systemFields.modifiedBy}
-            editMode={false}
-            onChange={() => {}}
-          />
-          <EditableRow
-            label="Modified Time"
-            value={systemFields.modifiedTime}
-            editMode={false}
-            onChange={() => {}}
-          />
-          <EditableRow
-            label="Onboarding Status"
-            value={systemFields.onboardingStatus}
-            editMode={false}
-            onChange={() => {}}
-          />
-        </CardContent>
-      </Card>
+          {/* CONTACT DETAILS */}
+          <Card>
+            <CardHeader className="py-4 px-4 md:px-6">
+              <CardTitle className="text-sm font-semibold">
+                Contact Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 md:px-6">
+              <EditableRow
+                label="Work Phone Number"
+                value={profile.workPhoneNumber}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "workPhoneNumber", v)}
+                type="tel"
+              />
+              <EditableRow
+                label="Extension"
+                value={profile.extension}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "extension", v)}
+              />
+              <EditableRow
+                label="Seating Location"
+                value={profile.seatingLocation}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "seatingLocation", v)}
+              />
+              <EditableRow
+                label="Tags"
+                value={profile.tags}
+                editMode={editMode}
+                onChange={(v) => updateField("profile", "tags", v)}
+              />
+              <EditableRow
+                label="Personal Mobile Number"
+                value={contactDetails.personalMobileNumber}
+                editMode={editMode}
+                onChange={(v) =>
+                  updateField("contactDetails", "personalMobileNumber", v)
+                }
+                type="tel"
+              />
+              <EditableRow
+                label="Personal Email Address"
+                value={contactDetails.personalEmailAddress}
+                editMode={editMode}
+                onChange={(v) =>
+                  updateField("contactDetails", "personalEmailAddress", v)
+                }
+                type="email"
+              />
+              <EditableRow
+                label="Present Address"
+                value={contactDetails.presentAddress}
+                editMode={editMode}
+                onChange={(v) => updateField("contactDetails", "presentAddress", v)}
+                isTextarea={true}
+              />
+              <EditableRow
+                label="Permanent Address"
+                value={contactDetails.permanentAddress}
+                editMode={editMode}
+                onChange={(v) =>
+                  updateField("contactDetails", "permanentAddress", v)
+                }
+                isTextarea={true}
+              />
+            </CardContent>
+          </Card>
+
+          {/* SEPARATION INFORMATION */}
+          <Card>
+            <CardHeader className="py-4 px-4 md:px-6">
+              <CardTitle className="text-sm font-semibold">
+                Separation Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 md:px-6">
+              <EditableRow
+                label="Date of Exit"
+                value={separationInfo.dateOfExit}
+                editMode={editMode}
+                onChange={(v) => updateField("separationInfo", "dateOfExit", v)}
+                type="date"
+              />
+            </CardContent>
+          </Card>
+
+          {/* SYSTEM FIELDS */}
+          <Card>
+            <CardHeader className="py-4 px-4 md:px-6">
+              <CardTitle className="text-sm font-semibold">System Fields</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 md:px-6">
+              <EditableRow
+                label="Added By"
+                value={systemFields.addedBy}
+                editMode={false}
+                onChange={() => { }}
+              />
+              <EditableRow
+                label="Added Time"
+                value={systemFields.addedTime}
+                editMode={false}
+                onChange={() => { }}
+              />
+              <EditableRow
+                label="Modified By"
+                value={systemFields.modifiedBy}
+                editMode={false}
+                onChange={() => { }}
+              />
+              <EditableRow
+                label="Modified Time"
+                value={systemFields.modifiedTime}
+                editMode={false}
+                onChange={() => { }}
+              />
+              <EditableRow
+                label="Onboarding Status"
+                value={systemFields.onboardingStatus}
+                editMode={false}
+                onChange={() => { }}
+              />
+            </CardContent>
+          </Card>
         </>
       )}
     </div>

@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { Upload, Plus, Eye, EyeOff } from 'lucide-react';
+import { Upload, Plus, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { Employee } from './types';
 
 interface CandidateListProps {
@@ -16,6 +16,9 @@ interface CandidateListProps {
     setShowUAN: (val: { [key: string]: boolean }) => void;
     onAddCandidateClick: () => void;
     onBulkImportClick: () => void;
+    onDelete: (id: string) => void;
+    onView: (id: string) => void;
+    onBulkDelete: () => void;
 }
 
 const CandidateList: React.FC<CandidateListProps> = ({
@@ -31,6 +34,9 @@ const CandidateList: React.FC<CandidateListProps> = ({
     setShowUAN,
     onAddCandidateClick,
     onBulkImportClick,
+    onDelete,
+    onView,
+    onBulkDelete,
 }) => {
     return (
         <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -38,6 +44,15 @@ const CandidateList: React.FC<CandidateListProps> = ({
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 md:gap-0">
                     <h1 className="text-2xl font-bold">Employee Onboarding</h1>
                     <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3">
+                        {selectedIds.length > 0 && (
+                            <button
+                                onClick={onBulkDelete}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center gap-2 w-full sm:w-auto"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                Delete Selected ({selectedIds.length})
+                            </button>
+                        )}
                         <button
                             onClick={onBulkImportClick}
                             className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2 w-full sm:w-auto"
@@ -69,10 +84,7 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                         />
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        First name
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Last name
+                                        Full Name
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Email ID
@@ -98,6 +110,9 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         UAN number
                                     </th>
+                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Actions
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
@@ -111,8 +126,7 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                                 onChange={() => onSelectOne(employee.id)}
                                             />
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-900">{employee.firstName}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-900">{employee.lastName}</td>
+                                        <td className="px-6 py-4 text-sm text-gray-900">{`${employee.firstName} ${employee.lastName}`}</td>
                                         <td className="px-6 py-4 text-sm text-gray-900">{employee.emailId}</td>
                                         <td className="px-6 py-4 text-sm text-gray-900">{employee.officialEmail}</td>
                                         <td className="px-6 py-4 text-sm text-gray-900">{employee.onboardingStatus}</td>
@@ -139,6 +153,24 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                                 {showUAN[employee.id] ? employee.uan : '**********'}
                                                 <button onClick={() => setShowUAN({ ...showUAN, [employee.id]: !showUAN[employee.id] })}>
                                                     {showUAN[employee.id] ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+                                                </button>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-900">
+                                            <div className="flex items-center justify-center gap-3">
+                                                <button
+                                                    onClick={() => onView(employee.id)}
+                                                    className="text-blue-600 hover:text-blue-800"
+                                                    title="View Details"
+                                                >
+                                                    <Eye className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => onDelete(employee.id)}
+                                                    className="text-red-600 hover:text-red-800"
+                                                    title="Delete Candidate"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         </td>

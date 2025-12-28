@@ -23,6 +23,7 @@ const AnnouncementsSection: React.FC = () => {
     disableComments: false,
     pinToTop: false,
     notifyAll: false
+
   });
 
   // Fetch announcements from API
