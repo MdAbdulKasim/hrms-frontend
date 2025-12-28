@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Calendar, Coffee, Gift, Clock, Heart, Users, AlertCircle } from 'lucide-react';
+import { Plus, Calendar, Coffee, Gift, Clock, Heart, Users, AlertCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -52,91 +52,69 @@ const LeaveTracker = () => {
   // Loading state for API calls
   const [loading, setLoading] = useState(false);
 
-  // Converted leaveHistory to state for API integration
+  // Leave types and history from API
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [leaveHistory, setLeaveHistory] = useState<LeaveHistory[]>([]);
 
-  const leaveTypes: LeaveType[] = [
-    {
-      id: 'casual',
-      name: 'Casual Leave',
-      total: 12,
-      available: 8,
-      booked: 4,
-      icon: <Coffee className="w-5 h-5" />,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100'
-    },
-    {
-      id: 'earned',
-      name: 'Earned Leave',
-      total: 20,
-      available: 15,
-      booked: 5,
-      icon: <Gift className="w-5 h-5" />,
-      color: 'text-green-600',
-      bgColor: 'bg-green-100'
-    },
-    {
-      id: 'lwp',
-      name: 'Leave Without Pay',
-      total: 0,
-      available: 0,
-      booked: 2,
-      icon: <Clock className="w-5 h-5" />,
-      color: 'text-gray-600',
-      bgColor: 'bg-gray-100'
-    },
-    {
-      id: 'paternity',
-      name: 'Paternity Leave',
-      total: 5,
-      available: 5,
-      booked: 0,
-      icon: <Users className="w-5 h-5" />,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-100'
-    },
-    {
-      id: 'sabbatical',
-      name: 'Sabbatical',
-      total: 30,
-      available: 30,
-      booked: 0,
-      icon: <Heart className="w-5 h-5" />,
-      color: 'text-pink-600',
-      bgColor: 'bg-pink-100'
-    },
-    {
-      id: 'sick',
-      name: 'Sick Leave',
-      total: 12,
-      available: 10,
-      booked: 2,
-      icon: <AlertCircle className="w-5 h-5" />,
-      color: 'text-red-600',
-      bgColor: 'bg-red-100'
-    }
-  ];
-
-  // Fetch leave requests from API
+  // Fetch leave types and history from API
   useEffect(() => {
-    const fetchLeaveRequests = async () => {
+    const fetchLeaveData = async () => {
       try {
         setLoading(true);
         const apiUrl = getApiUrl();
         const token = getAuthToken();
 
-        const response = await axios.get(`${apiUrl}/leave-requests`, {
+        // Fetch leave types
+        const typesResponse = await axios.get(`${apiUrl}/leave-requests/types`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
+        const types = typesResponse.data || typesResponse.data.data || [];
 
-        const leaveRequests = response.data.data || response.data || [];
+        // Icon mapping for leave types
+        const iconMap: { [key: string]: React.ReactNode } = {
+          'CL': <Coffee className="w-5 h-5" />,
+          'EL': <Gift className="w-5 h-5" />,
+          'LWP': <Clock className="w-5 h-5" />,
+          'PL': <Users className="w-5 h-5" />,
+          'SBL': <Heart className="w-5 h-5" />,
+          'SL': <AlertCircle className="w-5 h-5" />,
+        };
 
-        // Transform API data to match component interface
-        const transformedData: LeaveHistory[] = leaveRequests.map((request: any) => ({
-          type: request.leaveType || 'Unknown',
+        const colorMap: { [key: string]: { color: string; bgColor: string } } = {
+          'CL': { color: 'text-blue-600', bgColor: 'bg-blue-100' },
+          'EL': { color: 'text-green-600', bgColor: 'bg-green-100' },
+          'LWP': { color: 'text-gray-600', bgColor: 'bg-gray-100' },
+          'PL': { color: 'text-purple-600', bgColor: 'bg-purple-100' },
+          'SBL': { color: 'text-pink-600', bgColor: 'bg-pink-100' },
+          'SL': { color: 'text-red-600', bgColor: 'bg-red-100' },
+        };
+
+        // Transform API data to component format
+        const transformedTypes: LeaveType[] = types.map((type: any) => ({
+          id: type.code || type.id,
+          name: type.name || 'Unknown',
+          total: type.defaultDays || 0,
+          available: (type.defaultDays || 0) - (type.usedDays || 0),
+          booked: type.usedDays || 0,
+          icon: iconMap[type.code] || <Calendar className="w-5 h-5" />,
+          color: colorMap[type.code]?.color || 'text-gray-600',
+          bgColor: colorMap[type.code]?.bgColor || 'bg-gray-100',
+        }));
+        setLeaveTypes(transformedTypes);
+
+        // Fetch employee's leave history
+        const historyResponse = await axios.get(`${apiUrl}/leave-requests/my-history`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const requests = historyResponse.data || historyResponse.data.data || [];
+
+        // Transform API data to component format
+        const transformedHistory: LeaveHistory[] = requests.map((request: any) => ({
+          type: request.leaveTypeCode || request.leaveType || 'Unknown',
           from: new Date(request.startDate).toLocaleDateString('en-US', {
             month: 'short',
             day: '2-digit',
@@ -149,63 +127,20 @@ const LeaveTracker = () => {
           }),
           days: request.days || 1,
           reason: request.reason || 'No reason provided',
-          status: request.status || 'Pending'
+          status: request.status?.charAt(0).toUpperCase() + request.status?.slice(1) || 'Pending'
         }));
-
-        setLeaveHistory(transformedData);
+        setLeaveHistory(transformedHistory);
       } catch (error) {
-        console.error('Error fetching leave requests:', error);
-        // Fallback to mock data if API fails
-        setLeaveHistory([
-          {
-            type: 'Casual Leave',
-            from: 'Jan 15, 2024',
-            to: 'Jan 16, 2024',
-            days: 2,
-            reason: 'Personal work',
-            status: 'Approved'
-          },
-          {
-            type: 'Sick Leave',
-            from: 'Feb 10, 2024',
-            to: 'Feb 11, 2024',
-            days: 2,
-            reason: 'Fever',
-            status: 'Approved'
-          },
-          {
-            type: 'Earned Leave',
-            from: 'Mar 20, 2024',
-            to: 'Mar 25, 2024',
-            days: 5,
-            reason: 'Family vacation',
-            status: 'Pending'
-          },
-          {
-            type: 'Casual Leave',
-            from: 'Apr 05, 2024',
-            to: 'Apr 06, 2024',
-            days: 2,
-            reason: 'Personal work',
-            status: 'Rejected'
-          }
-        ]);
+        console.error('Error fetching leave data:', error);
+        setLeaveTypes([]);
+        setLeaveHistory([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchLeaveRequests();
+    fetchLeaveData();
   }, []);
-
-  const handleSubmit = () => {
-    console.log({ selectedLeaveType, fromDate, toDate, reason });
-    setIsDialogOpen(false);
-    setSelectedLeaveType('');
-    setFromDate('');
-    setToDate('');
-    setReason('');
-  };
 
   const handleCancel = () => {
     setIsDialogOpen(false);
@@ -215,15 +150,74 @@ const LeaveTracker = () => {
     setReason('');
   };
 
+  const handleSubmit = async () => {
+    try {
+      setLoading(true);
+      const apiUrl = getApiUrl();
+      const token = getAuthToken();
+
+      // Call API to apply for leave
+      const response = await axios.post(
+        `${apiUrl}/leave-requests/apply`,
+        {
+          leaveTypeCode: selectedLeaveType,
+          startDate: fromDate,
+          endDate: toDate,
+          reason: reason,
+          dayType: 'full_day'
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      if (response.status === 210 || response.status === 201) {
+        // Refresh leave history
+        const historyResponse = await axios.get(`${apiUrl}/leave-requests/my-history`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const requests = historyResponse.data || historyResponse.data.data || [];
+        const transformedHistory: LeaveHistory[] = requests.map((request: any) => ({
+          type: request.leaveTypeCode || request.leaveType || 'Unknown',
+          from: new Date(request.startDate).toLocaleDateString('en-US', {
+            month: 'short',
+            day: '2-digit',
+            year: 'numeric'
+          }),
+          to: new Date(request.endDate).toLocaleDateString('en-US', {
+            month: 'short',
+            day: '2-digit',
+            year: 'numeric'
+          }),
+          days: request.days || 1,
+          reason: request.reason || 'No reason provided',
+          status: request.status?.charAt(0).toUpperCase() + request.status?.slice(1) || 'Pending'
+        }));
+        setLeaveHistory(transformedHistory);
+      }
+
+      setIsDialogOpen(false);
+      setSelectedLeaveType('');
+      setFromDate('');
+      setToDate('');
+      setReason('');
+    } catch (error) {
+      console.error('Error applying for leave:', error);
+      alert('Failed to apply for leave. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     // Changed p-8 to p-4 md:p-8 to save space on mobile
     <div className="min-h-screen bg-white p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header - Changed to flex-col on mobile, row on sm+ */}
-        <div className="flex flex-col sm:flex-row justify-between items-start gap-4 sm:gap-0 mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 sm:mb-12 gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Leave Tracker</h1>
-            <p className="text-gray-600 mt-1">Manage and track your leaves</p>
+            <p className="text-gray-600 text-sm sm:text-base mt-1">Track your leaves and submit requests</p>
           </div>
           <Button
             onClick={() => setIsDialogOpen(true)}

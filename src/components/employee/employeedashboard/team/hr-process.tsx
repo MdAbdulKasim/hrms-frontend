@@ -43,8 +43,6 @@ interface ProcessRequest {
   createdAt: string;
 }
 
-// Remove mock data - will fetch from API
-
 export default function HRProcessManager() {
   const [selectedProcess, setSelectedProcess] = useState<string>('All');
   const [showProcessModal, setShowProcessModal] = useState(false);

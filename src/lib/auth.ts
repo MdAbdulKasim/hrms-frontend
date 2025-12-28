@@ -4,7 +4,7 @@
 
 // Get the API base URL with proper formatting
 export const getApiUrl = (): string => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://hrms-backend-1--hrms-3e8ad.asia-southeast1.hosted.app';
+    const apiUrl = String(process.env.NEXT_PUBLIC_API_URL);
     if (typeof window !== 'undefined' && (window as any).DEBUG_AUTH) {
         console.log("DEBUG_API_URL:", apiUrl);
     }

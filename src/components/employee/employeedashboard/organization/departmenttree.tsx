@@ -66,50 +66,7 @@ export default function OrganizationChart() {
         }
       } catch (error) {
         console.error('Error fetching departments:', error);
-        // Fallback to mock data if API fails
-        setDepartments([
-          {
-            id: 'it',
-            name: 'IT',
-            initial: 'I',
-            count: 10,
-            employees: [
-              { id: '1', name: 'Andrew Turner', role: 'Manager', imageUrl: '/images/user1.jpg' },
-              { id: '2', name: 'Ember Johnson', role: 'Assistant Manager', imageUrl: '/images/user2.jpg' },
-              { id: '3', name: 'Asher Miller', role: 'Assistant Manager', imageUrl: '/images/user3.jpg' },
-              { id: '4', name: 'Caspian Jones', role: 'Team Member', imageUrl: '/images/user4.jpg' },
-              { id: '5', name: 'Isabella Lopez', role: 'Team Member', imageUrl: '/images/user5.jpg' },
-            ],
-          },
-          {
-            id: 'management',
-            name: 'Management',
-            initial: 'M',
-            count: 5,
-            employees: [
-              { id: '10', name: 'Mohamed', role: 'CEO', imageUrl: '/images/user6.jpg' },
-              { id: '11', name: 'Lilly Williams', role: 'Administration', imageUrl: '/images/user7.jpg' },
-            ],
-          },
-          {
-            id: 'marketing',
-            name: 'Marketing',
-            initial: 'M',
-            count: 5,
-            employees: [
-              { id: '15', name: 'Ethen Anderson', role: 'Manager', imageUrl: '/images/user8.jpg' },
-              { id: '16', name: 'Hazel Carter', role: 'Assistant Manager', imageUrl: '/images/user9.jpg' },
-              { id: '17', name: 'Lindon Smith', role: 'Team Member', imageUrl: '/images/user10.jpg' },
-            ],
-          },
-          {
-            id: 'hr',
-            name: 'HR',
-            initial: 'H',
-            count: 0,
-            employees: [],
-          },
-        ]);
+        setDepartments([]);
       } finally {
         setLoading(false);
       }

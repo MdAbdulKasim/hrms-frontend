@@ -1,4 +1,4 @@
-import { Star, MessageSquare, Phone, Video, MoreHorizontal } from 'lucide-react';
+import { Star, MessageSquare, Phone, Video, MoreHorizontal, Edit2, Trash2 } from 'lucide-react';
 
 interface Employee {
   id: string;
@@ -14,9 +14,11 @@ interface Employee {
 interface ProfileHeaderProps {
   employee: Employee;
   onEmployeeClick?: (employeeId: string) => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
-export default function ProfileHeader({ employee, onEmployeeClick }: ProfileHeaderProps) {
+export default function ProfileHeader({ employee, onEmployeeClick, onEdit, onDelete }: ProfileHeaderProps) {
   // Extract manager ID from reportingManager string (format: "1 - fathima")
   const getManagerId = (managerString: string) => {
     return managerString.split(' - ')[0];
@@ -67,6 +69,24 @@ export default function ProfileHeader({ employee, onEmployeeClick }: ProfileHead
           <button className="p-2.5 bg-white hover:bg-gray-100 rounded-lg transition-colors shadow-sm">
             <Video className="w-5 h-5 text-gray-700" />
           </button>
+          {onEdit && (
+            <button 
+              onClick={onEdit}
+              className="p-2.5 bg-white hover:bg-blue-50 rounded-lg transition-colors shadow-sm"
+              title="Edit employee"
+            >
+              <Edit2 className="w-5 h-5 text-blue-600" />
+            </button>
+          )}
+          {onDelete && (
+            <button 
+              onClick={onDelete}
+              className="p-2.5 bg-white hover:bg-red-50 rounded-lg transition-colors shadow-sm"
+              title="Delete employee"
+            >
+              <Trash2 className="w-5 h-5 text-red-600" />
+            </button>
+          )}
           <button className="p-2.5 bg-white hover:bg-gray-100 rounded-lg transition-colors shadow-sm">
             <MoreHorizontal className="w-5 h-5 text-gray-700" />
           </button>

@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from "react"
 import { Plus, Play, Square, Target, Clock, Briefcase, CheckCircle, ChevronDown } from "lucide-react"
+import axios from 'axios';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 import {
   Dialog,
   DialogContent,
@@ -21,8 +23,6 @@ interface TimeEntry {
   description?: string
 }
 
-const defaultProjects = ["HRMS Development", "Mobile App", "Website Redesign", "API Integration"]
-const defaultTasks = ["Frontend Development", "Backend Development", "UI Design", "Testing"]
 const defaultStatuses = ["Approved", "Pending", "Rejected"]
 
 interface StopDialogProps {
@@ -140,16 +140,12 @@ export default function TimeTrackingPage() {
   // New Filter State
   const [activeFilter, setActiveFilter] = useState<"All" | "Today" | "Weekly" | "Monthly" | "Yearly">("All")
 
-  const [entries, setEntries] = useState<TimeEntry[]>([
-    { project: "HRMS Development", task: "Frontend Development", date: "2024-01-15", hours: "4.5h", status: "Approved" },
-    { project: "Mobile App", task: "UI Design", date: "2024-01-15", hours: "3h", status: "Pending" },
-    { project: "HRMS Development", task: "Backend API", date: "2024-01-14", hours: "6h", status: "Approved" },
-    { project: "Website Redesign", task: "Testing", date: "2024-01-14", hours: "2.5h", status: "Rejected" },
-  ])
+  const [entries, setEntries] = useState<TimeEntry[]>([])
 
-  const [projects, setProjects] = useState<string[]>(defaultProjects)
-  const [tasks, setTasks] = useState<string[]>(defaultTasks)
+  const [projects, setProjects] = useState<string[]>([])
+  const [tasks, setTasks] = useState<string[]>([])
   const [statuses, setStatuses] = useState<string[]>(defaultStatuses)
+  const [loading, setLoading] = useState(true)
   const [newTimerProjectInput, setNewTimerProjectInput] = useState("")
   const [newTimerTaskInput, setNewTimerTaskInput] = useState("")
   const [newTimerStatusInput, setNewTimerStatusInput] = useState("")
@@ -187,6 +183,51 @@ export default function TimeTrackingPage() {
     return () => clearInterval(interval)
   }, [isTimerRunning])
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const token = getAuthToken();
+        const orgId = getOrgId();
+        const apiUrl = getApiUrl();
+
+        if (!token || !orgId) return;
+
+        // Fetch all time entries (admin view)
+        const entriesRes = await axios.get(`${apiUrl}/org/${orgId}/time-entries`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const entriesData = entriesRes.data.data || entriesRes.data || [];
+        setEntries((Array.isArray(entriesData) ? entriesData : []).map((entry: any) => ({
+          project: entry.projectId?.name || entry.project || 'Unknown Project',
+          task: entry.taskName || 'General Task',
+          date: entry.date || new Date().toISOString().split('T')[0],
+          hours: `${Math.round((entry.duration || 0) / 3600 * 10) / 10}h`,
+          status: entry.status || 'Pending',
+          description: entry.description || ''
+        })));
+
+        // Fetch projects
+        const projectsRes = await axios.get(`${apiUrl}/org/${orgId}/projects`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const projectsData = projectsRes.data.data || projectsRes.data || [];
+        setProjects((Array.isArray(projectsData) ? projectsData : []).map((p: any) => p.name || p.title || 'Unnamed Project'));
+
+        setTasks(["Frontend Development", "Backend Development", "UI Design", "Testing", "API Integration"]);
+
+      } catch (error) {
+        console.error('Error fetching time tracking data:', error);
+        setProjects([]);
+        setTasks(["Frontend Development", "Backend Development", "UI Design", "Testing"]);
+        setEntries([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   // Filtering Logic
   const filteredEntries = entries.filter((entry) => {
     if (activeFilter === "All") return true
@@ -219,46 +260,205 @@ export default function TimeTrackingPage() {
     return `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
 
-  const handleStart = () => setIsTimerRunning(true)
-  const handleStop = () => setIsStopDialogOpen(true)
+  const handleStart = async () => {
+    try {
+      const token = getAuthToken();
+      const orgId = getOrgId();
+      const apiUrl = getApiUrl();
 
-  const handleConfirmStop = (finalStatus: string) => {
-    setIsTimerRunning(false)
-    const hoursFormatted = (elapsedSeconds / 3600).toFixed(1) + "h"
-    const newEntry: TimeEntry = {
-      project: timerProject,
-      task: timerTask,
-      date: new Date().toISOString().split("T")[0],
-      hours: hoursFormatted,
-      status: finalStatus as any,
-      description: timerDescription,
+      if (!token || !orgId || !timerProject || !timerTask) {
+        alert('Please select project and task');
+        return;
+      }
+
+      // Find project ID from name
+      const projectsRes = await axios.get(`${apiUrl}/org/${orgId}/projects`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const projectsData = projectsRes.data.data || projectsRes.data || [];
+      const selectedProject = (Array.isArray(projectsData) ? projectsData : []).find((p: any) => (p.name || p.title) === timerProject);
+
+      if (!selectedProject) {
+        alert('Selected project not found');
+        return;
+      }
+
+      const response = await axios.post(
+        `${apiUrl}/org/${orgId}/time-entries/start`,
+        {
+          projectId: selectedProject.id,
+          taskName: timerTask,
+          description: timerDescription,
+          isBillable: true
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.status === 201) {
+        setIsTimerRunning(true);
+      }
+    } catch (error) {
+      console.error('Error starting timer:', error);
+      alert('Failed to start timer');
     }
-    setEntries([newEntry, ...entries])
-    setElapsedSeconds(0)
-    setTimerProject("")
-    setTimerTask("")
-    setTimerDescription("")
-    setTimerStatus("Pending")
-  }
+  };
 
-  const handleAddManualEntry = (entry: {
+  const handleStop = () => setIsStopDialogOpen(true);
+
+  const handleConfirmStop = async (finalStatus: string) => {
+    try {
+      const token = getAuthToken();
+      const orgId = getOrgId();
+      const apiUrl = getApiUrl();
+
+      if (!token || !orgId) return;
+
+      const response = await axios.post(
+        `${apiUrl}/org/${orgId}/time-entries/stop`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.status === 200) {
+        setIsTimerRunning(false);
+        const hoursFormatted = (elapsedSeconds / 3600).toFixed(1) + "h";
+        const newEntry: TimeEntry = {
+          project: timerProject,
+          task: timerTask,
+          date: new Date().toISOString().split("T")[0],
+          hours: hoursFormatted,
+          status: finalStatus as any,
+          description: timerDescription,
+        };
+        setEntries([newEntry, ...entries]);
+        setElapsedSeconds(0);
+        setTimerProject("");
+        setTimerTask("");
+        setTimerDescription("");
+        setTimerStatus("Pending");
+      }
+    } catch (error) {
+      console.error('Error stopping timer:', error);
+      alert('Failed to stop timer');
+    }
+  };
+
+  const handleAddManualEntry = async (entry: {
     project: string
     task: string
     date: string
     hours: string
     description: string
   }) => {
-    const hoursFormatted = Number.parseFloat(entry.hours).toFixed(1) + "h"
-    const newEntry: TimeEntry = {
-      project: entry.project,
-      task: entry.task,
-      date: entry.date,
-      hours: hoursFormatted,
-      status: "Pending",
-      description: entry.description,
+    try {
+      const token = getAuthToken();
+      const orgId = getOrgId();
+      const apiUrl = getApiUrl();
+
+      if (!token || !orgId) return;
+
+      // Find project ID from name
+      const projectsRes = await axios.get(`${apiUrl}/org/${orgId}/projects`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const projectsData = projectsRes.data.data || projectsRes.data || [];
+      const selectedProject = (Array.isArray(projectsData) ? projectsData : []).find((p: any) => (p.name || p.title) === entry.project);
+
+      if (!selectedProject) {
+        alert('Selected project not found');
+        return;
+      }
+
+      const response = await axios.post(
+        `${apiUrl}/org/${orgId}/time-entries/manual`,
+        {
+          projectId: selectedProject.id,
+          taskName: entry.task,
+          description: entry.description,
+          date: entry.date,
+          duration: Math.round(Number.parseFloat(entry.hours) * 3600),
+          isBillable: true
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.status === 201) {
+        const hoursFormatted = Number.parseFloat(entry.hours).toFixed(1) + "h";
+        const newEntry: TimeEntry = {
+          project: entry.project,
+          task: entry.task,
+          date: entry.date,
+          hours: hoursFormatted,
+          status: "Pending",
+          description: entry.description,
+        };
+        setEntries([newEntry, ...entries]);
+      }
+    } catch (error) {
+      console.error('Error adding manual entry:', error);
+      alert('Failed to add time entry');
     }
-    setEntries([newEntry, ...entries])
-  }
+  };
+
+  const handleApproveEntry = async (index: number) => {
+    try {
+      const token = getAuthToken();
+      const orgId = getOrgId();
+      const apiUrl = getApiUrl();
+
+      if (!token || !orgId) return;
+
+      const entry = filteredEntries[index];
+      if (!entry) return;
+
+      // For now, we'll update locally since we don't have entry IDs
+      // In production, you'd need the entry ID from the API response
+      const updatedEntries = entries.map((e) =>
+        e === entry ? { ...e, status: "Approved" as const } : e
+      );
+      setEntries(updatedEntries);
+
+      // TODO: Make actual API call once entry ID is available
+      // await axios.put(
+      //   `${apiUrl}/org/${orgId}/time-entries/${entryId}/approve`,
+      //   {},
+      //   { headers: { Authorization: `Bearer ${token}` } }
+      // );
+    } catch (error) {
+      console.error('Error approving entry:', error);
+      alert('Failed to approve entry');
+    }
+  };
+
+  const handleRejectEntry = async (index: number) => {
+    try {
+      const token = getAuthToken();
+      const orgId = getOrgId();
+      const apiUrl = getApiUrl();
+
+      if (!token || !orgId) return;
+
+      const entry = filteredEntries[index];
+      if (!entry) return;
+
+      // For now, we'll update locally since we don't have entry IDs
+      // In production, you'd need the entry ID from the API response
+      const updatedEntries = entries.map((e) =>
+        e === entry ? { ...e, status: "Rejected" as const } : e
+      );
+      setEntries(updatedEntries);
+
+      // TODO: Make actual API call once entry ID is available
+      // await axios.put(
+      //   `${apiUrl}/org/${orgId}/time-entries/${entryId}/reject`,
+      //   {},
+      //   { headers: { Authorization: `Bearer ${token}` } }
+      // );
+    } catch (error) {
+      console.error('Error rejecting entry:', error);
+      alert('Failed to reject entry');
+    }
+  };
 
   const isTimerFormComplete =
     timerProject.trim() !== "" && timerTask.trim() !== "" && timerDescription.trim() !== "" && timerStatus.trim() !== ""
@@ -544,6 +744,7 @@ export default function TimeTrackingPage() {
                   <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">Date</th>
                   <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">Hours</th>
                   <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">Status</th>
+                  <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -559,11 +760,29 @@ export default function TimeTrackingPage() {
                           {entry.status}
                         </span>
                       </td>
+                      <td className="px-6 py-4 flex gap-2">
+                        {entry.status === "Pending" && (
+                          <>
+                            <button
+                              onClick={() => handleApproveEntry(index)}
+                              className="px-3 py-1 text-xs font-medium text-green-700 bg-green-100 rounded hover:bg-green-200 transition-colors"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleRejectEntry(index)}
+                              className="px-3 py-1 text-xs font-medium text-red-700 bg-red-100 rounded hover:bg-red-200 transition-colors"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-6 py-10 text-center text-gray-500 text-sm italic">
+                    <td colSpan={6} className="px-6 py-10 text-center text-gray-500 text-sm italic">
                       No entries found for the selected period.
                     </td>
                   </tr>

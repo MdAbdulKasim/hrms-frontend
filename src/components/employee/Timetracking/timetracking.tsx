@@ -10,7 +10,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import axios from 'axios';
-import { getApiUrl, getAuthToken } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 
 import TimeEntryDialog from "./dialog"
 
@@ -23,8 +23,6 @@ interface TimeEntry {
   description?: string
 }
 
-const defaultProjects = ["HRMS Development", "Mobile App", "Website Redesign", "API Integration"]
-const defaultTasks = ["Frontend Development", "Backend Development", "UI Design", "Testing"]
 const defaultStatuses = ["Approved", "Pending", "Rejected"]
 
 interface StopDialogProps {
@@ -187,34 +185,37 @@ export default function TimeTrackingPage() {
     const fetchData = async () => {
       try {
         const token = getAuthToken();
+        const orgId = getOrgId();
         const apiUrl = getApiUrl();
 
-        if (!token) return;
+        if (!token || !orgId) return;
 
-        const entriesRes = await axios.get(`${apiUrl}/time-entries`, {
+        // Fetch time entries
+        const entriesRes = await axios.get(`${apiUrl}/org/${orgId}/time-entries/my-entries`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        const entriesData = entriesRes.data.data || entriesRes.data;
-        setEntries(entriesData.map((entry: any) => ({
-          project: entry.project?.name || entry.project || 'Unknown Project',
-          task: entry.task || 'General Task',
+        const entriesData = entriesRes.data.data || entriesRes.data || [];
+        setEntries((Array.isArray(entriesData) ? entriesData : []).map((entry: any) => ({
+          project: entry.projectId?.name || entry.project || 'Unknown Project',
+          task: entry.taskName || 'General Task',
           date: entry.date || new Date().toISOString().split('T')[0],
-          hours: `${entry.hours || 0}h`,
+          hours: `${Math.round((entry.duration || 0) / 3600 * 10) / 10}h`,
           status: entry.status || 'Pending',
           description: entry.description || ''
         })));
 
-        const projectsRes = await axios.get(`${apiUrl}/projects`, {
+        // Fetch projects
+        const projectsRes = await axios.get(`${apiUrl}/org/${orgId}/projects`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        const projectsData = projectsRes.data.data || projectsRes.data;
-        setProjects(projectsData.map((p: any) => p.name || p.title || p));
+        const projectsData = projectsRes.data.data || projectsRes.data || [];
+        setProjects((Array.isArray(projectsData) ? projectsData : []).map((p: any) => p.name || p.title || 'Unnamed Project'));
 
         setTasks(["Frontend Development", "Backend Development", "UI Design", "Testing", "API Integration"]);
 
       } catch (error) {
         console.error('Error fetching time tracking data:', error);
-        setProjects(["HRMS Development", "Mobile App", "Website Redesign", "API Integration"]);
+        setProjects([]);
         setTasks(["Frontend Development", "Backend Development", "UI Design", "Testing"]);
         setEntries([]);
       } finally {
@@ -256,46 +257,145 @@ export default function TimeTrackingPage() {
     return `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
 
-  const handleStart = () => setIsTimerRunning(true)
-  const handleStop = () => setIsStopDialogOpen(true)
+  const handleStart = async () => {
+    try {
+      const token = getAuthToken();
+      const orgId = getOrgId();
+      const apiUrl = getApiUrl();
 
-  const handleConfirmStop = (finalStatus: string) => {
-    setIsTimerRunning(false)
-    const hoursFormatted = (elapsedSeconds / 3600).toFixed(1) + "h"
-    const newEntry: TimeEntry = {
-      project: timerProject,
-      task: timerTask,
-      date: new Date().toISOString().split("T")[0],
-      hours: hoursFormatted,
-      status: finalStatus as any,
-      description: timerDescription,
+      if (!token || !orgId || !timerProject || !timerTask) {
+        alert('Please select project and task');
+        return;
+      }
+
+      // Find project ID from name
+      const projectsRes = await axios.get(`${apiUrl}/org/${orgId}/projects`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const projectsData = projectsRes.data.data || projectsRes.data || [];
+      const selectedProject = (Array.isArray(projectsData) ? projectsData : []).find((p: any) => (p.name || p.title) === timerProject);
+
+      if (!selectedProject) {
+        alert('Selected project not found');
+        return;
+      }
+
+      const response = await axios.post(
+        `${apiUrl}/org/${orgId}/time-entries/start`,
+        {
+          projectId: selectedProject.id,
+          taskName: timerTask,
+          description: timerDescription,
+          isBillable: true
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.status === 201) {
+        setIsTimerRunning(true);
+      }
+    } catch (error) {
+      console.error('Error starting timer:', error);
+      alert('Failed to start timer');
     }
-    setEntries([newEntry, ...entries])
-    setElapsedSeconds(0)
-    setTimerProject("")
-    setTimerTask("")
-    setTimerDescription("")
-    setTimerStatus("Pending")
-  }
+  };
 
-  const handleAddManualEntry = (entry: {
+  const handleStop = () => setIsStopDialogOpen(true);
+
+  const handleConfirmStop = async (finalStatus: string) => {
+    try {
+      const token = getAuthToken();
+      const orgId = getOrgId();
+      const apiUrl = getApiUrl();
+
+      if (!token || !orgId) return;
+
+      const response = await axios.post(
+        `${apiUrl}/org/${orgId}/time-entries/stop`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.status === 200) {
+        setIsTimerRunning(false);
+        const hoursFormatted = (elapsedSeconds / 3600).toFixed(1) + "h";
+        const newEntry: TimeEntry = {
+          project: timerProject,
+          task: timerTask,
+          date: new Date().toISOString().split("T")[0],
+          hours: hoursFormatted,
+          status: finalStatus as any,
+          description: timerDescription,
+        };
+        setEntries([newEntry, ...entries]);
+        setElapsedSeconds(0);
+        setTimerProject("");
+        setTimerTask("");
+        setTimerDescription("");
+        setTimerStatus("Pending");
+      }
+    } catch (error) {
+      console.error('Error stopping timer:', error);
+      alert('Failed to stop timer');
+    }
+  };
+
+  const handleAddManualEntry = async (entry: {
     project: string
     task: string
     date: string
     hours: string
     description: string
   }) => {
-    const hoursFormatted = Number.parseFloat(entry.hours).toFixed(1) + "h"
-    const newEntry: TimeEntry = {
-      project: entry.project,
-      task: entry.task,
-      date: entry.date,
-      hours: hoursFormatted,
-      status: "Pending",
-      description: entry.description,
+    try {
+      const token = getAuthToken();
+      const orgId = getOrgId();
+      const apiUrl = getApiUrl();
+
+      if (!token || !orgId) return;
+
+      // Find project ID from name
+      const projectsRes = await axios.get(`${apiUrl}/org/${orgId}/projects`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const projectsData = projectsRes.data.data || projectsRes.data || [];
+      const selectedProject = (Array.isArray(projectsData) ? projectsData : []).find((p: any) => (p.name || p.title) === entry.project);
+
+      if (!selectedProject) {
+        alert('Selected project not found');
+        return;
+      }
+
+      const response = await axios.post(
+        `${apiUrl}/org/${orgId}/time-entries/manual`,
+        {
+          projectId: selectedProject.id,
+          taskName: entry.task,
+          description: entry.description,
+          date: entry.date,
+          duration: Math.round(Number.parseFloat(entry.hours) * 3600),
+          isBillable: true
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.status === 201) {
+        const hoursFormatted = Number.parseFloat(entry.hours).toFixed(1) + "h";
+        const newEntry: TimeEntry = {
+          project: entry.project,
+          task: entry.task,
+          date: entry.date,
+          hours: hoursFormatted,
+          status: "Pending",
+          description: entry.description,
+        };
+        setEntries([newEntry, ...entries]);
+      }
+    } catch (error) {
+      console.error('Error adding manual entry:', error);
+      alert('Failed to add time entry');
     }
-    setEntries([newEntry, ...entries])
-  }
+  };
 
   const isTimerFormComplete =
     timerProject.trim() !== "" && timerTask.trim() !== "" && timerDescription.trim() !== "" && timerStatus.trim() !== ""

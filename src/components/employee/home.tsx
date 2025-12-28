@@ -10,7 +10,7 @@ import {
   Briefcase
 } from 'lucide-react';
 import axios from 'axios';
-import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId, getCookie } from '@/lib/auth';
 
 
 // --- Types ---
@@ -21,6 +21,15 @@ type Reportee = {
   status: string;
 };
 
+type CurrentUser = {
+  id: string;
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+  designation: string;
+  profileImage?: string;
+};
+
 type ScheduleDay = {
   day: string;
   date: string;
@@ -29,11 +38,14 @@ type ScheduleDay = {
 };
 
 // --- State ---
-// Remove mock data, will fetch from API
 
 // --- Sub-Components ---
 
-const ProfileCard = () => {
+interface ProfileCardProps {
+  currentUser: CurrentUser | null;
+}
+
+const ProfileCard = ({ currentUser }: ProfileCardProps) => {
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -112,8 +124,8 @@ const ProfileCard = () => {
           </div>
         )}
       </div>
-      <h2 className="text-gray-800 font-medium text-sm break-all">1-farhan21ps13716</h2>
-      <p className="text-gray-500 text-xs mt-1">CEO</p>
+      <h2 className="text-gray-800 font-medium text-sm break-all">{currentUser?.employeeId || 'Loading...'}</h2>
+      <p className="text-gray-500 text-xs mt-1">{currentUser?.designation || 'N/A'}</p>
       <p className={`text-xs font-medium mt-3 ${isCheckedIn ? 'text-green-500' : 'text-red-500'}`}>
         {isCheckedIn ? 'Checked In' : 'Yet to check-in'}
       </p>
@@ -158,7 +170,7 @@ const ReporteesCard = ({ reportees }: { reportees: Reportee[] }) => {
   );
 };
 
-const ActivitiesSection = ({ schedule }: { schedule: ScheduleDay[] }) => {
+const ActivitiesSection = ({ schedule, currentUser }: { schedule: ScheduleDay[]; currentUser: CurrentUser | null }) => {
   return (
     <div className="space-y-4">
       {/* Greeting Card */}
@@ -168,7 +180,7 @@ const ActivitiesSection = ({ schedule }: { schedule: ScheduleDay[] }) => {
              <Briefcase className="text-blue-600" size={20} />
           </div>
           <div>
-            <h3 className="text-gray-800 font-medium">Good Afternoon <span className="text-gray-500 font-normal block sm:inline">farhan21ps13716</span></h3>
+            <h3 className="text-gray-800 font-medium">Welcome,<span className="text-gray-500 font-normal block sm:inline">{currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'User'}</span></h3>
             <p className="text-gray-500 text-sm">Have a productive day!</p>
           </div>
         </div>
@@ -255,6 +267,7 @@ const ActivitiesSection = ({ schedule }: { schedule: ScheduleDay[] }) => {
 export default function Dashboard() {
   const [reportees, setReportees] = useState<Reportee[]>([]);
   const [schedule, setSchedule] = useState<ScheduleDay[]>([]);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -263,8 +276,23 @@ export default function Dashboard() {
         const token = getAuthToken();
         const orgId = getOrgId();
         const apiUrl = getApiUrl();
+        const currentEmployeeId = getCookie('hrms_user_id');
 
-        if (!token || !orgId) return;
+        if (!token || !orgId || !currentEmployeeId) return;
+
+        // Fetch current user data
+        const currentUserRes = await axios.get(`${apiUrl}/employees/${currentEmployeeId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const userData = currentUserRes.data.data || currentUserRes.data;
+        setCurrentUser({
+          id: userData.id || userData._id,
+          employeeId: userData.employeeId || userData.id,
+          firstName: userData.firstName || '',
+          lastName: userData.lastName || '',
+          designation: userData.designation?.name || userData.designation || 'N/A',
+          profileImage: userData.profileImage
+        });
 
         // Fetch reportees (for employee, might be team members or something)
         const reporteesRes = await axios.get(`${apiUrl}/org/${orgId}/employees`, {
@@ -321,13 +349,13 @@ export default function Dashboard() {
             
             {/* Left Column: Profile & Reportees */}
             <div className="lg:col-span-1 flex flex-col gap-6">
-              <ProfileCard />
+              <ProfileCard currentUser={currentUser} />
               <ReporteesCard reportees={reportees} />
             </div>
 
             {/* Right Column: Activities & Schedule */}
             <div className="lg:col-span-3">
-              <ActivitiesSection schedule={schedule} />
+              <ActivitiesSection schedule={schedule} currentUser={currentUser} />
             </div>
 
           </div>

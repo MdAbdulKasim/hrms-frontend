@@ -47,34 +47,7 @@ export default function DepartmentsPage() {
         setDepartmentsData(transformedData);
       } catch (error) {
         console.error('Error fetching departments:', error);
-        // Fallback to mock data if API fails
-        setDepartmentsData([
-          {
-            id: 1,
-            name: "Engineering",
-            lead: "Sarah Davis",
-            members: [
-              { name: "Alice Johnson", role: "Developer" },
-              { name: "Bob Smith", role: "Developer" },
-              { name: "Carol White", role: "QA" },
-            ],
-          },
-          {
-            id: 2,
-            name: "Design",
-            lead: "Emily Chen",
-            members: [
-              { name: "Frank Miller", role: "UI Designer" },
-              { name: "Grace Lee", role: "UX Designer" },
-            ],
-          },
-          {
-            id: 3,
-            name: "Human Resources",
-            lead: "Jane Wilson",
-            members: [{ name: "Henry Adams", role: "HR Manager" }],
-          },
-        ]);
+        setDepartmentsData([]);
       } finally {
         setLoading(false);
       }

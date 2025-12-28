@@ -1,13 +1,14 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ExternalLink, X } from 'lucide-react';
 import axios from 'axios';
-import { getApiUrl, getAuthToken } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
  
 interface QuickLink {
   id: string;
   title: string;
   url: string;
+  icon?: string;
 }
  
 interface QuickLinksSectionProps {
@@ -16,27 +17,72 @@ interface QuickLinksSectionProps {
  
 const QuickLinksSection: React.FC<QuickLinksSectionProps> = ({ className = '' }) => {
   const [showQuickLinkModal, setShowQuickLinkModal] = useState(false);
-  const [quickLinks, setQuickLinks] = useState<QuickLink[]>([
-    { id: '1', title: 'Company Wiki', url: 'https://wiki.company.com' },
-    { id: '2', title: 'HR Policies', url: 'https://hr.company.com' },
-    { id: '3', title: 'Benefits Portal', url: 'https://benefits.company.com' }
-  ]);
+  const [quickLinks, setQuickLinks] = useState<QuickLink[]>([]);
+  const [loading, setLoading] = useState(true);
  
   const [quickLinkForm, setQuickLinkForm] = useState({
     title: '',
     url: ''
   });
+
+  // Fetch quick links from API
+  useEffect(() => {
+    const fetchQuickLinks = async () => {
+      try {
+        const token = getAuthToken();
+        const orgId = getOrgId();
+        const apiUrl = getApiUrl();
+
+        if (!token || !orgId) return;
+
+        const response = await axios.get(`${apiUrl}/org/${orgId}/quick-links`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const linksData = response.data.data || response.data || [];
+        setQuickLinks(Array.isArray(linksData) ? linksData : []);
+      } catch (error) {
+        console.error('Error fetching quick links:', error);
+        setQuickLinks([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuickLinks();
+  }, []);
  
-  const handleAddQuickLink = () => {
-    if (quickLinkForm.title && quickLinkForm.url) {
-      const newLink: QuickLink = {
-        id: Date.now().toString(),
-        title: quickLinkForm.title,
-        url: quickLinkForm.url
-      };
+  const handleAddQuickLink = async () => {
+    if (!quickLinkForm.title || !quickLinkForm.url) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    try {
+      const token = getAuthToken();
+      const orgId = getOrgId();
+      const apiUrl = getApiUrl();
+
+      if (!token || !orgId) return;
+
+      const response = await axios.post(
+        `${apiUrl}/org/${orgId}/quick-links`,
+        {
+          title: quickLinkForm.title,
+          url: quickLinkForm.url
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      const newLink = response.data.data || response.data;
       setQuickLinks([...quickLinks, newLink]);
       setQuickLinkForm({ title: '', url: '' });
       setShowQuickLinkModal(false);
+    } catch (error) {
+      console.error('Error adding quick link:', error);
+      alert('Failed to add quick link');
     }
   };
  
@@ -58,18 +104,24 @@ const QuickLinksSection: React.FC<QuickLinksSectionProps> = ({ className = '' })
           </button>
         </div>
         <div className="space-y-2">
-          {quickLinks.map((link) => (
-            <a
-              key={link.id}
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between text-sm text-slate-700 hover:bg-slate-50 p-2 rounded -mx-2 transition-colors"
-            >
-              <span className="truncate mr-2">{link.title}</span>
-              <ExternalLink className="w-4 h-4 text-slate-400 shrink-0" />
-            </a>
-          ))}
+          {loading ? (
+            <p className="text-sm text-slate-500">Loading...</p>
+          ) : quickLinks.length > 0 ? (
+            quickLinks.map((link) => (
+              <a
+                key={link.id}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between text-sm text-slate-700 hover:bg-slate-50 p-2 rounded -mx-2 transition-colors"
+              >
+                <span className="truncate mr-2">{link.title}</span>
+                <ExternalLink className="w-4 h-4 text-slate-400 shrink-0" />
+              </a>
+            ))
+          ) : (
+            <p className="text-sm text-slate-500">No quick links yet</p>
+          )}
         </div>
       </div>
  

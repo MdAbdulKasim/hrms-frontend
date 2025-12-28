@@ -50,14 +50,14 @@ type ViewMode = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 const AttendanceTracker: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('monthly');
-  const [currentDate, setCurrentDate] = useState(new Date(2024, 0, 15)); // Default to Jan 15, 2024 to match dummy data
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
 
   // Loading state for API calls
   const [loading, setLoading] = useState(false);
 
-  // Converted mock data to state for API integration
+  // Attendance data from API
   const [allAttendanceData, setAllAttendanceData] = useState<AttendanceRecord[]>([]);
 
   // Close calendar when clicking outside
@@ -99,19 +99,7 @@ const AttendanceTracker: React.FC = () => {
         setAllAttendanceData(transformedData);
       } catch (error) {
         console.error('Error fetching attendance data:', error);
-        // Fallback to mock data if API fails
-        setAllAttendanceData([
-          { date: '2024-01-15', checkIn: '09:00 AM', checkOut: '06:30 PM', hoursWorked: '9h 30m', status: 'Present' },
-          { date: '2024-01-14', checkIn: '09:15 AM', checkOut: '06:00 PM', hoursWorked: '8h 45m', status: 'Present' },
-          { date: '2024-01-13', checkIn: '-', checkOut: '-', hoursWorked: '-', status: 'Weekend' },
-          { date: '2024-01-12', checkIn: '-', checkOut: '-', hoursWorked: '-', status: 'Weekend' },
-          { date: '2024-01-11', checkIn: '09:30 AM', checkOut: '05:45 PM', hoursWorked: '8h 15m', status: 'Late' },
-          { date: '2024-01-10', checkIn: '-', checkOut: '-', hoursWorked: '-', status: 'Leave' },
-          { date: '2024-01-09', checkIn: '08:55 AM', checkOut: '06:15 PM', hoursWorked: '9h 20m', status: 'Present' },
-          { date: '2024-01-08', checkIn: '09:00 AM', checkOut: '06:00 PM', hoursWorked: '9h 00m', status: 'Present' },
-          { date: '2024-01-07', checkIn: '-', checkOut: '-', hoursWorked: '-', status: 'Weekend' },
-          { date: '2023-12-25', checkIn: '09:00 AM', checkOut: '06:00 PM', hoursWorked: '9h 00m', status: 'Present' },
-        ]);
+        setAllAttendanceData([]);
       } finally {
         setLoading(false);
       }
