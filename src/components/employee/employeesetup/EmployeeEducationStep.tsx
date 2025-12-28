@@ -18,7 +18,7 @@ export default function EmployeeEducationStep({
   const [showForm, setShowForm] = useState(false);
   const [currentEdu, setCurrentEdu] = useState<Education>({
     id: '',
-    instituteName: '',
+    institution: '',
     degree: '',
     fieldOfStudy: '',
     startYear: '',
@@ -26,11 +26,11 @@ export default function EmployeeEducationStep({
   });
 
   const handleAddEducation = () => {
-    if (currentEdu.instituteName && currentEdu.degree && currentEdu.fieldOfStudy) {
+    if (currentEdu.institution && currentEdu.degree && currentEdu.fieldOfStudy) {
       setEducation([...education, { ...currentEdu, id: Date.now().toString() }]);
       setCurrentEdu({
         id: '',
-        instituteName: '',
+        institution: '',
         degree: '',
         fieldOfStudy: '',
         startYear: '',
@@ -57,8 +57,8 @@ export default function EmployeeEducationStep({
               </label>
               <input
                 type="text"
-                value={currentEdu.instituteName}
-                onChange={(e) => setCurrentEdu({ ...currentEdu, instituteName: e.target.value })}
+                value={currentEdu.institution}
+                onChange={(e) => setCurrentEdu({ ...currentEdu, institution: e.target.value })}
                 placeholder="Enter institute/university name"
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -170,13 +170,13 @@ export default function EmployeeEducationStep({
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <h4 className="font-semibold text-gray-900">{edu.degree} in {edu.fieldOfStudy}</h4>
-                  <p className="text-sm text-gray-600">{edu.instituteName}</p>
+                  <p className="text-sm text-gray-600">{edu.institution}</p>
                   <p className="text-sm text-gray-500 mt-1">
                     {edu.startYear} - {edu.endYear}
                   </p>
                 </div>
                 <button
-                  onClick={() => handleDeleteEducation(edu.id)}
+                  onClick={() => handleDeleteEducation(edu.id ?? '')}
                   className="text-red-500 hover:text-red-700 p-2"
                 >
                   <Trash2 className="w-4 h-4" />

@@ -105,11 +105,16 @@ export interface EmployeeIdentityInfo {
 export interface WorkExperience {
   id?: string;
   companyName: string;
-  designation: string; // Used in UI, will map to jobTitle if needed
-  startDate: string;   // Used in UI, will map to fromDate
-  endDate: string;     // Used in UI, will map to toDate
+  designation?: string; // Used in UI, will map to jobTitle if needed
+  jobTitle?: string;    // Alternative field name
+  startDate?: string;   // Used in UI, will map to fromDate
+  fromDate?: string;    // Alternative field name
+  endDate?: string;     // Used in UI, will map to toDate
+  toDate?: string;      // Alternative field name
+  currentlyWorking?: boolean;
   location?: string;
   description?: string;
+  jobDescription?: string; // Alternative field name
 }
 
 export interface Education {
