@@ -1,7 +1,9 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Grid, List, LayoutGrid, Filter, X, ChevronDown, ArrowLeft } from 'lucide-react';
 import ProfilePage from "@/components/profile/ProfilePage";
+import axios from 'axios';
+import { getApiUrl, getAuthToken } from '@/lib/auth';
 
 // Employee data type
 interface Employee {
@@ -9,185 +11,11 @@ interface Employee {
   name: string;
   designation: string;
   department: string;
+  location: string;
   status: string;
   image: string;
   seniority: string;
 }
-
-// Sample employee data
-const employees: Employee[] = [
-  {
-    id: 'S19',
-    name: 'Michael Johnson',
-    designation: 'Administration',
-    department: 'Management',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: 'Above 10 Years'
-  },
-  {
-    id: 'S2',
-    name: 'Lilly Williams',
-    designation: 'Administration',
-    department: 'Management',
-    status: 'Yet to check-in',
-    image: '👩‍💼',
-    seniority: 'Above 10 Years'
-  },
-  {
-    id: 'S20',
-    name: 'Christopher Brown',
-    designation: 'Administration',
-    department: 'Management',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: 'Above 10 Years'
-  },
-  {
-    id: 'S3',
-    name: 'Clarkson Walter',
-    designation: 'Administration',
-    department: 'Management',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '0 - 5 Years'
-  },
-  {
-    id: 'S5',
-    name: 'Andrew Turner',
-    designation: 'Manager',
-    department: 'Management',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S6',
-    name: 'Ember Johnson',
-    designation: 'Assistant Manager',
-    department: 'Management',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S4',
-    name: 'Ethen Anderson',
-    designation: 'Manager',
-    department: 'Operations',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S9',
-    name: 'Caspian Jones',
-    designation: 'Team Member',
-    department: 'Operations',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S8',
-    name: 'Asher Miller',
-    designation: 'Assistant Manager',
-    department: 'Operations',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S7',
-    name: 'Hazel Carter',
-    designation: 'Assistant Manager',
-    department: 'Operations',
-    status: 'Yet to check-in',
-    image: '👩‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S14',
-    name: 'Emily Jones',
-    designation: 'Team Member',
-    department: 'Operations',
-    status: 'Yet to check-in',
-    image: '👩‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S15',
-    name: 'Aparna Acharya',
-    designation: 'Team Member',
-    department: 'Operations',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S18',
-    name: 'William Smith',
-    designation: 'Team Member',
-    department: 'Sales',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S13',
-    name: 'Isabella Lopez',
-    designation: 'Team Member',
-    department: 'Sales',
-    status: 'Yet to check-in',
-    image: '👩‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S11',
-    name: 'Olivia Smith',
-    designation: 'Team Member',
-    department: 'Sales',
-    status: 'Yet to check-in',
-    image: '👩‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S17',
-    name: 'Amardeep Banjeet',
-    designation: 'Team Member',
-    department: 'Sales',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S12',
-    name: 'Sofia Rodriguez',
-    designation: 'Team Member',
-    department: 'Sales',
-    status: 'Yet to check-in',
-    image: '👩‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S16',
-    name: 'Andrea Garcia',
-    designation: 'Team Member',
-    department: 'Sales',
-    status: 'Yet to check-in',
-    image: '👩‍💼',
-    seniority: '5 - 10 Years'
-  },
-  {
-    id: 'S10',
-    name: 'Lindon Smith',
-    designation: 'Team Member',
-    department: 'Sales',
-    status: 'Yet to check-in',
-    image: '👨‍💼',
-    seniority: '5 - 10 Years'
-  }
-];
 
 const EmployeeManagement = () => {
   const [activeTab, setActiveTab] = useState<'direct' | 'all'>('direct');
@@ -197,21 +25,85 @@ const EmployeeManagement = () => {
   const [showFilter, setShowFilter] = useState(false);
   const [filterDepartment, setFilterDepartment] = useState('All Departments');
   const [filterDesignation, setFilterDesignation] = useState('All Designations');
+  const [filterLocation, setFilterLocation] = useState('All Locations');
 
   // Profile navigation state
   const [showProfile, setShowProfile] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
 
+  // API state
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Fetch employees from API
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        setLoading(true);
+        const apiUrl = getApiUrl();
+        const token = getAuthToken();
+
+        const response = await axios.get(`${apiUrl}/employees`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const empData = response.data.data || response.data || [];
+
+        // Transform API data to component format
+        const transformedEmployees: Employee[] = empData.map((emp: any) => ({
+          id: emp.id || emp._id || emp.employeeId || 'N/A',
+          name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.name || 'Unknown',
+          designation: emp.designation?.name || emp.designation || 'N/A',
+          department: emp.department?.name || emp.department || 'N/A',
+          location: emp.location?.name || emp.location || 'N/A',
+          status: emp.employeeStatus || emp.status || 'Active',
+          image: emp.profileImage ? '👤' : (emp.gender === 'Female' ? '👩‍💼' : '👨‍💼'),
+          seniority: emp.totalExperience || '0 - 5 Years'
+        }));
+
+        setEmployees(transformedEmployees);
+      } catch (error) {
+        console.error('Error fetching employees:', error);
+        setEmployees([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEmployees();
+  }, []);
+
   // Filter employees
   const filteredEmployees = employees.filter(emp => {
     const deptMatch = filterDepartment === 'All Departments' || emp.department === filterDepartment;
     const desigMatch = filterDesignation === 'All Designations' || emp.designation === filterDesignation;
-    return deptMatch && desigMatch;
+    const locMatch = filterLocation === 'All Locations' || emp.location === filterLocation;
+    const searchMatch = searchTerm === '' || emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || emp.id.toLowerCase().includes(searchTerm.toLowerCase());
+    return deptMatch && desigMatch && locMatch && searchMatch;
   });
+
+  // Get unique departments, designations, and locations from employees
+  const getDepartments = () => {
+    const depts = new Set(employees.map(emp => emp.department));
+    return Array.from(depts).filter(d => d !== 'N/A');
+  };
+
+  const getDesignations = () => {
+    const desigs = new Set(employees.map(emp => emp.designation));
+    return Array.from(desigs).filter(d => d !== 'N/A');
+  };
+
+  const getLocations = () => {
+    const locs = new Set(employees.map(emp => emp.location));
+    return Array.from(locs).filter(l => l !== 'N/A');
+  };
 
   // Get employees for active tab
   const tabEmployees = activeTab === 'direct'
-    ? filteredEmployees.filter(emp => ['S19', 'S2', 'S20', 'S3'].includes(emp.id))
+    ? filteredEmployees.slice(0, 10)  // Show first 10 as direct reports
     : filteredEmployees;
 
   // Group employees for kanban view
@@ -344,7 +236,17 @@ const EmployeeManagement = () => {
             </div>
 
             <div className="flex items-center gap-2 ml-auto md:ml-0">
-              <button className="p-2 bg-white border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100">
+              <div className="relative hidden md:flex items-center">
+                <Search size={18} className="absolute left-3 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search employees..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-600 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <button className="p-2 bg-white border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 md:hidden">
                 <Search size={18} />
               </button>
               <button
@@ -431,9 +333,9 @@ const EmployeeManagement = () => {
                         className="w-full h-11 px-3 py-2 bg-white border border-gray-200 rounded-lg text-gray-900 text-sm appearance-none cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                       >
                         <option>All Departments</option>
-                        <option>Management</option>
-                        <option>Operations</option>
-                        <option>Sales</option>
+                        {getDepartments().map(dept => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
                       </select>
                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={16} />
                     </div>
@@ -450,10 +352,28 @@ const EmployeeManagement = () => {
                         className="w-full h-11 px-3 py-2 bg-white border border-gray-200 rounded-lg text-gray-900 text-sm appearance-none cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                       >
                         <option>All Designations</option>
-                        <option>Administration</option>
-                        <option>Manager</option>
-                        <option>Assistant Manager</option>
-                        <option>Team Member</option>
+                        {getDesignations().map(desig => (
+                          <option key={desig} value={desig}>{desig}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={16} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium text-gray-700">
+                      Location
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={filterLocation}
+                        onChange={(e) => setFilterLocation(e.target.value)}
+                        className="w-full h-11 px-3 py-2 bg-white border border-gray-200 rounded-lg text-gray-900 text-sm appearance-none cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      >
+                        <option>All Locations</option>
+                        {getLocations().map(loc => (
+                          <option key={loc} value={loc}>{loc}</option>
+                        ))}
                       </select>
                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={16} />
                     </div>
@@ -471,6 +391,7 @@ const EmployeeManagement = () => {
                     onClick={() => {
                       setFilterDepartment('All Departments');
                       setFilterDesignation('All Designations');
+                      setFilterLocation('All Locations');
                     }}
                     className="flex-1 h-11 px-6 bg-white text-gray-700 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
                   >

@@ -1,6 +1,8 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, X } from 'lucide-react';
+import axios from 'axios';
+import { getApiUrl, getAuthToken } from '@/lib/auth';
 
 interface Holiday {
   id: string;
@@ -8,49 +10,96 @@ interface Holiday {
   date: string;
 }
 
-// Static mock data
-const INITIAL_HOLIDAYS: Holiday[] = [
-  {
-    id: '1',
-    holidayName: 'New Year\'s Day',
-    date: '2026-01-01'
-  },
-  {
-    id: '2',
-    holidayName: 'Independence Day',
-    date: '2026-07-04'
-  },
-  {
-    id: '3',
-    holidayName: 'Christmas',
-    date: '2026-12-25'
-  }
-];
-
 const UpcomingHolidaysSection: React.FC = () => {
   const [showHolidayModal, setShowHolidayModal] = useState(false);
-  const [holidays, setHolidays] = useState<Holiday[]>(INITIAL_HOLIDAYS);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const [holidayForm, setHolidayForm] = useState({
     holidayName: '',
     date: ''
   });
 
-  const handleAddHoliday = () => {
+  // Fetch holidays from API
+  useEffect(() => {
+    const fetchHolidays = async () => {
+      try {
+        setLoading(true);
+        const apiUrl = getApiUrl();
+        const token = getAuthToken();
+
+        const response = await axios.get(`${apiUrl}/holidays`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const holidayData = response.data.data || response.data || [];
+
+        // Transform API data to component format and sort by date
+        const transformedHolidays: Holiday[] = holidayData
+          .map((item: any) => ({
+            id: item.id || Date.now().toString(),
+            holidayName: item.holidayName || 'Holiday',
+            date: item.date || ''
+          }))
+          .sort((a: Holiday, b: Holiday) =>
+            new Date(a.date).getTime() - new Date(b.date).getTime()
+          );
+
+        setHolidays(transformedHolidays);
+      } catch (error) {
+        console.error('Error fetching holidays:', error);
+        setHolidays([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHolidays();
+  }, []);
+
+  const handleAddHoliday = async () => {
     if (holidayForm.holidayName && holidayForm.date) {
-      const newHoliday: Holiday = {
-        id: Date.now().toString(),
-        holidayName: holidayForm.holidayName,
-        date: holidayForm.date
-      };
+      try {
+        setLoading(true);
+        const apiUrl = getApiUrl();
+        const token = getAuthToken();
 
-      const updatedHolidays = [...holidays, newHoliday].sort((a, b) =>
-        new Date(a.date).getTime() - new Date(b.date).getTime()
-      );
+        // Call API to create holiday
+        const response = await axios.post(
+          `${apiUrl}/holidays`,
+          {
+            holidayName: holidayForm.holidayName,
+            date: holidayForm.date
+          },
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
 
-      setHolidays(updatedHolidays);
-      setHolidayForm({ holidayName: '', date: '' });
-      setShowHolidayModal(false);
+        if (response.status === 201 || response.status === 200) {
+          // Add to local state
+          const newHoliday: Holiday = {
+            id: response.data.id || Date.now().toString(),
+            holidayName: holidayForm.holidayName,
+            date: holidayForm.date
+          };
+
+          const updatedHolidays = [...holidays, newHoliday].sort((a, b) =>
+            new Date(a.date).getTime() - new Date(b.date).getTime()
+          );
+
+          setHolidays(updatedHolidays);
+          setHolidayForm({ holidayName: '', date: '' });
+          setShowHolidayModal(false);
+        }
+      } catch (error) {
+        console.error('Error creating holiday:', error);
+        alert('Failed to add holiday. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 

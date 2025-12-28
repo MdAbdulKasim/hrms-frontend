@@ -65,69 +65,8 @@ const LeaveTracker = () => {
   // Loading state for API calls
   const [loading, setLoading] = useState(false);
 
-  // NEW: Converted static array to State so we can add to it
-  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([
-    {
-      id: 'casual',
-      name: 'Casual Leave',
-      total: 12,
-      available: 8,
-      booked: 4,
-      icon: <Coffee className="w-5 h-5" />,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100'
-    },
-    {
-      id: 'earned',
-      name: 'Earned Leave',
-      total: 20,
-      available: 15,
-      booked: 5,
-      icon: <Gift className="w-5 h-5" />,
-      color: 'text-green-600',
-      bgColor: 'bg-green-100'
-    },
-    {
-      id: 'lwp',
-      name: 'Leave Without Pay',
-      total: 0,
-      available: 0,
-      booked: 2,
-      icon: <Clock className="w-5 h-5" />,
-      color: 'text-gray-600',
-      bgColor: 'bg-gray-100'
-    },
-    {
-      id: 'paternity',
-      name: 'Paternity Leave',
-      total: 5,
-      available: 5,
-      booked: 0,
-      icon: <Users className="w-5 h-5" />,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-100'
-    },
-    {
-      id: 'sabbatical',
-      name: 'Sabbatical',
-      total: 30,
-      available: 30,
-      booked: 0,
-      icon: <Heart className="w-5 h-5" />,
-      color: 'text-pink-600',
-      bgColor: 'bg-pink-100'
-    },
-    {
-      id: 'sick',
-      name: 'Sick Leave',
-      total: 12,
-      available: 10,
-      booked: 2,
-      icon: <AlertCircle className="w-5 h-5" />,
-      color: 'text-red-600',
-      bgColor: 'bg-red-100'
-    }
-  ]);
+  // Leave types - fetched from API
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
 
   // Converted leaveHistory to state for API integration
   const [leaveHistory, setLeaveHistory] = useState<LeaveHistory[]>([]);
@@ -177,41 +116,7 @@ const LeaveTracker = () => {
         setLeaveHistory(transformedData);
       } catch (error) {
         console.error('Error fetching leave requests:', error);
-        // Fallback to mock data if API fails
-        setLeaveHistory([
-          {
-            type: 'Casual Leave',
-            from: 'Jan 15, 2024',
-            to: 'Jan 16, 2024',
-            days: 2,
-            reason: 'Personal work',
-            status: 'Approved'
-          },
-          {
-            type: 'Sick Leave',
-            from: 'Feb 10, 2024',
-            to: 'Feb 11, 2024',
-            days: 2,
-            reason: 'Fever',
-            status: 'Approved'
-          },
-          {
-            type: 'Earned Leave',
-            from: 'Mar 20, 2024',
-            to: 'Mar 25, 2024',
-            days: 5,
-            reason: 'Family vacation',
-            status: 'Pending'
-          },
-          {
-            type: 'Casual Leave',
-            from: 'Apr 05, 2024',
-            to: 'Apr 06, 2024',
-            days: 2,
-            reason: 'Personal work',
-            status: 'Rejected'
-          }
-        ]);
+        setLeaveHistory([]);
       } finally {
         setLoading(false);
       }
@@ -220,14 +125,64 @@ const LeaveTracker = () => {
     fetchLeaveRequests();
   }, []);
 
-  // Existing Apply Leave Handler
-  const handleSubmit = () => {
-    console.log({ selectedLeaveType, fromDate, toDate, reason });
-    setIsDialogOpen(false);
-    setSelectedLeaveType('');
-    setFromDate('');
-    setToDate('');
-    setReason('');
+  // Handle applying for leave
+  const handleSubmit = async () => {
+    try {
+      setLoading(true);
+      const apiUrl = getApiUrl();
+      const token = getAuthToken();
+
+      // Call API to apply for leave
+      const response = await axios.post(
+        `${apiUrl}/leave-requests/apply`,
+        {
+          leaveTypeCode: selectedLeaveType,
+          startDate: fromDate,
+          endDate: toDate,
+          reason: reason,
+          dayType: 'full_day'
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      if (response.status === 210 || response.status === 201) {
+        // Refresh leave history
+        const historyResponse = await axios.get(`${apiUrl}/leave-requests`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const requests = historyResponse.data || historyResponse.data.data || [];
+        const transformedHistory: LeaveHistory[] = requests.map((request: any) => ({
+          type: request.leaveTypeCode || request.leaveType || 'Unknown',
+          from: new Date(request.startDate).toLocaleDateString('en-US', {
+            month: 'short',
+            day: '2-digit',
+            year: 'numeric'
+          }),
+          to: new Date(request.endDate).toLocaleDateString('en-US', {
+            month: 'short',
+            day: '2-digit',
+            year: 'numeric'
+          }),
+          days: request.days || 1,
+          reason: request.reason || 'No reason provided',
+          status: request.status?.charAt(0).toUpperCase() + request.status?.slice(1) || 'Pending'
+        }));
+        setLeaveHistory(transformedHistory);
+      }
+
+      setIsDialogOpen(false);
+      setSelectedLeaveType('');
+      setFromDate('');
+      setToDate('');
+      setReason('');
+    } catch (error) {
+      console.error('Error applying for leave:', error);
+      alert('Failed to apply for leave. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCancel = () => {
@@ -238,27 +193,77 @@ const LeaveTracker = () => {
     setReason('');
   };
 
-  // NEW: Handler for Creating a new Leave Type
-  const handleCreateLeaveSubmit = () => {
+  // Handle creating a new leave type (admin only)
+  const handleCreateLeaveSubmit = async () => {
     if (!newLeaveData.name || !newLeaveData.total) return;
 
-    const newType: LeaveType = {
-      id: newLeaveData.name.toLowerCase().replace(/\s/g, '-'),
-      name: newLeaveData.name,
-      total: Number(newLeaveData.total),
-      available: Number(newLeaveData.available),
-      booked: Number(newLeaveData.booked),
-      // Assigning a default icon and color for custom types
-      icon: <Settings className="w-5 h-5" />,
-      color: 'text-indigo-600',
-      bgColor: 'bg-indigo-100'
-    };
+    try {
+      setLoading(true);
+      const apiUrl = getApiUrl();
+      const token = getAuthToken();
 
-    setLeaveTypes([...leaveTypes, newType]);
+      // Call API to update leave configuration
+      await axios.put(
+        `${apiUrl}/leave-requests/config`,
+        {
+          updates: {
+            name: newLeaveData.name,
+            defaultDays: Number(newLeaveData.total),
+            isPaid: true,
+            isCarryForward: false,
+            maxCarryForwardDays: 0
+          }
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
 
-    // Reset and Close
-    setNewLeaveData({ name: '', total: '', booked: '', available: '' });
-    setIsCreateDialogOpen(false);
+      // Refresh leave types
+      const typesResponse = await axios.get(`${apiUrl}/leave-requests/types`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const types = typesResponse.data || typesResponse.data.data || [];
+
+      const iconMap: { [key: string]: React.ReactNode } = {
+        'CL': <Coffee className="w-5 h-5" />,
+        'EL': <Gift className="w-5 h-5" />,
+        'LWP': <Clock className="w-5 h-5" />,
+        'PL': <Users className="w-5 h-5" />,
+        'SBL': <Heart className="w-5 h-5" />,
+        'SL': <AlertCircle className="w-5 h-5" />,
+      };
+
+      const colorMap: { [key: string]: { color: string; bgColor: string } } = {
+        'CL': { color: 'text-blue-600', bgColor: 'bg-blue-100' },
+        'EL': { color: 'text-green-600', bgColor: 'bg-green-100' },
+        'LWP': { color: 'text-gray-600', bgColor: 'bg-gray-100' },
+        'PL': { color: 'text-purple-600', bgColor: 'bg-purple-100' },
+        'SBL': { color: 'text-pink-600', bgColor: 'bg-pink-100' },
+        'SL': { color: 'text-red-600', bgColor: 'bg-red-100' },
+      };
+
+      const transformedTypes: LeaveType[] = types.map((type: any) => ({
+        id: type.code || type.id,
+        name: type.name || 'Unknown',
+        total: type.defaultDays || 0,
+        available: (type.defaultDays || 0) - (type.usedDays || 0),
+        booked: type.usedDays || 0,
+        icon: iconMap[type.code] || <Calendar className="w-5 h-5" />,
+        color: colorMap[type.code]?.color || 'text-gray-600',
+        bgColor: colorMap[type.code]?.bgColor || 'bg-gray-100',
+      }));
+      setLeaveTypes(transformedTypes);
+
+      // Reset and Close
+      setNewLeaveData({ name: '', total: '', booked: '', available: '' });
+      setIsCreateDialogOpen(false);
+    } catch (error) {
+      console.error('Error creating leave type:', error);
+      alert('Failed to create leave type. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

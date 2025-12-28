@@ -70,23 +70,7 @@ export default function FeedsPage() {
           setAnnouncements(announcementsRes.data.data || announcementsRes.data || []);
         } catch (error) {
           console.error('Error fetching announcements:', error);
-          // Fallback to mock data
-          setAnnouncements([
-            {
-              id: '1',
-              title: 'Year End Party',
-              description: 'Join us for the annual celebration!',
-              date: 'Dec 20, 2024',
-              type: 'announcement'
-            },
-            {
-              id: '2',
-              title: 'Policy Update',
-              description: 'New leave policy effective January',
-              date: 'Dec 15, 2024',
-              type: 'announcement'
-            }
-          ]);
+          setAnnouncements([]);
         }
 
         // Fetch holidays
@@ -97,11 +81,7 @@ export default function FeedsPage() {
           setHolidays(holidaysRes.data.data || holidaysRes.data || []);
         } catch (error) {
           console.error('Error fetching holidays:', error);
-          // Fallback to mock data
-          setHolidays([
-            { title: 'Christmas', date: 'Dec 25, 2024' },
-            { title: 'New Year', date: 'Jan 1, 2025' }
-          ]);
+          setHolidays([]);
         }
 
         // Fetch approvals (leave requests, etc.)

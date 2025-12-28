@@ -1,6 +1,8 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Megaphone, X } from 'lucide-react';
+import axios from 'axios';
+import { getApiUrl, getAuthToken } from '@/lib/auth';
 
 interface Announcement {
   id: string;
@@ -9,31 +11,10 @@ interface Announcement {
   date: string;
 }
 
-// Static mock data
-const INITIAL_ANNOUNCEMENTS: Announcement[] = [
-  {
-    id: '1',
-    title: 'Welcome to the Team!',
-    description: 'We are excited to have you on board. Please complete your onboarding tasks.',
-    date: 'Dec 20, 2025'
-  },
-  {
-    id: '2',
-    title: 'Holiday Schedule',
-    description: 'Office will be closed from Dec 24-26 for the holidays. Happy holidays!',
-    date: 'Dec 15, 2025'
-  },
-  {
-    id: '3',
-    title: 'New Project Launch',
-    description: 'Excited to announce our new project starting in January. More details coming soon.',
-    date: 'Dec 10, 2025'
-  }
-];
-
 const AnnouncementsSection: React.FC = () => {
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
-  const [announcements, setAnnouncements] = useState<Announcement[]>(INITIAL_ANNOUNCEMENTS);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const [announcementForm, setAnnouncementForm] = useState({
     title: '',
@@ -44,31 +25,101 @@ const AnnouncementsSection: React.FC = () => {
     notifyAll: false
   });
 
-  const handleCreateAnnouncement = () => {
-    if (announcementForm.title && announcementForm.message) {
-      const newAnnouncement: Announcement = {
-        id: Date.now().toString(),
-        title: announcementForm.title,
-        description: announcementForm.message,
-        date: new Date().toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: 'numeric', 
-          year: 'numeric' 
-        })
-      };
+  // Fetch announcements from API
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        setLoading(true);
+        const apiUrl = getApiUrl();
+        const token = getAuthToken();
 
-      setAnnouncements([newAnnouncement, ...announcements]);
-      
-      // Reset form
-      setAnnouncementForm({
-        title: '',
-        message: '',
-        expiryDate: '',
-        disableComments: false,
-        pinToTop: false,
-        notifyAll: false
-      });
-      setShowAnnouncementModal(false);
+        const response = await axios.get(`${apiUrl}/announcements`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const announcementData = response.data.data || response.data || [];
+
+        // Transform API data to component format
+        const transformedAnnouncements: Announcement[] = announcementData.map((item: any) => ({
+          id: item.id || Date.now().toString(),
+          title: item.title || 'Untitled',
+          description: item.content || item.description || '',
+          date: new Date(item.createdAt || item.date).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          })
+        }));
+
+        setAnnouncements(transformedAnnouncements);
+      } catch (error) {
+        console.error('Error fetching announcements:', error);
+        setAnnouncements([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnnouncements();
+  }, []);
+
+  const handleCreateAnnouncement = async () => {
+    if (announcementForm.title && announcementForm.message) {
+      try {
+        setLoading(true);
+        const apiUrl = getApiUrl();
+        const token = getAuthToken();
+
+        // Call API to create announcement
+        const response = await axios.post(
+          `${apiUrl}/announcements`,
+          {
+            title: announcementForm.title,
+            content: announcementForm.message,
+            expiryDate: announcementForm.expiryDate || null,
+            isPinned: announcementForm.pinToTop,
+            disableComments: announcementForm.disableComments,
+            notifyEmployees: announcementForm.notifyAll
+          },
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+
+        if (response.status === 201 || response.status === 200) {
+          // Add to local state
+          const newAnnouncement: Announcement = {
+            id: response.data.id || Date.now().toString(),
+            title: announcementForm.title,
+            description: announcementForm.message,
+            date: new Date().toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            })
+          };
+
+          setAnnouncements([newAnnouncement, ...announcements]);
+
+          // Reset form
+          setAnnouncementForm({
+            title: '',
+            message: '',
+            expiryDate: '',
+            disableComments: false,
+            pinToTop: false,
+            notifyAll: false
+          });
+          setShowAnnouncementModal(false);
+        }
+      } catch (error) {
+        console.error('Error creating announcement:', error);
+        alert('Failed to create announcement. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
