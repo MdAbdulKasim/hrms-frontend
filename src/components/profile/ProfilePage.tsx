@@ -11,7 +11,7 @@ import DepartmentTab from './tabs/DepartmentTab';
 import TimeTrackingTab from './tabs/TimeTrackingTab';
 import { Employee, Education, Peer, LeaveBalance, AttendanceRecord } from './types';
 import axios from 'axios';
-import { getApiUrl, getAuthToken } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 
 interface ProfilePageProps {
   employeeId?: string;
@@ -33,12 +33,13 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
     const fetchEmployeeData = async () => {
       try {
         const token = getAuthToken();
+        const orgId = getOrgId();
         const apiUrl = getApiUrl();
 
-        if (!token || !currentEmployeeId) return;
+        if (!token || !currentEmployeeId || !orgId) return;
 
         // Fetch employee details
-        const empRes = await axios.get(`${apiUrl}/employees/${currentEmployeeId}`, {
+        const empRes = await axios.get(`${apiUrl}/org/${orgId}/employees/${currentEmployeeId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const empData = empRes.data.data || empRes.data;
