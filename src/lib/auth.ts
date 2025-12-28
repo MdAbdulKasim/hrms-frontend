@@ -4,11 +4,21 @@
 
 // Get the API base URL with proper formatting
 export const getApiUrl = (): string => {
-    const apiUrl = String(process.env.NEXT_PUBLIC_API_URL);
-    if (typeof window !== 'undefined' && (window as any).DEBUG_AUTH) {
-        console.log("DEBUG_API_URL:", apiUrl);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+    
+    // Validate the URL is not empty or "undefined"
+    if (!apiUrl || apiUrl === 'undefined') {
+        console.error("ERROR: NEXT_PUBLIC_API_URL is not set or is undefined");
+        throw new Error("API URL is not configured. Please set NEXT_PUBLIC_API_URL environment variable.");
     }
-    return apiUrl;
+    
+    // Remove trailing slash if present
+    const cleanUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+    
+    if (typeof window !== 'undefined' && (window as any).DEBUG_AUTH) {
+        console.log("DEBUG_API_URL:", cleanUrl);
+    }
+    return cleanUrl;
 };
 // Cookie helpers
 export const getCookie = (name: string): string | null => {

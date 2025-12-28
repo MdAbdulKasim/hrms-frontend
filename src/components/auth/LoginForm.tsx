@@ -71,22 +71,21 @@ export default function LoginForm() {
   const handleLogin = async () => {
     if (validateForm()) {
       const apiUrl = getApiUrl();
+      const loginUrl = `${apiUrl}/auth/login`;
+      
       setIsLoading(true);
       try {
-        const payload = {
-          email: formData.email,
-          password: formData.password,
-          // role: userType
-        };
+        console.warn("LOGIN_DEBUG: Calling API", { loginUrl, email: formData.email });
 
-        console.warn("LOGIN_DEBUG_STREAMS: Start", { apiUrl, payload });
-
-        const response = await fetch(`${apiUrl}/auth/login`, {
+        const response = await fetch(loginUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+          }),
         });
 
         const data = await response.json().catch(() => ({}));
