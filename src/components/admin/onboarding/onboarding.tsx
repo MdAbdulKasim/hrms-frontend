@@ -5,6 +5,7 @@ import { Employee, CandidateForm, OnboardingView } from './types';
 import CandidateList from './CandidateList';
 import AddCandidateForm from './AddCandidateForm';
 import BulkImport from './BulkImport';
+import ViewCandidate from './ViewCandidate';
 import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 
 const EmployeeOnboardingSystem: React.FC = () => {
@@ -25,6 +26,8 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
   // New state for row selection
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const [selectedCandidate, setSelectedCandidate] = useState<CandidateForm | null>(null);
 
   const [employees, setEmployees] = useState<Employee[]>([]);
 
@@ -255,6 +258,103 @@ const EmployeeOnboardingSystem: React.FC = () => {
     }
   };
 
+  const handleViewEmployee = async (id: string) => {
+    const orgId = getOrgId();
+    const token = getAuthToken();
+    const apiUrl = getApiUrl();
+    if (!orgId || !token) return;
+
+    setIsLoading(true);
+    try {
+      const response = await axios.get(`${apiUrl}/org/${orgId}/employees/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const emp = response.data.data || response.data;
+
+      // Map to CandidateForm
+      const form: CandidateForm = {
+        fullName: emp.fullName || `${emp.firstName} ${emp.lastName}`,
+        email: emp.email || emp.emailId,
+        phoneNumber: emp.phoneNumber || emp.mobileNumber,
+        role: "employee",
+        departmentId: emp.departmentId || emp.department?.id || emp.department?._id || emp.department,
+        designationId: emp.designationId || emp.designation?.id || emp.designation?._id || emp.designation,
+        locationId: emp.locationId || emp.location?.id || emp.location?._id || emp.location,
+        reportingToId: emp.reportingToId || emp.reportingTo?.id || emp.reportingTo?._id || emp.reportingTo,
+        teamPosition: emp.teamPosition || 'member',
+        shiftType: emp.shiftType || emp.shift?.id || emp.shift?._id || emp.shift || 'morning',
+        timeZone: emp.timeZone || 'Asia/Kolkata',
+        empType: emp.empType || 'permanent',
+        employeeStatus: emp.employeeStatus || emp.status || 'Active'
+      };
+      setSelectedCandidate(form);
+      setCurrentView('viewCandidate');
+    } catch (err) {
+      console.error(err);
+      alert("Failed to fetch employee details");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteEmployee = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this employee? This action cannot be undone.")) return;
+
+    const orgId = getOrgId();
+    const token = getAuthToken();
+    const apiUrl = getApiUrl();
+    if (!orgId || !token) return;
+
+    setIsLoading(true);
+    try {
+      await axios.delete(`${apiUrl}/org/${orgId}/employees/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert("Employee deleted successfully");
+      fetchEmployees();
+      // If deleted item was selected, remove it
+      if (selectedIds.includes(id)) {
+        setSelectedIds(selectedIds.filter(sid => sid !== id));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete employee");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`Are you sure you want to delete ${selectedIds.length} employees? This action cannot be undone.`)) return;
+
+    const orgId = getOrgId();
+    const token = getAuthToken();
+    const apiUrl = getApiUrl();
+    if (!orgId || !token) return;
+
+    setIsLoading(true);
+    // Execute multiple deletes
+    // Ideally backend should support bulk delete, but looping for now
+    let successCount = 0;
+    try {
+      await Promise.all(selectedIds.map(id =>
+        axios.delete(`${apiUrl}/org/${orgId}/employees/${id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).then(() => { successCount++; })
+      ));
+
+      alert(`Successfully deleted ${successCount} employees.`);
+      fetchEmployees();
+      setSelectedIds([]);
+    } catch (err) {
+      console.error(err);
+      alert(`Some deletions failed. Deleted ${successCount} out of ${selectedIds.length}.`);
+      fetchEmployees(); // Refresh likely partial state
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleDownloadTemplate = (format: 'csv' | 'excel') => {
     let headers: string[] = [];
 
@@ -330,6 +430,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
           setShowUAN={setShowUAN}
           onAddCandidateClick={() => setCurrentView('addCandidate')}
           onBulkImportClick={() => setCurrentView('bulkImport')}
+          onDelete={handleDeleteEmployee}
+          onView={handleViewEmployee}
+          onBulkDelete={handleBulkDelete}
         />
       )}
       {currentView === 'addCandidate' && (
@@ -344,6 +447,17 @@ const EmployeeOnboardingSystem: React.FC = () => {
           reportingManagers={reportingManagers}
           shifts={shifts}
           isLoading={isLoading}
+        />
+      )}
+      {currentView === 'viewCandidate' && selectedCandidate && (
+        <ViewCandidate
+          candidate={selectedCandidate}
+          onClose={() => setCurrentView('list')}
+          departments={departments}
+          designations={designations}
+          locations={locations}
+          reportingManagers={reportingManagers}
+          shifts={shifts}
         />
       )}
       {currentView === 'bulkImport' && (

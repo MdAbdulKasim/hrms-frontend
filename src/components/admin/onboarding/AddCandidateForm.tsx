@@ -213,8 +213,6 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                             options={[
                                 { id: 'temporary', label: 'Temporary' },
                                 { id: 'permanent', label: 'Permanent' },
-                                { id: 'intern', label: 'Intern' },
-                                { id: 'contract', label: 'Contract' }
                             ]}
                         />
 

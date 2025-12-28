@@ -3,7 +3,7 @@
 import { Home, Users, Bell, Calendar, Clock, UserCircle, ClipboardList, X, LogOut } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from 'react';
-import { clearSetupData, checkSetupStatus, requiresSetup, getAuthToken, decodeToken, getCookie } from "@/lib/auth";
+import { clearSetupData, checkSetupStatus, requiresSetup, getAuthToken, decodeToken, getCookie, getUserDetails } from "@/lib/auth";
 
 interface SidebarProps {
   isDesktopCollapsed: boolean;
@@ -37,36 +37,13 @@ export default function Sidebar({
   // Fetch user data
   useEffect(() => {
     const fetchUserData = () => {
-      // Try to get from cookies first, then fallback to localStorage
-      const firstName = getCookie('hrms_user_firstName') || localStorage.getItem('hrms_user_firstName') || getCookie('registrationFirstName') || localStorage.getItem('registrationFirstName');
-      const lastName = getCookie('hrms_user_lastName') || localStorage.getItem('hrms_user_lastName') || getCookie('registrationLastName') || localStorage.getItem('registrationLastName');
-      const email = getCookie('hrms_user_email') || localStorage.getItem('hrms_user_email') || getCookie('registrationEmail') || localStorage.getItem('registrationEmail');
-
-      const token = getAuthToken();
-      let tokenData = null;
-      if (token) {
-        tokenData = decodeToken(token);
-      }
-
-      const fullName = firstName && lastName
-        ? `${firstName} ${lastName}`.trim()
-        : tokenData?.name || tokenData?.fullName || firstName || 'User';
-
-      const getInitials = (name: string) => {
-        const parts = name.split(' ');
-        if (parts.length >= 2) {
-          return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-        }
-        return name.substring(0, 2).toUpperCase();
-      };
-
+      const details = getUserDetails();
       setUserData({
-        name: fullName,
-        email: email || tokenData?.email || '',
-        initials: getInitials(fullName)
+        name: details.fullName,
+        email: details.email,
+        initials: details.initials
       });
     };
-
     fetchUserData();
   }, []);
 
@@ -208,11 +185,11 @@ export default function Sidebar({
 
       {/* User Info & Logout Section */}
       <div className="p-4 border-t border-slate-100 space-y-2">
-        <div className={`flex items-center gap-3 p-2 rounded-xl bg-slate-50 border border-slate-100 ${isDesktopCollapsed ? "md:justify-center md:border-none md:bg-transparent" : ""}`}>
+        <div className={`flex items-center gap-3 p-2 rounded-xl bg-slate-50 border border-slate-100 md:hidden`}>
           <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-md shrink-0">
             {userData.initials}
           </div>
-          <div className={`flex flex-col overflow-hidden transition-all duration-300 ${isDesktopCollapsed ? "md:hidden" : "block"}`}>
+          <div className="flex flex-col overflow-hidden">
             <span className="text-[13px] font-bold text-gray-900 leading-tight">{userData.name}</span>
             <span className="text-[11px] font-semibold text-gray-500">{roleDisplay}</span>
           </div>

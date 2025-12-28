@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Users, List, UserCheck } from 'lucide-react';
 import axios from 'axios';
-import { getApiUrl, getAuthToken } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 import QuickLinksSection from './quicklink';
 import AnnouncementsSection from './announcement';
 import UpcomingHolidaysSection from './holidays';
@@ -22,10 +22,11 @@ const Dashboard: React.FC = () => {
       try {
         const token = getAuthToken();
         const apiUrl = getApiUrl();
+        const orgId = getOrgId();
 
         // Fetch employees for birthdays and new hires
         try {
-          const employeesRes = await axios.get(`${apiUrl}/employees`, {
+          const employeesRes = await axios.get(`${apiUrl}/org/${orgId}/employees`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           const employees = employeesRes.data?.data || employeesRes.data || [];
@@ -64,7 +65,7 @@ const Dashboard: React.FC = () => {
 
         // Fetch pending tasks (leave requests that need approval)
         try {
-          const leaveRequestsRes = await axios.get(`${apiUrl}/leave-requests`, {
+          const leaveRequestsRes = await axios.get(`${apiUrl}/org/${orgId}/leave-requests`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           const leaveRequests = leaveRequestsRes.data?.data || leaveRequestsRes.data || [];
@@ -99,7 +100,7 @@ const Dashboard: React.FC = () => {
 
         // Fetch employees on leave today
         try {
-          const attendanceRes = await axios.get(`${apiUrl}/attendance`, {
+          const attendanceRes = await axios.get(`${apiUrl}/org/${orgId}/attendance`, {
             headers: { Authorization: `Bearer ${token}` },
             params: { date: new Date().toISOString().split('T')[0] }
           });

@@ -30,29 +30,30 @@ export default function OrganizationDetailsStep({
     address: existingOrgData?.address || '',
   });
 
+  // Logo State
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
+  const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
+
   // Load registration data and fetch organization details from API
   useEffect(() => {
     const fetchOrgData = async () => {
       const orgIdToFetch = existingOrgId || getOrgId();
       const token = getAuthToken();
+      const apiUrl = getApiUrl();
 
       if (orgIdToFetch && token) {
         try {
-          const apiUrl = `${getApiUrl()}/org/${orgIdToFetch}`;
-          console.log('Fetching organization details from:', apiUrl);
+          const apiEndpoint = `${apiUrl}/org/${orgIdToFetch}`;
+          console.log('Fetching organization details from:', apiEndpoint);
 
-          const response = await axios.get(apiUrl, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
+          const response = await axios.get(apiEndpoint, {
+            headers: { 'Authorization': `Bearer ${token}` }
           });
 
           console.log('Fetched organization data:', response.data);
 
-          // Extract data from response (handle both direct data and nested data.data)
           const fetchedData = response.data.data || response.data;
 
-          // Update form with fetched data
           setOrgData(prev => ({
             ...prev,
             name: fetchedData.name || prev.name,
@@ -63,19 +64,29 @@ export default function OrganizationDetailsStep({
             contactEmail: fetchedData.contactMail || fetchedData.contactEmail || prev.contactEmail,
             address: fetchedData.address || prev.address,
           }));
+
+          // Fetch Logo
+          try {
+            const logoResponse = await axios.get(`${apiUrl}/org/${orgIdToFetch}/logo`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (logoResponse.data.success && logoResponse.data.imageUrl) {
+              setLogoPreviewUrl(logoResponse.data.imageUrl);
+            }
+          } catch (logoError) {
+            console.error("Failed to fetch logo:", logoError);
+          }
+
         } catch (error) {
           console.error('Error fetching organization details:', error);
-          // Fallback to localStorage data if API fails
           loadFromLocalStorage();
         }
       } else {
-        // No orgId or token, load from localStorage
         loadFromLocalStorage();
       }
     };
 
     const loadFromLocalStorage = () => {
-      // Priority: Cookie -> LocalStorage
       const registrationOrgName = getCookie('registrationOrgName') || localStorage.getItem('registrationOrgName');
       const registrationEmail = getCookie('registrationEmail') || getCookie('hrms_user_email') || localStorage.getItem('registrationEmail') || localStorage.getItem('hrms_user_email');
       const userFirstName = getCookie('hrms_user_firstName') || localStorage.getItem('hrms_user_firstName');
@@ -96,24 +107,28 @@ export default function OrganizationDetailsStep({
     fetchOrgData();
   }, [existingOrgData, existingOrgId]);
 
-  // Local state to track validation errors
   const [errors, setErrors] = useState<Partial<OrganizationData>>({});
-  // Local state to track API loading status
   const [isLoading, setIsLoading] = useState(false);
 
-  // Validation and API Submission function
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedLogoFile(file);
+      const url = URL.createObjectURL(file);
+      setLogoPreviewUrl(url);
+    }
+  };
+
   const validateAndProceed = async () => {
     console.log('validateAndProceed called with:', orgData);
     let isValid = true;
     const newErrors: Partial<OrganizationData> = {};
 
-    // Check Name (Marked with *)
     if (!orgData.name || orgData.name.trim() === '') {
       newErrors.name = 'Organization name is required';
       isValid = false;
     }
 
-    // Check Email (Marked with *)
     if (!orgData.contactEmail || orgData.contactEmail.trim() === '') {
       newErrors.contactEmail = 'Contact email is required';
       isValid = false;
@@ -122,7 +137,6 @@ export default function OrganizationDetailsStep({
       isValid = false;
     }
 
-    // New: Check other fields to prevent 400 Bad Request
     if (!orgData.contactPerson?.trim()) {
       newErrors.contactPerson = 'Contact person is required';
       isValid = false;
@@ -131,16 +145,13 @@ export default function OrganizationDetailsStep({
       newErrors.contactNumber = 'Contact number is required';
       isValid = false;
     }
-    // Validate Address
     if (!orgData.address?.trim()) {
       newErrors.address = 'Address is required';
       isValid = false;
     }
 
-    console.log('Validation results:', { isValid, newErrors });
     setErrors(newErrors);
 
-    // Only call API and onNext if validation passes
     if (isValid) {
       setIsLoading(true);
 
@@ -153,7 +164,6 @@ export default function OrganizationDetailsStep({
           return;
         }
 
-        // Get organization ID from props or from auth utilities
         const orgIdToUse = existingOrgId || getOrgId();
 
         if (!orgIdToUse) {
@@ -162,37 +172,48 @@ export default function OrganizationDetailsStep({
           return;
         }
 
-        // UPDATE MODE - PUT request (always update, never create)
         const apiUrl = `${getApiUrl()}/org/${orgIdToUse}`;
 
-        // Payload for update
-        const updatePayload = {
-          address: orgData.address,
-          orgType: orgData.type || 'Software House',
-          contactPerson: orgData.contactPerson,
-          contactNumber: orgData.contactNumber,
-          logoUrl: orgData.logoUrl || "https://zendev.io/logo.png",
-          OrgWebsite: orgData.website,
-        };
+        let response;
+
+        // Use FormData for updates
+        const formData = new FormData();
+        formData.append('address', orgData.address);
+        formData.append('orgType', orgData.type || 'Software House');
+        formData.append('contactPerson', orgData.contactPerson);
+        formData.append('contactNumber', orgData.contactNumber);
+        formData.append('OrgWebsite', orgData.website || '');
+        // Note: name and contactEmail are typically read-only or handled separately, but we can append them if needed. 
+        // Based on existing code, they were not in the update payload, so we skip them or keep as is.
+        // Existing payload: address, orgType, contactPerson, contactNumber, logoUrl, OrgWebsite.
+        // We replace logoUrl with the file if present.
+
+        if (selectedLogoFile) {
+          formData.append('logo', selectedLogoFile);
+        } else if (logoPreviewUrl && !logoPreviewUrl.startsWith('blob:')) {
+          // If existing logo URL and no new file, we might want to preserve it or send the URL string?
+          // Usually backend handles "if no file, keep existing".
+          // We can optionally send 'logoUrl' if we want to explicitly set a URL, but for file upload flow, usually omitting file means no change.
+          // But existing code sent `logoUrl`.
+          formData.append('logoUrl', logoPreviewUrl);
+        }
 
         console.log('Updating organization at:', apiUrl);
-        console.log('Update payload:', updatePayload);
 
-        const response = await axios.put(apiUrl, updatePayload, {
+        response = await axios.put(apiUrl, formData, {
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'multipart/form-data',
             'Authorization': `Bearer ${token}`
           },
         });
 
         console.log('Organization updated successfully:', response.data);
 
-        // Store orgId if not already stored
         if (!existingOrgId) {
           setOrgId(orgIdToUse);
         }
 
-        onNext(orgIdToUse); // Pass orgId to parent
+        onNext(orgIdToUse);
 
       } catch (error) {
         if (axios.isAxiosError(error)) {
@@ -209,7 +230,6 @@ export default function OrganizationDetailsStep({
     }
   };
 
-  // Helper to clear error when user types
   const handleChange = (field: keyof OrganizationData, value: string) => {
     setOrgData({ ...orgData, [field]: value });
     if (errors[field]) {
@@ -226,9 +246,39 @@ export default function OrganizationDetailsStep({
         <div className="flex flex-col md:flex-row items-start gap-4 md:gap-8 border-b border-gray-50 pb-6">
           <label className="text-sm font-medium text-gray-700 w-full md:w-32">Logo</label>
           <div className="flex-1 w-full">
-            <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 md:p-8 text-center hover:bg-gray-50 transition-colors cursor-pointer group">
-              <Upload className="w-10 h-10 mx-auto text-gray-400 mb-2 group-hover:text-blue-500 transition-colors" />
-              <p className="text-sm text-gray-600">Click to upload logo</p>
+            <div className="flex items-center gap-4">
+              <div className="w-24 h-24 border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center overflow-hidden bg-gray-50 relative group">
+                {logoPreviewUrl ? (
+                  <img
+                    src={logoPreviewUrl}
+                    alt="Logo Preview"
+                    className="w-full h-full object-contain p-1"
+                  />
+                ) : (
+                  <Upload className="w-8 h-8 text-gray-400" />
+                )}
+              </div>
+              <div className="flex flex-col">
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoChange}
+                    className="hidden"
+                    id="logo-upload"
+                  />
+                  <label
+                    htmlFor="logo-upload"
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer inline-flex items-center"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    {selectedLogoFile ? 'Change Logo' : 'Upload Logo'}
+                  </label>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  {selectedLogoFile ? selectedLogoFile.name : 'Max 5MB. PNG, JPG, GIF.'}
+                </p>
+              </div>
             </div>
           </div>
         </div>

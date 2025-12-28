@@ -72,7 +72,7 @@ export default function LoginForm() {
     if (validateForm()) {
       const apiUrl = getApiUrl();
       const loginUrl = `${apiUrl}/auth/login`;
-      
+
       setIsLoading(true);
       try {
         console.warn("LOGIN_DEBUG: Calling API", { loginUrl, email: formData.email });
@@ -97,15 +97,29 @@ export default function LoginForm() {
           setCookie('authToken', token, 7);
           setCookie('role', role, 7);
           if (typeof window !== 'undefined') localStorage.setItem('role', role);
-          if (id) setCookie('hrms_user_id', id, 7);
-          if (formData.email) setCookie('hrms_user_email', formData.email, 7);
+          // Store ID and Email
+          if (id) {
+            setCookie('hrms_user_id', id, 7);
+            if (typeof window !== 'undefined') localStorage.setItem('hrms_user_id', id);
+          }
+          if (formData.email) {
+            setCookie('hrms_user_email', formData.email, 7);
+            if (typeof window !== 'undefined') localStorage.setItem('hrms_user_email', formData.email);
+          }
 
           // Store first and last name if available
-          const firstName = employee?.firstName || employee?.fullName?.split(' ')[0] || data?.firstName;
-          const lastName = employee?.lastName || employee?.fullName?.split(' ').slice(1).join(' ') || data?.lastName;
+          // NOW using fields directly from the response if available
+          const firstName = data.firstName || employee?.firstName || employee?.fullName?.split(' ')[0];
+          const lastName = data.lastName || employee?.lastName || employee?.fullName?.split(' ').slice(1).join(' ');
 
-          if (firstName) setCookie('hrms_user_firstName', firstName, 7);
-          if (lastName) setCookie('hrms_user_lastName', lastName, 7);
+          if (firstName) {
+            setCookie('hrms_user_firstName', firstName, 7);
+            if (typeof window !== 'undefined') localStorage.setItem('hrms_user_firstName', firstName);
+          }
+          if (lastName) {
+            setCookie('hrms_user_lastName', lastName, 7);
+            if (typeof window !== 'undefined') localStorage.setItem('hrms_user_lastName', lastName);
+          }
 
           // Always sync setup state from backend to get accurate status
           // Note: clearSetupData() is called on login page mount, so cookies are cleared

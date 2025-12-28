@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Megaphone, X } from 'lucide-react';
 import axios from 'axios';
-import { getApiUrl, getAuthToken } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 
 interface Announcement {
   id: string;
@@ -23,6 +23,7 @@ const AnnouncementsSection: React.FC = () => {
     disableComments: false,
     pinToTop: false,
     notifyAll: false
+
   });
 
   // Fetch announcements from API
@@ -32,8 +33,9 @@ const AnnouncementsSection: React.FC = () => {
         setLoading(true);
         const apiUrl = getApiUrl();
         const token = getAuthToken();
+        const orgId = getOrgId();
 
-        const response = await axios.get(`${apiUrl}/announcements`, {
+        const response = await axios.get(`${apiUrl}/org/${orgId}/announcements`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -71,10 +73,11 @@ const AnnouncementsSection: React.FC = () => {
         setLoading(true);
         const apiUrl = getApiUrl();
         const token = getAuthToken();
+        const orgId = getOrgId();
 
         // Call API to create announcement
         const response = await axios.post(
-          `${apiUrl}/announcements`,
+          `${apiUrl}/org/${orgId}/announcements`,
           {
             title: announcementForm.title,
             content: announcementForm.message,
