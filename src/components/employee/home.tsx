@@ -124,7 +124,7 @@ const ProfileCard = ({ currentUser }: ProfileCardProps) => {
           </div>
         )}
       </div>
-      <h2 className="text-gray-800 font-medium text-sm break-all">{currentUser?.employeeId || 'Loading...'}</h2>
+      <h2 className="text-gray-800 font-medium text-sm break-all">{currentUser?.firstName ? `${currentUser.firstName}${currentUser.lastName ? ' ' + currentUser.lastName : ''}` : 'Loading...'}</h2>
       <p className="text-gray-500 text-xs mt-1">{currentUser?.designation || 'N/A'}</p>
       <p className={`text-xs font-medium mt-3 ${isCheckedIn ? 'text-green-500' : 'text-red-500'}`}>
         {isCheckedIn ? 'Checked In' : 'Yet to check-in'}
@@ -157,7 +157,7 @@ const ReporteesCard = ({ reportees }: { reportees: Reportee[] }) => {
                </div>
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-gray-500 font-medium truncate">{person.roleId} - {person.name}</p>
+              <p className="text-xs text-gray-500 font-medium truncate">{person.name}</p>
               <p className="text-[10px] text-red-400 mt-0.5">{person.status}</p>
             </div>
           </div>
@@ -281,15 +281,21 @@ export default function Dashboard() {
         if (!token || !orgId || !currentEmployeeId) return;
 
         // Fetch current user data
-        const currentUserRes = await axios.get(`${apiUrl}/employees/${currentEmployeeId}`, {
+        const currentUserRes = await axios.get(`${apiUrl}/org/${orgId}/employees/${currentEmployeeId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const userData = currentUserRes.data.data || currentUserRes.data;
+        
+        // Parse full name - API returns fullName as single string
+        const fullName = userData.fullName || `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+        const [firstName, ...lastNameParts] = fullName.split(' ');
+        const lastName = lastNameParts.join(' ');
+        
         setCurrentUser({
           id: userData.id || userData._id,
           employeeId: userData.employeeId || userData.id,
-          firstName: userData.firstName || '',
-          lastName: userData.lastName || '',
+          firstName: firstName || '',
+          lastName: lastName || '',
           designation: userData.designation?.name || userData.designation || 'N/A',
           profileImage: userData.profileImage
         });
@@ -301,7 +307,7 @@ export default function Dashboard() {
         const reporteesData = reporteesRes.data.data || reporteesRes.data;
         setReportees(reporteesData.slice(0, 5).map((emp: any) => ({
           id: emp.id || emp._id,
-          name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.email,
+          name: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.email,
           roleId: emp.employeeId || emp.id,
           status: 'Yet to check-in'
         })));
