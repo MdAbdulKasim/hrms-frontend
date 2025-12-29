@@ -31,18 +31,18 @@ const adminNavigationConfig: MainTab[] = [
     name: 'Team',
     path: '/admin/team',
     subTabs: [
-      { name: 'Reportees', path: '/admin/team/reportees' },
+      // { name: 'Reportees', path: '/admin/team/reportees' },
       { name: 'HR Process', path: '/admin/team/hr-process' }
     ]
   },
-  {
-    name: 'Organization',
-    path: '/admin/organization',
-    subTabs: [
-      { name: 'Employee Tree', path: '/admin/organization/employee-tree' },
-      { name: 'Department Tree', path: '/admin/organization/department-tree' }
-    ]
-  }
+  // {
+  //   name: 'Organization',
+  //   path: '/admin/organization',
+  //   subTabs: [
+  //     { name: 'Employee Tree', path: '/admin/organization/employee-tree' },
+  //     { name: 'Department Tree', path: '/admin/organization/department-tree' }
+  //   ]
+  // }
 ];
 
 const employeeNavigationConfig: MainTab[] = [
@@ -59,18 +59,18 @@ const employeeNavigationConfig: MainTab[] = [
     name: 'Team',
     path: '/employee/team',
     subTabs: [
-      { name: 'Reportees', path: '/employee/team/reportees' },
+      // { name: 'Reportees', path: '/employee/team/reportees' },
       { name: 'HR Process', path: '/employee/team/hr-process' }
     ]
   },
-  {
-    name: 'Organization',
-    path: '/employee/organization',
-    subTabs: [
-      { name: 'Employee Tree', path: '/employee/organization/employee-tree' },
-      { name: 'Department Tree', path: '/employee/organization/department-tree' }
-    ]
-  }
+  // {
+  //   name: 'Organization',
+  //   path: '/employee/organization',
+  //   subTabs: [
+  //     { name: 'Employee Tree', path: '/employee/organization/employee-tree' },
+  //     { name: 'Department Tree', path: '/employee/organization/department-tree' }
+  //   ]
+  // }
 ];
 
 interface NavigationHeaderProps {

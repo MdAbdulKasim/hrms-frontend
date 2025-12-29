@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Users, List, UserCheck } from 'lucide-react';
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
-import QuickLinksSection from './quicklink';
+// import QuickLinksSection from './quicklink';
 import AnnouncementsSection from './announcement';
 import UpcomingHolidaysSection from './holidays';
  
@@ -137,7 +137,7 @@ const Dashboard: React.FC = () => {
         {/* Top Row - Responsive Grid: 1 col mobile, 2 col tablet, 3 col desktop */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
           {/* Birthdays */}
-          <div className="bg-white rounded-lg shadow p-4 sm:p-5">
+          {/* <div className="bg-white rounded-lg shadow p-4 sm:p-5">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 bg-pink-100 rounded-lg flex items-center justify-center shrink-0">
                 <Calendar className="w-4 h-4 text-pink-600" />
@@ -167,10 +167,10 @@ const Dashboard: React.FC = () => {
                 ))
               )}
             </div>
-          </div>
+          </div> */}
  
           {/* New Hires */}
-          <div className="bg-white rounded-lg shadow p-4 sm:p-5">
+          {/* <div className="bg-white rounded-lg shadow p-4 sm:p-5">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
                 <Users className="w-4 h-4 text-green-600" />
@@ -200,11 +200,11 @@ const Dashboard: React.FC = () => {
                 ))
               )}
             </div>
-          </div>
+          </div> */}
  
           {/* Quick Links - Extracted Component */}
           {/* Note: Passing grid classes here to maintain layout */}
-          <QuickLinksSection className="sm:col-span-2 lg:col-span-1" />
+          {/* <QuickLinksSection className="sm:col-span-2 lg:col-span-1" /> */}
         </div>
  
         {/* Middle Row */}
@@ -219,7 +219,7 @@ const Dashboard: React.FC = () => {
         {/* Bottom Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* My Pending Tasks */}
-          <div className="bg-white rounded-lg shadow p-4 sm:p-5">
+          {/* <div className="bg-white rounded-lg shadow p-4 sm:p-5">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
                 <List className="w-4 h-4 text-gray-600" />
@@ -245,7 +245,7 @@ const Dashboard: React.FC = () => {
                 ))
               )}
             </div>
-          </div>
+          </div> */}
  
           {/* On Leave Today */}
           <div className="bg-white rounded-lg shadow p-4 sm:p-5">

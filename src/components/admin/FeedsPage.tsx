@@ -16,10 +16,10 @@ import statusService from '@/lib/statusService';
 
 type TabKey =
   | "all"
-  | "status"
+  // | "status"
   | "announcements"
   | "approvals"
-  | "alerts"
+  // | "alerts"
   | "holidays";
 
 interface FeedCardProps {
@@ -44,17 +44,17 @@ export default function FeedsPage() {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [holidays, setHolidays] = useState<any[]>([]);
   const [approvals, setApprovals] = useState<any[]>([]);
-  const [alerts, setAlerts] = useState<any[]>([]);
-  const [statuses, setStatuses] = useState<any[]>([]);
+  // const [alerts, setAlerts] = useState<any[]>([]);
+  // const [statuses, setStatuses] = useState<any[]>([]);
   const [statusInput, setStatusInput] = useState('');
   const [statusCreating, setStatusCreating] = useState(false);
 
   const tabs = [
     { key: "all", label: "All" },
-    { key: "status", label: "Status" },
+    // { key: "status", label: "Status" },
     { key: "announcements", label: "Announcements" },
     { key: "approvals", label: "Approvals" },
-    { key: "alerts", label: "Alerts" },
+    // { key: "alerts", label: "Alerts" },
     { key: "holidays", label: "Holidays" },
   ];
 
@@ -106,22 +106,22 @@ export default function FeedsPage() {
         }
 
         // Alerts - set empty for now as there's no notifications endpoint
-        setAlerts([]);
+        // setAlerts([]);
 
-        // Fetch statuses from backend (requires orgId and locationId)
-        try {
-          const locationId = getLocationId();
-          if (locationId) {
-            const statusRes = await statusService.getStatuses(orgId, locationId);
-            setStatuses(statusRes.data || []);
-          } else {
-            console.warn('No locationId found, skipping status fetch');
-            setStatuses([]);
-          }
-        } catch (error) {
-          console.error('Error fetching statuses:', error);
-          setStatuses([]);
-        }
+        // // Fetch statuses from backend (requires orgId and locationId)
+        // try {
+        //   const locationId = getLocationId();
+        //   if (locationId) {
+        //     const statusRes = await statusService.getStatuses(orgId, locationId);
+        //     setStatuses(statusRes.data || []);
+        //   } else {
+        //     console.warn('No locationId found, skipping status fetch');
+        //     setStatuses([]);
+        //   }
+        // } catch (error) {
+        //   console.error('Error fetching statuses:', error);
+        //   setStatuses([]);
+        // }
 
       } catch (error) {
         console.error('Error fetching feed data:', error);
@@ -158,10 +158,10 @@ export default function FeedsPage() {
       }
 
       const newStatus = response.data;
-      if (newStatus) {
-        setStatuses([newStatus, ...statuses]);
-        setStatusInput('');
-      }
+      // if (newStatus) {
+      //   setStatuses([newStatus, ...statuses]);
+      //   setStatusInput('');
+      // }
     } catch (error) {
       console.error('Error creating status:', error);
       alert('Failed to create status');
@@ -226,7 +226,7 @@ export default function FeedsPage() {
                     timestamp={item.createdAt}
                   />
                 ))}
-                {statuses.map((item) => (
+                {/* {statuses.map((item) => (
                   <FeedCard
                     key={item.id}
                     icon={<MessageSquare className="text-blue-600" />}
@@ -247,15 +247,15 @@ export default function FeedsPage() {
                     tagColor="bg-red-100 text-red-700"
                     timestamp={item.createdAt}
                   />
-                ))}
+                ))} */}
               </>
             )}
 
             {/* ================= STATUS ================= */}
-            {activeTab === "status" && (
+            {/* {activeTab === "status" && (
               <>
                 {/* Status Creation Form */}
-                <div className="bg-white p-4 rounded-lg shadow mb-4">
+                {/* <div className="bg-white p-4 rounded-lg shadow mb-4">
                   <textarea
                     value={statusInput}
                     onChange={(e) => setStatusInput(e.target.value)}
@@ -287,7 +287,7 @@ export default function FeedsPage() {
                   <div className="text-center text-gray-500">No statuses available</div>
                 )}
               </>
-            )}
+            )} */} 
 
             {/* ================= ANNOUNCEMENTS ================= */}
             {activeTab === "announcements" && (
@@ -332,7 +332,7 @@ export default function FeedsPage() {
             )}
 
             {/* ================= ALERTS ================= */}
-            {activeTab === "alerts" && (
+            {/* {activeTab === "alerts" && (
               <>
                 {alerts.length > 0 ? (
                   alerts.map((item) => (
@@ -350,7 +350,7 @@ export default function FeedsPage() {
                   <div className="text-center text-gray-500">No alerts available</div>
                 )}
               </>
-            )}
+            )} */}
 
             {/* ================= HOLIDAYS ================= */}
             {activeTab === "holidays" && (

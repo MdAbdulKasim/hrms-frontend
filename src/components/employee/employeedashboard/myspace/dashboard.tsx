@@ -153,7 +153,7 @@ const Dashboard: React.FC = () => {
         {/* Top Row - Responsive Grid: 1 col mobile, 2 col tablet, 3 col desktop */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
           {/* Birthdays */}
-          <div className="bg-white rounded-lg shadow p-4 sm:p-5">
+          {/* <div className="bg-white rounded-lg shadow p-4 sm:p-5">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 bg-pink-100 rounded-lg flex items-center justify-center shrink-0">
                 <Calendar className="w-4 h-4 text-pink-600" />
@@ -180,10 +180,10 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* New Hires */}
-          <div className="bg-white rounded-lg shadow p-4 sm:p-5">
+          {/* <div className="bg-white rounded-lg shadow p-4 sm:p-5">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
                 <Users className="w-4 h-4 text-green-600" />
@@ -210,10 +210,10 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Quick Links - Spans full width on tablet (sm) if needed, or fits into grid */}
-          <div className="bg-white rounded-lg shadow p-4 sm:p-5 sm:col-span-2 lg:col-span-1">
+          {/* <div className="bg-white rounded-lg shadow p-4 sm:p-5 sm:col-span-2 lg:col-span-1">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
@@ -244,7 +244,7 @@ const Dashboard: React.FC = () => {
                 <p className="text-sm text-gray-500">No quick links yet</p>
               )}
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Middle Row */}
@@ -298,7 +298,7 @@ const Dashboard: React.FC = () => {
         {/* Bottom Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* My Pending Tasks */}
-          <div className="bg-white rounded-lg shadow p-4 sm:p-5">
+          {/* <div className="bg-white rounded-lg shadow p-4 sm:p-5">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
                 <List className="w-4 h-4 text-gray-600" />
@@ -319,7 +319,7 @@ const Dashboard: React.FC = () => {
                 <span className="px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded shrink-0">low</span>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* On Leave Today */}
           <div className="bg-white rounded-lg shadow p-4 sm:p-5">
@@ -354,7 +354,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Create Announcement Modal */}
-      {showAnnouncementModal && (
+      {/* {showAnnouncementModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-lg w-full max-w-2xl shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6">
@@ -443,10 +443,10 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Add Quick Link Modal */}
-      {showQuickLinkModal && (
+      {/* {showQuickLinkModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-lg w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6">
@@ -497,7 +497,7 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 };
