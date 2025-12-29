@@ -150,14 +150,26 @@ const AttendanceTracker: React.FC = () => {
             const data = (rawAll.data && Array.isArray(rawAll.data)) ? rawAll.data :
               (Array.isArray(rawAll) ? rawAll : []);
 
-            employeeRecords = data.map((r: any) => ({
-              employeeName: r.employeeName || (r.employee && (r.employee.fullName || r.employee.name)) || 'Unknown',
-              date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : '-',
-              checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
-              checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : '-',
-              hoursWorked: r.totalHours ? `${r.totalHours}h` : '-',
-              status: r.status || (r.checkInTime ? 'Present' : 'Absent')
-            }));
+            employeeRecords = data.map((r: any) => {
+              const rawStatus = r.status?.toLowerCase();
+              let status = r.checkInTime ? 'Present' : 'Absent';
+
+              if (rawStatus === 'holiday') status = 'Holiday';
+              else if (rawStatus === 'leave') status = 'Leave';
+              else if (rawStatus === 'weekend') status = 'Weekend';
+              else if (rawStatus === 'present' || r.checkInTime) status = 'Present';
+              else if (rawStatus === 'late') status = 'Late';
+              else if (rawStatus === 'absent') status = 'Absent';
+
+              return {
+                employeeName: r.employeeName || (r.employee && (r.employee.fullName || r.employee.name)) || 'Unknown',
+                date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : '-',
+                checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
+                checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : '-',
+                hoursWorked: r.totalHours ? `${r.totalHours}h` : '-',
+                status: status
+              };
+            });
           }
         } else if (viewMode === 'daily' && !qParam) {
           const dailyRes = await attendanceService.getDailyAttendance(orgId, startDateStr);
@@ -167,14 +179,26 @@ const AttendanceTracker: React.FC = () => {
               (rawDaily.data && Array.isArray(rawDaily.data) ? rawDaily.data :
                 (rawDaily.data && Array.isArray(rawDaily.data.attendance) ? rawDaily.data.attendance : []));
 
-            employeeRecords = data.map((r: any) => ({
-              employeeName: r.employeeName || (r.employee && (r.employee.fullName || r.employee.name)) || 'Unknown',
-              date: startDateStr,
-              checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
-              checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : '-',
-              hoursWorked: r.totalHours ? `${r.totalHours}h` : '-',
-              status: r.status || (r.checkInTime ? 'Present' : 'Absent')
-            }));
+            employeeRecords = data.map((r: any) => {
+              const rawStatus = r.status?.toLowerCase();
+              let status = r.checkInTime ? 'Present' : 'Absent';
+
+              if (rawStatus === 'holiday') status = 'Holiday';
+              else if (rawStatus === 'leave') status = 'Leave';
+              else if (rawStatus === 'weekend') status = 'Weekend';
+              else if (rawStatus === 'present' || r.checkInTime) status = 'Present';
+              else if (rawStatus === 'late') status = 'Late';
+              else if (rawStatus === 'absent') status = 'Absent';
+
+              return {
+                employeeName: r.employeeName || (r.employee && (r.employee.fullName || r.employee.name)) || 'Unknown',
+                date: startDateStr,
+                checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
+                checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : '-',
+                hoursWorked: r.totalHours ? `${r.totalHours}h` : '-',
+                status: status
+              };
+            });
           }
         } else {
           // For weekly/monthly/yearly or if there's a search query, use search
@@ -184,14 +208,26 @@ const AttendanceTracker: React.FC = () => {
             const data = (rawSearch.data && Array.isArray(rawSearch.data)) ? rawSearch.data :
               (Array.isArray(rawSearch) ? rawSearch : []);
 
-            employeeRecords = data.map((r: any) => ({
-              employeeName: r.employeeName || (r.employee && (r.employee.fullName || r.employee.name)) || 'Unknown',
-              date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : '-',
-              checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
-              checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : '-',
-              hoursWorked: r.totalHours ? `${r.totalHours}h` : '-',
-              status: r.status || (r.checkInTime ? 'Present' : 'Absent')
-            }));
+            employeeRecords = data.map((r: any) => {
+              const rawStatus = r.status?.toLowerCase();
+              let status = r.checkInTime ? 'Present' : 'Absent';
+
+              if (rawStatus === 'holiday') status = 'Holiday';
+              else if (rawStatus === 'leave') status = 'Leave';
+              else if (rawStatus === 'weekend') status = 'Weekend';
+              else if (rawStatus === 'present' || r.checkInTime) status = 'Present';
+              else if (rawStatus === 'late') status = 'Late';
+              else if (rawStatus === 'absent') status = 'Absent';
+
+              return {
+                employeeName: r.employeeName || (r.employee && (r.employee.fullName || r.employee.name)) || 'Unknown',
+                date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : '-',
+                checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
+                checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : '-',
+                hoursWorked: r.totalHours ? `${r.totalHours}h` : '-',
+                status: status
+              };
+            });
           }
         }
         setAllEmployeesRecords(employeeRecords);
@@ -209,11 +245,15 @@ const AttendanceTracker: React.FC = () => {
   const filteredData = allEmployeesRecords;
 
   const stats = useMemo(() => {
-    const totalWorkingDays = filteredData.length;
-    const presentCount = filteredData.filter(d => d.status === 'Present' || d.checkIn !== '-').length;
+    const totalRecords = filteredData.length;
+    const workingDaysData = filteredData.filter(d => d.status !== 'Holiday' && d.status !== 'Weekend');
+    const totalWorkingDays = workingDaysData.length;
+
+    const presentCount = filteredData.filter(d => d.status === 'Present' || d.status === 'Late').length;
     const lateCount = filteredData.filter(d => d.status === 'Late').length;
     const leaveCount = filteredData.filter(d => d.status === 'Leave').length;
-    const absentCount = filteredData.filter(d => d.status === 'Absent' || (d.checkIn === '-' && d.status !== 'Leave' && d.status !== 'Weekend')).length;
+    const absentCount = workingDaysData.filter(d => d.status === 'Absent').length;
+    const holidayCount = filteredData.filter(d => d.status === 'Holiday').length;
 
     // Estimate hours if not provided
     let totalMinutes = 0;
@@ -229,13 +269,13 @@ const AttendanceTracker: React.FC = () => {
     const avgHoursStr = `${Math.floor(avgMinutes / 60)}h ${Math.round(avgMinutes % 60)}m`;
 
     return [
-      { icon: CalendarIcon, label: 'Total Records', value: totalWorkingDays.toString(), color: 'text-gray-700' },
+      { icon: CalendarIcon, label: 'Total Records', value: totalRecords.toString(), color: 'text-gray-700' },
       { icon: CheckCircle, label: 'Present', value: presentCount.toString(), color: 'text-green-500' },
       { icon: Clock, label: 'Late', value: lateCount.toString(), color: 'text-yellow-500' },
       { icon: FileText, label: 'Leave', value: leaveCount.toString(), color: 'text-blue-500' },
+      { icon: CalendarIcon, label: 'Holiday', value: holidayCount.toString(), color: 'text-orange-500' },
       { icon: XCircle, label: 'Absent', value: absentCount.toString(), color: 'text-red-500' },
       { icon: TrendingUp, label: 'Avg Hours', value: avgHoursStr, color: 'text-purple-500' },
-      { icon: Timer, label: 'Total Hours', value: totalHoursStr, color: 'text-gray-700' },
     ];
   }, [filteredData]);
 
@@ -244,6 +284,7 @@ const AttendanceTracker: React.FC = () => {
       case 'Present': return 'bg-green-100 text-green-700';
       case 'Late': return 'bg-yellow-100 text-yellow-700';
       case 'Leave': return 'bg-blue-100 text-blue-700';
+      case 'Holiday': return 'bg-orange-100 text-orange-700';
       case 'Weekend': return 'bg-gray-100 text-gray-600';
       case 'Absent': return 'bg-red-100 text-red-700';
       default: return 'bg-gray-100 text-gray-600';
