@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, Users, Bell, Calendar, Clock, UserCircle, ClipboardList, X, LogOut } from "lucide-react";
+import { Home, Users, Bell, Calendar, Clock, UserCircle, ClipboardList, X, LogOut, ReceiptIndianRupeeIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from 'react';
 import { clearSetupData, checkSetupStatus, requiresSetup, getAuthToken, decodeToken, getCookie, getUserDetails } from "@/lib/auth";
@@ -78,19 +78,21 @@ export default function Sidebar({
   const adminMenu = [
     { label: "Home", href: "/admin/my-space/overview", icon: Home, protected: true },
     { label: "Onboarding", href: "/admin/onboarding", icon: Users, protected: true },
-    { label: "Feeds", href: "/admin/feeds", icon: Bell, protected: true },
+    // { label: "Feeds", href: "/admin/feeds", icon: Bell, protected: true },
     { label: "Leave Tracker", href: "/admin/leavetracker", icon: Calendar, protected: true },
     { label: "Attendance", href: "/admin/attendance", icon: Clock, protected: true },
-    { label: "Time Tracking", href: "/admin/timetracking", icon: ClipboardList, protected: true },
+    {label:"Reports", href:"/admin/reports", icon:Bell, protected:true},
+    {label:"Salary", href:"/admin/salary", icon:ReceiptIndianRupeeIcon, protected:true},
+    // { label: "Time Tracking", href: "/admin/timetracking", icon: ClipboardList, protected: true },
     { label: "Profile", href: "/admin/profile", icon: UserCircle, protected: true },
   ];
 
   const employeeMenu = [
     { label: "Home", href: "/employee/my-space/overview", icon: Home, protected: true },
-    { label: "Feeds", href: "/employee/feeds", icon: Bell, protected: true },
+    // { label: "Feeds", href: "/employee/feeds", icon: Bell, protected: true },
     { label: "Leave Tracker", href: "/employee/leavetracker", icon: Calendar, protected: true },
     { label: "Attendance", href: "/employee/attendance", icon: Clock, protected: true },
-    { label: "Time Tracking", href: "/employee/timetracking", icon: ClipboardList, protected: true },
+    // { label: "Time Tracking", href: "/employee/timetracking", icon: ClipboardList, protected: true },
     { label: "Profile", href: "/employee/profile", icon: UserCircle, protected: true },
   ];
 
