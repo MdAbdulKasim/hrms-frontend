@@ -125,6 +125,33 @@ const AttendanceTracker: React.FC = () => {
         startDateStr = format(start, 'yyyy-MM-dd');
         endDateStr = format(end, 'yyyy-MM-dd');
 
+        // Special handling for "Today" in Daily view to get real-time status
+        if (viewMode === 'daily' && isSameDay(currentDate, new Date())) {
+          const statusRes = await attendanceService.getStatus(orgId);
+          if (statusRes && !statusRes.error) {
+            const rawData = statusRes.data as any;
+
+            // If no data or checkInTime, do not return empty, let it fall through to history
+            if (!rawData || (!rawData.checkInTime && !rawData.checkIn)) {
+              // Fallthrough to fetch history
+            } else {
+
+
+              const r = rawData;
+              const transformed: AttendanceRecord = {
+                date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : format(currentDate, 'yyyy-MM-dd'),
+                checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : (r.checkIn ? format(new Date(r.checkIn), 'hh:mm a') : '-'),
+                checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : (r.checkOut ? format(new Date(r.checkOut), 'hh:mm a') : '-'),
+                hoursWorked: r.totalHours ? `${r.totalHours}h` : (r.hoursWorked ? `${r.hoursWorked}h` : '-'),
+                status: r.status || (r.checkInTime || r.checkIn ? 'Present' : 'Absent')
+              };
+              setAllAttendanceData([transformed]);
+              setLoading(false);
+              return;
+            }
+          }
+        }
+
         const res = await attendanceService.getMyHistory(orgId, startDateStr, endDateStr);
         if (res && !res.error) {
           const rawData = res as any;
@@ -271,7 +298,7 @@ const AttendanceTracker: React.FC = () => {
   const handleExportCSV = () => {
     const headers = ['Date', 'Check In', 'Check Out', 'Hours Worked', 'Status'];
     const rows = filteredData.map(r => [
-      r.date,
+      `\t${r.date}`,
       r.checkIn,
       r.checkOut,
       r.hoursWorked,
