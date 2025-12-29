@@ -2,7 +2,9 @@
 
 
 import Layout from "@/components/layout/Layout";
-import HRProcessManager from "@/components/admin/team/hr-process";
+import HRProcessManager from "../../../../components/admin/team/hr-process";
+
+// Page for HR Process management
 
 
 
