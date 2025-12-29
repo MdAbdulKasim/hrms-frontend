@@ -182,6 +182,25 @@ export const attendanceService = {
       };
     }
   },
+
+  /**
+   * Get all attendance records for the organization (admin only)
+   */
+  async getAllAttendance(
+    organizationId: string
+  ): Promise<AttendanceResponse> {
+    try {
+      const response = await api.get(
+        `/org/${organizationId}/attendance/admin/all`
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to fetch all attendance',
+      };
+    }
+  },
 };
 
 export default attendanceService;
