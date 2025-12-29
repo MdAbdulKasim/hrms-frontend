@@ -125,7 +125,7 @@ export default function Layout({ children }: LayoutProps) {
   const isAuthPage = pathname.startsWith('/auth') || pathname.startsWith('/login') || pathname.startsWith('/register');
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F8FAFC]">
+    <div className="flex h-screen overflow-hidden bg-white">
 
       {/* Sidebar */}
       {!isAuthPage && (

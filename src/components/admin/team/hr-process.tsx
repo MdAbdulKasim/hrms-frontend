@@ -1,1055 +1,726 @@
 'use client';
-import React, { useState } from 'react';
-import { X, ChevronDown, Search, Menu, Plus, Calendar, Info } from 'lucide-react';
+
+import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Plus,
+  Search,
+  X,
+  ChevronRight,
+  MapPin,
+  TrendingUp,
+  Users,
+  Calendar,
+  ArrowRight,
+  CheckCircle2,
+  DollarSign,
+  History,
+  Trash2,
+  LayoutGrid
+} from 'lucide-react';
+import axios from 'axios';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 
-// Types
-type ProcessType = 'Department Change' | 'Location Change' | 'Designation Change';
-type ApprovalStatus = 'Pending' | 'Approved' | 'Rejected';
-
-interface Process {
+// --- Types ---
+interface Resource {
   id: string;
-  name: ProcessType;
-  description: string;
-  icon: string;
+  name: string;
 }
 
 interface Employee {
   id: string;
   name: string;
-  email: string;
   role: string;
-  avatar?: string;
+  department: string;
+  location: string;
+  salary: number;
+}
+
+interface LocationData extends Resource {
+  sites?: { id: string; name: string; buildings?: string[] }[];
 }
 
 interface ProcessRequest {
   id: string;
-  employee: Employee;
-  department: string;
-  location?: string;
-  designation?: string;
-  reportingManager: string;
+  employeeNames: string;
+  type: string;
+  from: string;
+  to: string;
   effectiveDate: string;
-  reason: string;
-  status: ApprovalStatus;
-  processType: ProcessType;
-  createdAt: string;
+  status: 'Pending' | 'Completed' | 'Scheduled';
+  timestamp: string;
 }
 
-const processes: Process[] = [
-  {
-    id: 'dc',
-    name: 'Department Change',
-    description: 'This process is used by reporting managers to initiate the team change process.',
-    icon: 'DC'
-  },
-  {
-    id: 'lc',
-    name: 'Location Change',
-    description: 'This process is used by reporting managers to initiate the location change process.',
-    icon: 'LC'
-  },
-  {
-    id: 'pp',
-    name: 'Designation Change',
-    description: 'This process is used by reporting managers to raise a designation change for their reportees',
-    icon: 'PP'
-  }
-];
-
-const availableEmployees: Employee[] = [
-  { id: 'S10', name: 'Lindon Smith', email: 'lindonsmith@zylker.com', role: 'Team member' },
-  { id: 'S11', name: 'John Doe', email: 'johndoe@zylker.com', role: 'Team member' },
-  { id: 'S12', name: 'Jane Smith', email: 'janesmith@zylker.com', role: 'Senior Developer' },
-];
-
-const departments = ['HR', 'MANAGEMENT', 'MARKETING', 'IT'];
-const locations = ['New York', 'San Francisco', 'London', 'Mumbai'];
-const designations = ['Assistant Manager', 'Manager', 'Senior Manager', 'Team Lead', 'Senior Developer'];
-const reportingManagers = ['S2 Lilly Williams', 'S3 CLARKSON WALTER', 'S4 Emma Johnson', 'S5 Michael Brown'];
-
-export default function HRProcessManager() {
-  const [selectedProcess, setSelectedProcess] = useState<string>('All');
-  const [showProcessModal, setShowProcessModal] = useState(false);
-  const [showEmployeeModal, setShowEmployeeModal] = useState(false);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [showViewModal, setShowViewModal] = useState(false);
-  const [showTimelineModal, setShowTimelineModal] = useState(false);
-  const [currentProcess, setCurrentProcess] = useState<Process | null>(null);
-  const [showFilterModal, setShowFilterModal] = useState(false);
+export default function HRProcessPage() {
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [employeeSearch, setEmployeeSearch] = useState('');
-  const [selectedEmployees, setSelectedEmployees] = useState<Employee[]>([]);
-  const [currentEmployeeIndex, setCurrentEmployeeIndex] = useState(0);
-  const [processRequests, setProcessRequests] = useState<ProcessRequest[]>([]);
-  const [currentRequest, setCurrentRequest] = useState<ProcessRequest | null>(null);
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date(2025, 11, 16)); // Dec 16, 2025
-  
-  // Form state
-  const [formData, setFormData] = useState({
-    department: '',
-    location: '',
-    designation: '',
-    reportingManager: '',
-    effectiveDate: '16-Dec-2025',
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  // Organizational Data State
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
+  const [departments, setDepartments] = useState<Resource[]>([]);
+  const [locations, setLocations] = useState<LocationData[]>([]);
+  const [designations, setDesignations] = useState<Resource[]>([]);
+  const [loadingLists, setLoadingLists] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Form State
+  const [activeTab, setActiveTab] = useState<'Department' | 'Location' | 'Promotion'>('Department');
+  const [form, setForm] = useState({
+    departmentId: '',
+    locationId: '',
+    site: '',
+    building: '',
+    designationId: '',
+    percent: '',
+    amount: '',
+    date: '',
     reason: ''
   });
 
-  const handleInitiateProcess = () => {
-    setShowProcessModal(true);
-  };
+  const [history, setHistory] = useState<ProcessRequest[]>([]);
 
-  const handleProcessSelect = (process: Process) => {
-    setCurrentProcess(process);
-    setShowProcessModal(false);
-    setShowEmployeeModal(true);
-    setSelectedEmployees([]);
-    setCurrentEmployeeIndex(0);
-  };
-
-  const handleEmployeeSelect = (employee: Employee) => {
-    setSelectedEmployees(prev => {
-      const isSelected = prev.some(e => e.id === employee.id);
-      if (isSelected) {
-        return prev.filter(e => e.id !== employee.id);
-      } else {
-        return [...prev, employee];
+  // Load history from localStorage on mount
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('hr_process_history');
+    if (savedHistory) {
+      try {
+        setHistory(JSON.parse(savedHistory));
+      } catch (e) {
+        console.error("Failed to parse history from localStorage", e);
       }
-    });
-  };
+    }
+  }, []);
 
-  const handleNextFromEmployeeSelection = () => {
-    if (selectedEmployees.length > 0) {
-      setShowEmployeeModal(false);
-      setShowDetailsModal(true);
-      setFormData({
-        department: '',
-        location: '',
-        designation: '',
-        reportingManager: '',
-        effectiveDate: '16-Dec-2025',
-        reason: ''
-      });
+  // Save history to localStorage when it changes
+  useEffect(() => {
+    if (history.length > 0) {
+      localStorage.setItem('hr_process_history', JSON.stringify(history));
+    }
+  }, [history]);
+
+  // --- API Fetching: Universal Data ---
+  useEffect(() => {
+    const fetchOrgData = async () => {
+      try {
+        const apiUrl = getApiUrl();
+        const orgId = getOrgId();
+        const token = getAuthToken();
+        const headers = { Authorization: `Bearer ${token}` };
+
+        if (!orgId || !token) return;
+
+        // Perform all GET requests to retrieve organization-wide data
+        const [empRes, locRes, desigRes, deptRes] = await Promise.all([
+          axios.get(`${apiUrl}/org/${orgId}/employees`, { headers }),
+          axios.get(`${apiUrl}/org/${orgId}/locations/`, { headers }).catch(() =>
+            axios.get(`${apiUrl}/org/${orgId}/locations`, { headers })
+          ),
+          axios.get(`${apiUrl}/org/${orgId}/designations/`, { headers }).catch(() =>
+            axios.get(`${apiUrl}/org/${orgId}/designations`, { headers })
+          ),
+          axios.get(`${apiUrl}/org/${orgId}/departments/`, { headers }).catch(() =>
+            axios.get(`${apiUrl}/org/${orgId}/departments`, { headers })
+          )
+        ]);
+
+        // 1. Process Employees
+        const empRaw = empRes.data.data || empRes.data || [];
+        setAllEmployees(empRaw.map((e: any) => ({
+          id: e.id || e._id,
+          name: e.fullName || `${e.firstName} ${e.lastName}`,
+          role: e.designation?.name || e.designation || 'N/A',
+          department: e.department?.name || e.department || 'N/A',
+          location: e.location?.name || e.location || 'N/A',
+          salary: e.salary || 0
+        })));
+
+        // 2. Process All Locations
+        const locRaw = locRes.data.data || locRes.data || [];
+        const locationsToSet = Array.isArray(locRaw) ? locRaw : (locRaw.locations || []);
+        setLocations(locationsToSet.map((l: any) => ({
+          id: l.id || l._id,
+          name: l.name,
+          sites: l.sites || []
+        })));
+
+        // 3. Process All Designations
+        const desigRaw = desigRes.data.data || desigRes.data || [];
+        const designationsToSet = Array.isArray(desigRaw) ? desigRaw : (desigRaw.designations || []);
+        setDesignations(designationsToSet.map((d: any) => ({
+          id: d.id || d._id,
+          name: d.name
+        })));
+
+        // 4. Process All Departments
+        const deptRaw = deptRes.data.data || deptRes.data || [];
+        const departmentsToSet = Array.isArray(deptRaw) ? deptRaw : (deptRaw.departments || []);
+        setDepartments(departmentsToSet.map((d: any) => ({
+          id: d.id || d._id,
+          name: d.name
+        })));
+
+      } catch (err) {
+        console.error("Critical: Failed to fetch organizational metadata", err);
+      } finally {
+        setLoadingLists(false);
+      }
+    };
+
+    fetchOrgData();
+  }, []);
+
+  // --- Helpers ---
+  const filteredEmployees = useMemo(() => {
+    return allEmployees.filter(emp =>
+      (emp.name.toLowerCase().includes(employeeSearch.toLowerCase()) || emp.id.toLowerCase().includes(employeeSearch.toLowerCase())) &&
+      !selectedIds.includes(emp.id)
+    );
+  }, [allEmployees, employeeSearch, selectedIds]);
+
+  const selectedEmployees = useMemo(() => {
+    return allEmployees.filter(emp => selectedIds.includes(emp.id));
+  }, [allEmployees, selectedIds]);
+
+  const handleSalaryCalc = (val: string, isPercent: boolean) => {
+    const base = selectedEmployees[0]?.salary || 0;
+    if (isPercent) {
+      const p = parseFloat(val) || 0;
+      const a = (base * p) / 100;
+      setForm(prev => ({ ...prev, percent: val, amount: a.toFixed(2) }));
+    } else {
+      const a = parseFloat(val) || 0;
+      const p = base > 0 ? (a / base) * 100 : 0;
+      setForm(prev => ({ ...prev, amount: val, percent: p.toFixed(2) }));
     }
   };
 
-  const handleAddMoreEmployees = () => {
-    setShowDetailsModal(false);
-    setShowEmployeeModal(true);
-  };
+  const handleProcess = async () => {
+    if (selectedEmployees.length === 0) return;
 
-  const handleSubmitRequest = () => {
-    const newRequests: ProcessRequest[] = selectedEmployees.map((emp, index) => ({
-      id: `REQ-${Date.now()}-${index}`,
-      employee: emp,
-      department: formData.department,
-      location: formData.location,
-      designation: formData.designation,
-      reportingManager: formData.reportingManager,
-      effectiveDate: formData.effectiveDate,
-      reason: formData.reason,
-      status: 'Pending',
-      processType: currentProcess?.name || 'Department Change',
-      createdAt: new Date().toISOString()
-    }));
-    
-    setProcessRequests([...processRequests, ...newRequests]);
-    if (newRequests.length > 0) {
-      setCurrentRequest(newRequests[0]);
-    }
-    
-    setShowDetailsModal(false);
-    setShowViewModal(true);
-  };
+    setIsProcessing(true);
+    try {
+      const apiUrl = getApiUrl();
+      const orgId = getOrgId();
+      const token = getAuthToken();
+      const headers = { Authorization: `Bearer ${token}` };
 
-  const handleViewClick = () => {
-    setShowViewModal(false);
-    setShowTimelineModal(true);
-  };
+      for (const emp of selectedEmployees) {
+        const updateData: any = {};
 
-  const handleApprove = () => {
-    if (currentRequest) {
-      const updatedRequests = processRequests.map(req =>
-        req.id === currentRequest.id ? { ...req, status: 'Approved' as ApprovalStatus } : req
-      );
-      setProcessRequests(updatedRequests);
-      setCurrentRequest({ ...currentRequest, status: 'Approved' });
-    }
-  };
+        if (activeTab === 'Department') updateData.departmentId = form.departmentId;
+        if (activeTab === 'Location') {
+          updateData.locationId = form.locationId;
+          updateData.site = form.site;
+          updateData.building = form.building;
+        }
+        if (activeTab === 'Promotion') {
+          updateData.designationId = form.designationId;
+          // Note: Backend reported 'Property "salary" was not found in "Employee"'
+          // Removing salary from payload for now to allow designation update to proceed.
+        }
 
-  const handleReject = () => {
-    if (currentRequest) {
-      const updatedRequests = processRequests.map(req =>
-        req.id === currentRequest.id ? { ...req, status: 'Rejected' as ApprovalStatus } : req
-      );
-      setProcessRequests(updatedRequests);
-      setCurrentRequest({ ...currentRequest, status: 'Rejected' });
-    }
-  };
+        console.log(`PROCESS_SYNC: Dispatching update for ${emp.id}`, updateData);
 
-  const handleFilterClick = () => {
-    setShowFilterModal(true);
-  };
+        try {
+          await axios.put(`${apiUrl}/org/${orgId}/employees/${emp.id}`, updateData, { headers });
+          console.log(`PROCESS_SYNC_SUCCESS for ${emp.id}`);
 
-  const handleDateSelect = (date: Date) => {
-    setSelectedDate(date);
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const formattedDate = `${date.getDate()}-${months[date.getMonth()]}-${date.getFullYear()}`;
-    setFormData({...formData, effectiveDate: formattedDate});
-    setShowCalendar(false);
-  };
+          // Update local state immediately to reflect database changes
+          setAllEmployees(prev => prev.map(e => {
+            if (e.id === emp.id) {
+              const updated = { ...e };
+              if (activeTab === 'Department') {
+                updated.department = departments.find(d => d.id === form.departmentId)?.name || e.department;
+              } else if (activeTab === 'Location') {
+                updated.location = locations.find(l => l.id === form.locationId)?.name || e.location;
+              } else if (activeTab === 'Promotion') {
+                updated.role = designations.find(d => d.id === form.designationId)?.name || e.role;
+              }
+              return updated;
+            }
+            return e;
+          }));
+        } catch (innerErr: any) {
+          const errorDetail = innerErr.response?.data || innerErr.message || innerErr;
+          console.error(`PROCESS_SYNC_ERROR for ${emp.id}:`, errorDetail);
+          console.error("FULL_ERROR_CONTEXT:", {
+            status: innerErr.response?.status,
+            payload: updateData,
+            endpoint: `${apiUrl}/org/${orgId}/employees/${emp.id}`
+          });
+          throw innerErr;
+        }
+      }
 
-  const getDaysInMonth = (year: number, month: number) => {
-    return new Date(year, month + 1, 0).getDate();
-  };
+      // Add to local history 
+      const newEntry: ProcessRequest = {
+        id: `PR-${Math.floor(Math.random() * 900) + 100}`,
+        employeeNames: selectedEmployees.map(e => e.name).join(', '),
+        type: activeTab,
+        from: activeTab === 'Department' ? selectedEmployees[0]?.department :
+          activeTab === 'Location' ? selectedEmployees[0]?.location : selectedEmployees[0]?.role,
+        to: activeTab === 'Department' ? departments.find(d => d.id === form.departmentId)?.name || 'N/A' :
+          activeTab === 'Location' ? `${locations.find(l => l.id === form.locationId)?.name} (${form.building || 'N/A'})` :
+            designations.find(d => d.id === form.designationId)?.name || 'N/A',
+        effectiveDate: form.date,
+        status: 'Scheduled',
+        timestamp: new Date().toISOString().slice(0, 16).replace('T', ' ')
+      };
 
-  const getFirstDayOfMonth = (year: number, month: number) => {
-    return new Date(year, month, 1).getDay();
-  };
+      setHistory([newEntry, ...history]);
+      setSelectedIds([]);
+      setForm({ departmentId: '', locationId: '', site: '', building: '', designationId: '', percent: '', amount: '', date: '', reason: '' });
+      alert("Process executed successfully!");
 
-  const generateCalendarDays = () => {
-    const year = selectedDate.getFullYear();
-    const month = selectedDate.getMonth();
-    const daysInMonth = getDaysInMonth(year, month);
-    const firstDay = getFirstDayOfMonth(year, month);
-    const days = [];
-
-    const prevMonthDays = getDaysInMonth(year, month - 1);
-    for (let i = firstDay - 1; i >= 0; i--) {
-      days.push({ day: prevMonthDays - i, isCurrentMonth: false, isPrevMonth: true });
-    }
-
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push({ day: i, isCurrentMonth: true, isPrevMonth: false });
-    }
-
-    const remainingDays = 42 - days.length;
-    for (let i = 1; i <= remainingDays; i++) {
-      days.push({ day: i, isCurrentMonth: false, isPrevMonth: false });
-    }
-
-    return days;
-  };
-
-  const changeMonth = (delta: number) => {
-    const newDate = new Date(selectedDate);
-    newDate.setMonth(newDate.getMonth() + delta);
-    setSelectedDate(newDate);
-  };
-
-  const isToday = (day: number) => {
-    const today = new Date();
-    return day === today.getDate() && 
-           selectedDate.getMonth() === today.getMonth() && 
-           selectedDate.getFullYear() === today.getFullYear();
-  };
-
-  const isSelectedDay = (day: number) => {
-    const formattedDay = parseInt(formData.effectiveDate.split('-')[0]);
-    return day === formattedDay && selectedDate.getMonth() === 11 && selectedDate.getFullYear() === 2025;
-  };
-
-  const filteredEmployees = availableEmployees.filter(emp =>
-    emp.name.toLowerCase().includes(employeeSearch.toLowerCase()) ||
-    emp.id.toLowerCase().includes(employeeSearch.toLowerCase())
-  );
-
-  const getStatusColor = (status: ApprovalStatus) => {
-    switch (status) {
-      case 'Approved': return 'text-green-600 bg-green-50';
-      case 'Rejected': return 'text-red-600 bg-red-50';
-      case 'Pending': return 'text-orange-600 bg-orange-50';
-      default: return 'text-gray-600 bg-gray-50';
+    } catch (err) {
+      console.error("Process failed", err);
+      alert("Failed to execute process. Please try again.");
+    } finally {
+      setIsProcessing(false);
     }
   };
+
+  if (loadingLists) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-8 text-center space-y-4">
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-slate-500 font-bold">Synchronizing Organizational Data...</p>
+        <p className="text-xs text-slate-400">Fetching Departments, Locations, and Designations...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header - Made Responsive */}
-      <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full md:w-auto">
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <span className="text-gray-700 font-medium whitespace-nowrap">Process</span>
-              <div className="relative flex-1 sm:flex-none">
-                <select 
-                  value={selectedProcess}
-                  onChange={(e) => setSelectedProcess(e.target.value)}
-                  className="w-full sm:w-auto appearance-none bg-white border border-gray-300 rounded px-4 py-2 pr-10 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option>All</option>
-                  <option>Department Change</option>
-                  <option>Location Change</option>
-                  <option>Designation Change</option>
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
-              </div>
+    <div className="min-h-screen bg-[#FDFDFD] p-4 md:p-8 font-sans text-slate-900 scrollbar-hide">
+      <div className="max-w-7xl mx-auto space-y-8">
+
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-blue-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-100">
+              <Plus size={24} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">HR Process Manager</h1>
+              <p className="text-sm text-slate-500 font-medium">Manage organization-wide transfers and promotions.</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <button 
-              onClick={handleInitiateProcess}
-              className="flex-1 md:flex-none justify-center bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded font-medium transition-colors"
-            >
-              Initiate Process
-            </button>
-            <button 
-              onClick={handleFilterClick}
-              className="p-2 hover:bg-gray-100 rounded transition-colors border border-gray-200 md:border-transparent"
-            >
-              <Menu className="w-5 h-5 text-gray-600" />
-            </button>
-          </div>
-        </div>
-      </div>
 
-      {/* Table Header - Hidden on Mobile */}
-      <div className="hidden md:block bg-gray-100 border-b border-gray-200">
-        <div className="px-6 py-3">
-          <div className="grid grid-cols-7 gap-4 text-sm font-medium text-gray-600">
-            <div>Status</div>
-            <div>Employee</div>
-            <div>Key Field</div>
-            <div>Value</div>
-            <div>Effective date</div>
-            <div>Process</div>
-            <div>Reason</div>
-          </div>
-        </div>
-      </div>
 
-      {/* Table Content */}
-      {processRequests.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 px-4">
-          <div className="mb-6">
-            <svg width="200" height="200" viewBox="0 0 200 200" fill="none" className="w-48 h-48 md:w-[200px] md:h-[200px]">
-              <circle cx="100" cy="80" r="35" fill="#E8EEFF" />
-              <circle cx="100" cy="80" r="30" fill="white" />
-              <circle cx="105" cy="78" r="8" fill="#3B82F6" />
-              <path d="M70 95 Q70 110 85 110 L115 110 Q130 110 130 95" stroke="#3B82F6" strokeWidth="3" fill="none" />
-              <rect x="75" y="95" width="50" height="8" fill="#3B82F6" rx="4" />
-              <rect x="75" y="108" width="50" height="8" fill="#3B82F6" rx="4" />
-              <rect x="75" y="121" width="50" height="8" fill="#3B82F6" rx="4" />
-              <path d="M130 100 L145 115 L160 85" stroke="#3B82F6" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="70" cy="70" r="3" fill="#93C5FD" />
-              <circle cx="135" cy="65" r="3" fill="#93C5FD" />
-              <circle cx="130" cy="120" r="3" fill="#93C5FD" />
-              <line x1="165" y1="75" x2="168" y2="72" stroke="#FF6B6B" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </div>
-          <p className="text-gray-500 text-lg text-center">No records found</p>
         </div>
-      ) : (
-        <div className="bg-white">
-          {processRequests.map((request) => (
-            <div key={request.id} className="px-4 md:px-6 py-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
-                 onClick={() => {
-                   setCurrentRequest(request);
-                   setShowViewModal(true);
-                 }}>
-              
-              {/* Desktop View: Grid */}
-              <div className="hidden md:grid grid-cols-7 gap-4 text-sm">
-                <div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
-                    {request.status}
-                  </span>
+
+        {/* Main Workspace: Unified Card */}
+        <div className="bg-white rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[600px]">
+
+            {/* Left Section: Selection Summary */}
+            <div className="lg:col-span-4 bg-slate-50/50 border-r border-slate-100 p-8">
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="font-bold text-lg flex items-center gap-3">
+                  <Users size={22} className="text-blue-500" />
+                  <span>Current Selection</span>
+                </h3>
+                <div className="bg-blue-500 text-white w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shadow-lg shadow-blue-100">
+                  {selectedIds.length}
                 </div>
-                <div className="font-medium text-gray-900">{request.employee.name}</div>
-                <div className="text-gray-600">
-                  {request.processType === 'Designation Change' ? 'Designation' : 'Department'}
-                </div>
-                <div className="text-gray-900">
-                  {request.processType === 'Designation Change' ? request.designation : request.department}
-                </div>
-                <div className="text-gray-600">{request.effectiveDate}</div>
-                <div className="text-gray-900">{request.processType}</div>
-                <div className="text-gray-600 truncate">{request.reason}</div>
               </div>
 
-              {/* Mobile View: Stacked Card */}
-              <div className="md:hidden flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <div className="font-semibold text-gray-900">{request.employee.name}</div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
-                    {request.status}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-y-2 text-sm">
-                  <div className="text-gray-500">Process Type</div>
-                  <div className="text-gray-900 text-right">{request.processType}</div>
-                  
-                  <div className="text-gray-500">
-                     {request.processType === 'Designation Change' ? 'Designation' : 'Department'}
+              {/* Search Bar - Moved to Left Panel */}
+              <div className="relative w-full group mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
+                <input
+                  type="text"
+                  placeholder="Search & Select Employee..."
+                  className="w-full pl-12 pr-4 py-3.5 bg-white rounded-2xl border-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none font-bold text-sm shadow-sm"
+                  value={employeeSearch}
+                  onChange={(e) => { setEmployeeSearch(e.target.value); setShowDropdown(true); }}
+                  onFocus={() => setShowDropdown(true)}
+                />
+                {showDropdown && employeeSearch && (
+                  <div className="absolute top-full left-0 w-full mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+                    {filteredEmployees.length > 0 ? (
+                      filteredEmployees.map(emp => (
+                        <div
+                          key={emp.id}
+                          className="p-4 hover:bg-slate-50 cursor-pointer flex items-center gap-3 border-b border-slate-50 last:border-none transition-colors"
+                          onClick={() => { setSelectedIds([...selectedIds, emp.id]); setEmployeeSearch(''); setShowDropdown(false); }}
+                        >
+                          <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">
+                            {emp.name.split(' ').map(n => n[0]).join('')}
+                          </div>
+                          <div>
+                            <p className="font-bold text-sm text-slate-700">{emp.name}</p>
+                            <p className="text-[11px] text-slate-500 font-medium">{emp.role} • {emp.department}</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-6 text-center text-slate-400 text-sm font-medium">No results found</div>
+                    )}
                   </div>
-                  <div className="text-gray-900 text-right">
-                    {request.processType === 'Designation Change' ? request.designation : request.department}
-                  </div>
-
-                  <div className="text-gray-500">Effective Date</div>
-                  <div className="text-gray-900 text-right">{request.effectiveDate}</div>
-                </div>
-                <div className="text-sm text-gray-500 mt-1 border-t pt-2 border-gray-100">
-                  <span className="font-medium text-gray-700">Reason: </span>{request.reason}
-                </div>
+                )}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
 
-      {/* Process Selection Modal */}
-      <Dialog open={showProcessModal} onOpenChange={setShowProcessModal}>
-        <DialogContent className="w-[95vw] max-w-4xl p-0 overflow-hidden bg-white rounded-lg">
-          <div className="p-4 md:p-6 border-b">
-            <DialogTitle>HR Process</DialogTitle>
-          </div>
-          <div className="space-y-4 p-4 md:p-6">
-            {processes.map((process) => (
-              <button
-                key={process.id}
-                onClick={() => handleProcessSelect(process)}
-                className="w-full flex flex-col sm:flex-row items-start gap-4 p-4 md:p-6 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all text-left"
-              >
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-lg font-semibold shrink-0 ${
-                  process.id === 'dc' ? 'bg-blue-100 text-blue-600' :
-                  process.id === 'lc' ? 'bg-blue-100 text-blue-600' :
-                  'bg-purple-100 text-purple-600'
-                }`}>
-                  {process.icon}
+              {selectedIds.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 px-6">
+                  <div className="w-20 h-20 bg-white rounded-3xl shadow-sm flex items-center justify-center text-slate-200 border border-slate-50">
+                    <Users size={36} />
+                  </div>
+                  <p className="text-slate-400 text-sm font-bold leading-relaxed">Search and select employees to apply organizational changes.</p>
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">{process.name}</h3>
-                  <p className="text-gray-600 text-sm md:text-base">{process.description}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
+              ) : (
+                <div className="space-y-4 max-h-[700px] overflow-y-auto pr-2 custom-scrollbar">
+                  {selectedEmployees.map(emp => (
+                    <div key={emp.id} className="group relative p-5 bg-white rounded-3xl border border-slate-100 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-500/5 transition-all duration-300">
+                      <button
+                        onClick={() => setSelectedIds(selectedIds.filter(id => id !== emp.id))}
+                        className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-xl shadow-lg flex items-center justify-center text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all border border-slate-50 z-10"
+                      >
+                        <X size={14} strokeWidth={3} />
+                      </button>
 
-      {/* Employee Selection Modal */}
-      <Dialog open={showEmployeeModal} onOpenChange={setShowEmployeeModal}>
-        <DialogContent className="w-[95vw] max-w-4xl h-[90vh] md:h-auto flex flex-col p-0">
-          <div className="p-4 md:p-6 border-b">
-            <DialogTitle>{currentProcess?.name}</DialogTitle>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 md:p-6">
-            <div className="mb-6">
-              <label className="block text-gray-700 font-medium mb-3">Select employees</label>
-              <input
-                type="text"
-                value={employeeSearch}
-                onChange={(e) => setEmployeeSearch(e.target.value)}
-                placeholder="Enter employee name or ID"
-                className="w-full px-4 py-3 border-2 border-blue-400 rounded focus:outline-none focus:border-blue-500 text-sm md:text-base"
-              />
-            </div>
-            
-            <div className="mb-6">
-              <div className="bg-gray-100 border border-gray-200 rounded-lg">
-                <div className="grid grid-cols-2 gap-4 px-4 py-3 text-sm font-medium text-gray-600 border-b border-gray-200">
-                  <div>User (Total : {filteredEmployees.length})</div>
-                  <div>Role</div>
-                </div>
-                <div className="max-h-64 overflow-y-auto">
-                  {filteredEmployees.map((employee) => (
-                    <div
-                      key={employee.id}
-                      onClick={() => handleEmployeeSelect(employee)}
-                      className={`grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 px-4 py-4 cursor-pointer hover:bg-blue-50 border-b border-gray-200 last:border-b-0 ${
-                        selectedEmployees.some(e => e.id === employee.id) ? 'bg-blue-50' : ''
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-sm font-medium text-gray-600 shrink-0">
-                          {employee.name.split(' ').map(n => n[0]).join('')}
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center text-xl font-black shadow-lg shadow-blue-100">
+                          {emp.name.split(' ').map(n => n[0]).join('')}
                         </div>
                         <div className="min-w-0">
-                          <div className="font-medium text-gray-900 truncate text-sm md:text-base">{employee.id} - {employee.name}</div>
+                          <p className="text-base font-black text-slate-800 truncate">{emp.name}</p>
+                          <p className="text-[10px] text-blue-600 font-black tracking-widest uppercase mt-0.5 opacity-80">{emp.role}</p>
                         </div>
                       </div>
-                      <div className="flex items-center text-gray-600 text-sm sm:pl-0 pl-14">{employee.role}</div>
+
+                      <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-50">
+                        <div className="space-y-0.5">
+                          <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Department</p>
+                          <p className="text-xs font-bold text-slate-700 truncate">{emp.department}</p>
+                        </div>
+                        <div className="space-y-0.5 text-right">
+                          <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Location</p>
+                          <p className="text-xs font-bold text-slate-700 truncate">{emp.location}</p>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
-              </div>
+              )}
             </div>
 
-            <div className="bg-yellow-50 border border-yellow-200 rounded p-4 mb-6">
-              <p className="text-sm text-gray-700">
-                In order to initiate a HR Process, date of joining is mandatory. Only employees with valid records will be listed.
-              </p>
-            </div>
-          </div>
-          <div className="p-4 md:p-6 border-t bg-white flex flex-col-reverse sm:flex-row items-center gap-3">
-            <button 
-              onClick={() => setShowEmployeeModal(false)}
-              className="w-full sm:w-auto text-gray-600 hover:text-gray-800 px-6 py-2 rounded font-medium transition-colors border sm:border-none border-gray-300"
-            >
-              Cancel
-            </button>
-            <button 
-              onClick={handleNextFromEmployeeSelection}
-              disabled={selectedEmployees.length === 0}
-              className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-6 py-2 rounded font-medium transition-colors"
-            >
-              Next
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* HR Process Request Details Modal */}
-      <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
-        <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] flex flex-col p-0">
-          <div className="p-4 md:p-6 border-b shrink-0">
-            <DialogTitle>{currentProcess?.name}</DialogTitle>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-4 md:p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">HR Process request details</h3>
-            
-            <p className="text-gray-700 mb-4">Initiate HR Process for the selected employees:</p>
-            
-            <div className="bg-gray-50 rounded-lg p-4 mb-6 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-2 flex-wrap">
-                {selectedEmployees.map((employee, index) => (
-                  <div key={employee.id} className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gray-300 flex items-center justify-center text-xs md:text-sm font-medium text-gray-600">
-                    {employee.name.split(' ').map(n => n[0]).join('')}
-                  </div>
+            {/* Right Section: Action Form */}
+            <div className="lg:col-span-8 p-10">
+              <div className="flex items-center gap-3 mb-10 overflow-x-auto pb-2 scrollbar-hide">
+                {[
+                  { id: 'Department', icon: LayoutGrid, label: 'Department Change' },
+                  { id: 'Location', icon: MapPin, label: 'Location Transfer' },
+                  { id: 'Promotion', icon: TrendingUp, label: 'Promotion / Hike' },
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === tab.id
+                      ? 'bg-blue-500 text-white shadow-lg shadow-blue-100'
+                      : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+                      }`}
+                  >
+                    <tab.icon size={18} />
+                    {tab.label}
+                  </button>
                 ))}
               </div>
-              <button 
-                onClick={handleAddMoreEmployees}
-                className="w-10 h-10 rounded-full bg-white border-2 border-gray-300 flex items-center justify-center hover:border-blue-500 hover:bg-blue-50 transition-colors"
-              >
-                <Plus className="w-5 h-5 text-gray-600" />
-              </button>
-            </div>
 
-            <div className="space-y-4 mb-6">
-              {currentProcess?.name === 'Designation Change' && (
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2">
-                    Designation <span className="text-red-500">*</span>
-                    <button className="ml-2 text-gray-400 hover:text-gray-600">
-                      <Info className="w-4 h-4 inline" />
-                    </button>
-                  </label>
-                  <div className="relative">
-                    <select 
-                      value={formData.designation}
-                      onChange={(e) => setFormData({...formData, designation: e.target.value})}
-                      className="appearance-none w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="">Select</option>
-                      {designations.map(desig => (
-                        <option key={desig} value={desig}>{desig}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 pointer-events-none" />
-                  </div>
-                </div>
-              )}
+              <div className="space-y-10">
+                {/* Context: Global Data Info */}
+                {/* <div className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
+                  <LayoutGrid size={18} className="text-blue-500" />
+                  {/* <p className="text-xs font-semibold text-blue-700">
+                  Showing all available <span className="font-bold underline">{activeTab}</span> options from the database.
+                </p> */}
+                
 
-              {currentProcess?.name !== 'Designation Change' && (
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2">
-                    Department <span className="text-red-500">*</span>
-                    <button className="ml-2 text-gray-400 hover:text-gray-600">
-                      <Info className="w-4 h-4 inline" />
-                    </button>
-                  </label>
-                  <div className="relative">
-                    <select 
-                      value={formData.department}
-                      onChange={(e) => setFormData({...formData, department: e.target.value})}
-                      className="appearance-none w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="">Select</option>
-                      {departments.map(dept => (
-                        <option key={dept} value={dept}>{dept}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 pointer-events-none" />
-                  </div>
-                </div>
-              )}
-
-              {currentProcess?.name === 'Location Change' && (
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2">Location</label>
-                  <div className="relative">
-                    <select 
-                      value={formData.location}
-                      onChange={(e) => setFormData({...formData, location: e.target.value})}
-                      className="appearance-none w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="">Select</option>
-                      {locations.map(loc => (
-                        <option key={loc} value={loc}>{loc}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 pointer-events-none" />
-                  </div>
-                </div>
-              )}
-
-              {currentProcess?.name !== 'Designation Change' && (
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2">Reporting Manager</label>
-                  <div className="relative">
-                    <select 
-                      value={formData.reportingManager}
-                      onChange={(e) => setFormData({...formData, reportingManager: e.target.value})}
-                      className="appearance-none w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="">Select</option>
-                      {reportingManagers.map(manager => (
-                        <option key={manager} value={manager}>{manager}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 pointer-events-none" />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Process date and reason</h3>
-
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">
-                  Select effective date: <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={formData.effectiveDate}
-                    readOnly
-                    onClick={() => setShowCalendar(!showCalendar)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500 cursor-pointer"
-                  />
-                  <Calendar 
-                    onClick={() => setShowCalendar(!showCalendar)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 cursor-pointer" 
-                  />
-                  
-                  {showCalendar && (
-                    <div className="absolute z-50 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg p-4 w-[300px] max-w-[90vw] right-0 sm:left-0 sm:right-auto">
-                      {/* Calendar Header */}
-                      <div className="flex items-center justify-between mb-4">
-                        <button
-                          onClick={() => changeMonth(-1)}
-                          className="p-2 hover:bg-gray-100 rounded"
-                        >
-                          <ChevronDown className="w-5 h-5 rotate-90" />
-                        </button>
-                        <div className="text-center">
-                          <div className="font-semibold text-gray-900">
-                            {selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => changeMonth(1)}
-                          className="p-2 hover:bg-gray-100 rounded"
-                        >
-                          <ChevronDown className="w-5 h-5 -rotate-90" />
-                        </button>
-                      </div>
-
-                      {/* Calendar Grid */}
-                      <div className="grid grid-cols-7 gap-1">
-                        {/* FIX: Added index as key here to prevent duplicate key error */}
-                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-                          <div key={index} className="text-center text-xs font-medium text-gray-600 py-2">
-                            {day}
-                          </div>
-                        ))}
-                        
-                        {generateCalendarDays().map((dayObj, index) => {
-                          const isCurrentMonthDay = dayObj.isCurrentMonth;
-                          const isTodayDay = isCurrentMonthDay && isToday(dayObj.day);
-                          const isSelected = isCurrentMonthDay && isSelectedDay(dayObj.day);
-                          
-                          return (
-                            <button
-                              key={index}
-                              onClick={() => {
-                                if (isCurrentMonthDay) {
-                                  const newDate = new Date(selectedDate);
-                                  newDate.setDate(dayObj.day);
-                                  handleDateSelect(newDate);
-                                } else if (dayObj.isPrevMonth) {
-                                  const newDate = new Date(selectedDate);
-                                  newDate.setMonth(newDate.getMonth() - 1);
-                                  newDate.setDate(dayObj.day);
-                                  handleDateSelect(newDate);
-                                } else {
-                                  const newDate = new Date(selectedDate);
-                                  newDate.setMonth(newDate.getMonth() + 1);
-                                  newDate.setDate(dayObj.day);
-                                  handleDateSelect(newDate);
-                                }
-                              }}
-                              className={`
-                                p-2 text-sm rounded hover:bg-blue-50 transition-colors
-                                ${!isCurrentMonthDay ? 'text-gray-400' : 'text-gray-900'}
-                                ${isTodayDay ? 'bg-blue-100 font-semibold' : ''}
-                                ${isSelected ? 'bg-blue-500 text-white hover:bg-blue-600' : ''}
-                              `}
-                            >
-                              {dayObj.day}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <button
-                          onClick={() => handleDateSelect(new Date())}
-                          className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-medium transition-colors"
-                        >
-                          Today
-                        </button>
+                {/* Tab: Department */}
+                {activeTab === 'Department' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Current Department</label>
+                      <div className="w-full p-4 bg-slate-100/50 rounded-2xl border border-slate-200/50 font-bold text-sm text-slate-600">
+                        {(() => {
+                          if (selectedEmployees.length === 0) return 'No Selection';
+                          const uniqueDepts = Array.from(new Set(selectedEmployees.map(e => e.department)));
+                          return uniqueDepts.length === 1 ? uniqueDepts[0] : `Mixed (${uniqueDepts.length} Variants)`;
+                        })()}
                       </div>
                     </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">
-                  Enter the reason for change: <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={formData.reason}
-                  onChange={(e) => setFormData({...formData, reason: e.target.value})}
-                  rows={4}
-                  className="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500 resize-none"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="p-4 md:p-6 border-t bg-white flex flex-col-reverse sm:flex-row items-center gap-3 shrink-0">
-            <button 
-              onClick={() => setShowDetailsModal(false)}
-              className="w-full sm:w-auto text-gray-600 hover:text-gray-800 px-6 py-2 rounded font-medium transition-colors border sm:border-none border-gray-300"
-            >
-              Cancel
-            </button>
-            <button 
-              onClick={handleSubmitRequest}
-              disabled={
-                (currentProcess?.name === 'Designation Change' && !formData.designation) ||
-                (currentProcess?.name !== 'Designation Change' && (!formData.department || !formData.reportingManager)) ||
-                !formData.reason
-              }
-              className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-6 py-2 rounded font-medium transition-colors"
-            >
-              Submit
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* View Request Modal */}
-      <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
-        <DialogContent className="w-[95vw] max-w-4xl p-0">
-          <div className="p-4 md:p-6 border-b">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <DialogTitle>{currentProcess?.name}</DialogTitle>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <div className={`w-3 h-3 rounded-full ${currentRequest?.status === 'Pending' ? 'bg-orange-500' : currentRequest?.status === 'Approved' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                  <span className="text-sm font-medium text-gray-700">{currentRequest?.status}</span>
-                </div>
-                <button 
-                  onClick={handleViewClick}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
-                >
-                  View Timeline
-                </button>
-              </div>
-            </div>
-          </div>
-          <div className="p-4 md:p-6 space-y-6 overflow-y-auto max-h-[80vh]">
-            <div>
-              <h3 className="text-sm font-medium text-gray-600 mb-3">Employee</h3>
-              <div className="bg-gray-50 rounded-lg p-4 flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center text-sm font-medium text-gray-600 shrink-0">
-                  {currentRequest?.employee.name.split(' ').map(n => n[0]).join('')}
-                </div>
-                <div className="min-w-0">
-                  <div className="font-medium text-gray-900 truncate">{currentRequest?.employee.id} - {currentRequest?.employee.name}</div>
-                  <div className="text-sm text-gray-600 truncate">{currentRequest?.employee.email}</div>
-                </div>
-              </div>
-            </div>
-
-            {currentRequest?.processType === 'Designation Change' ? (
-              <div>
-                <h3 className="text-sm font-medium text-gray-600 mb-3">
-                  Designation
-                  <button className="ml-2 text-gray-400 hover:text-gray-600">
-                    <Info className="w-4 h-4 inline" />
-                  </button>
-                </h3>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-gray-900">{currentRequest?.designation}</p>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-600 mb-3">
-                    Department
-                    <button className="ml-2 text-gray-400 hover:text-gray-600">
-                      <Info className="w-4 h-4 inline" />
-                    </button>
-                  </h3>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-gray-900">{currentRequest?.department}</p>
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Target Department</label>
+                      <select
+                        className="w-full p-4 bg-slate-50 rounded-2xl border-none ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm cursor-pointer shadow-sm"
+                        value={form.departmentId}
+                        onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
+                      >
+                        <option value="">Select a Department...</option>
+                        {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                      </select>
+                      {departments.length === 0 && <p className="text-[10px] text-red-500 font-bold">No departments loaded. Check API connectivity.</p>}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <div>
-                  <h3 className="text-sm font-medium text-gray-600 mb-3">Reporting Manager</h3>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-gray-900">{currentRequest?.reportingManager}</p>
+                {/* Tab: Location */}
+                {activeTab === 'Location' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500 mb-6">
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Current Location</label>
+                      <div className="w-full p-4 bg-slate-100/50 rounded-2xl border border-slate-200/50 font-bold text-sm text-slate-600">
+                        {(() => {
+                          if (selectedEmployees.length === 0) return 'No Selection';
+                          const uniqueLocs = Array.from(new Set(selectedEmployees.map(e => e.location)));
+                          return uniqueLocs.length === 1 ? uniqueLocs[0] : `Mixed (${uniqueLocs.length} Variants)`;
+                        })()}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </>
-            )}
+                )}
 
-            <div>
-              <h3 className="text-sm font-medium text-gray-600 mb-3">Effective date</h3>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-gray-900">{currentRequest?.effectiveDate}</p>
-              </div>
-            </div>
+                {activeTab === 'Location' && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <div className="space-y-3 font-medium">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Select Location</label>
+                      <select
+                        className="w-full p-4 bg-slate-50 rounded-2xl border-none ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm"
+                        value={form.locationId}
+                        onChange={(e) => setForm({ ...form, locationId: e.target.value, site: '', building: '' })}
+                      >
+                        <option value="">Select Location...</option>
+                        {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Site</label>
+                      <select
+                        disabled={!form.locationId}
+                        className="w-full p-4 bg-slate-50 rounded-2xl border-none ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm disabled:opacity-50"
+                        value={form.site}
+                        onChange={(e) => setForm({ ...form, site: e.target.value, building: '' })}
+                      >
+                        <option value="">Select Site...</option>
+                        {locations.find(l => l.id === form.locationId)?.sites?.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Building</label>
+                      <select
+                        disabled={!form.site}
+                        className="w-full p-4 bg-slate-50 rounded-2xl border-none ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm disabled:opacity-50"
+                        value={form.building}
+                        onChange={(e) => setForm({ ...form, building: e.target.value })}
+                      >
+                        <option value="">Select Building...</option>
+                        {locations.find(l => l.id === form.locationId)?.sites?.find(s => s.name === form.site)?.buildings?.map(b => <option key={b}>{b}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                )}
 
-            <div>
-              <h3 className="text-sm font-medium text-gray-600 mb-3">Reason</h3>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-gray-900">{currentRequest?.reason}</p>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Approval Timeline Modal */}
-      <Dialog open={showTimelineModal} onOpenChange={setShowTimelineModal}>
-        <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] flex flex-col p-0">
-          <div className="p-4 md:p-6 border-b shrink-0">
-            <DialogTitle>Approval Timeline</DialogTitle>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 md:p-6">
-            <div className="mb-8">
-              <div className="flex items-start gap-4 mb-6">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gray-300 flex items-center justify-center text-xs md:text-sm font-medium text-gray-600 shrink-0">
-                  {currentRequest?.employee.name.split(' ').map(n => n[0]).join('')}
-                </div>
-                <div>
-                  <p className="text-gray-900 font-medium text-sm md:text-base">{currentRequest?.employee.id} - {currentRequest?.employee.name}'s request has been sent for approval</p>
-                  <p className="text-xs md:text-sm text-gray-500">16-Dec-2025  12:33 PM</p>
-                </div>
-              </div>
-
-              {currentRequest?.status === 'Pending' && (
-                <div className="ml-3 sm:ml-6 pl-3 sm:pl-6 border-l-2 border-gray-300">
-                  <div className="flex items-start gap-3 md:gap-4 mb-4">
-                    <div className="w-3 h-3 rounded-full bg-orange-500 -ml-[19px] sm:-ml-[31px] mt-2 shrink-0"></div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-orange-600 font-medium mb-4">Pending</p>
-                      <div className="flex items-start gap-3 mb-4">
-                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                          <span className="text-blue-600 text-sm font-medium">👤</span>
+                {/* Tab: Promotion */}
+                {activeTab === 'Promotion' && (
+                  <div className="space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-3">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Current Designation</label>
+                        <div className="w-full p-4 bg-slate-100/50 rounded-2xl border border-slate-200/50 font-bold text-sm text-slate-600">
+                          {(() => {
+                            if (selectedEmployees.length === 0) return 'No Selection';
+                            const uniqueRoles = Array.from(new Set(selectedEmployees.map(e => e.role)));
+                            return uniqueRoles.length === 1 ? uniqueRoles[0] : `Mixed (${uniqueRoles.length} Variants)`;
+                          })()}
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-900">Admin</p>
-                          <p className="text-sm text-gray-600">Role</p>
+                      </div>
+                      <div className="space-y-3">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">New Designation</label>
+                        <select
+                          className="w-full p-4 bg-slate-50 rounded-2xl border-none ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm"
+                          value={form.designationId}
+                          onChange={(e) => setForm({ ...form, designationId: e.target.value })}
+                        >
+                          <option value="">Select Designation...</option>
+                          {designations.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 p-8 rounded-[32px] border border-slate-100 flex flex-col gap-8">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-100">
+                          <DollarSign size={20} />
+                        </div>
+                        <h4 className="font-bold text-lg tracking-tight text-slate-800">Salary Calculator</h4>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="relative group">
+                          <label className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-2 block">Promotion (%)</label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              className="w-full p-4 pr-12 bg-white rounded-2xl border-none ring-1 ring-green-100 focus:ring-2 focus:ring-green-500 transition-all font-bold text-sm outline-none"
+                              placeholder="0"
+                              value={form.percent}
+                              onChange={(e) => handleSalaryCalc(e.target.value, true)}
+                            />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500 font-bold">%</span>
+                          </div>
+                        </div>
+                        <div className="relative group">
+                          <label className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-2 block">Increase ($)</label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              className="w-full p-4 pl-10 bg-white rounded-2xl border-none ring-1 ring-green-100 focus:ring-2 focus:ring-green-500 transition-all font-bold text-sm outline-none"
+                              placeholder="0.00"
+                              value={form.amount}
+                              onChange={(e) => handleSalaryCalc(e.target.value, false)}
+                            />
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-green-500 font-bold">$</span>
+                          </div>
                         </div>
                       </div>
 
-                      <textarea
-                        placeholder="Write a comment..."
-                        rows={3}
-                        className="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500 mb-4 resize-none"
+                      {form.amount && selectedEmployees.length > 0 && (
+                        <div className="p-4 bg-white/60 rounded-2xl border border-green-50 flex items-start gap-3">
+                          <CheckCircle2 size={16} className="text-green-500 mt-0.5" />
+                          <p className="text-sm font-medium text-green-800">
+                            Estimated New Salary:
+                            <span className="font-bold ml-1 text-green-600">
+                              {(() => {
+                                const base = selectedEmployees[0]?.salary || 0;
+                                const inc = parseFloat(form.amount || '0');
+                                const total = base + (isNaN(inc) ? 0 : inc);
+                                return `$${total.toLocaleString()}`;
+                              })()}
+                            </span>
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Common Fields */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-slate-100">
+                  <div className="space-y-3">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Effective Date</label>
+                    <div className="relative">
+                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
+                      <input
+                        type="date"
+                        className="w-full pl-12 pr-4 py-4 bg-slate-50 rounded-2xl border-none ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm"
+                        value={form.date}
+                        onChange={(e) => setForm({ ...form, date: e.target.value })}
                       />
-
-                      <div className="flex flex-col sm:flex-row items-center gap-3">
-                        <button 
-                          onClick={handleApprove}
-                          className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded font-medium transition-colors"
-                        >
-                          Approve
-                        </button>
-                        <button 
-                          onClick={handleReject}
-                          className="w-full sm:w-auto border border-red-300 text-red-600 hover:bg-red-50 px-6 py-2 rounded font-medium transition-colors"
-                        >
-                          Reject
-                        </button>
-                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-
-              {currentRequest?.status === 'Approved' && (
-                <div className="ml-3 sm:ml-6 pl-3 sm:pl-6 border-l-2 border-gray-300">
-                  <div className="flex items-start gap-3 md:gap-4 mb-4">
-                    <div className="w-3 h-3 rounded-full bg-green-500 -ml-[19px] sm:-ml-[31px] mt-2 shrink-0"></div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-green-600 font-medium mb-2">Approved</p>
-                      <p className="text-sm text-gray-500 mb-4">16-Dec-2025  12:35 PM</p>
-                      
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
-                            <span className="text-gray-600 text-sm font-medium">👤</span>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-gray-900 truncate">1 - mohamed</p>
-                            <p className="text-sm text-gray-600 truncate">farhanbasheerfarhan399@gmail.com</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-500 italic whitespace-nowrap">On behalf of</span>
-                          <div className="flex items-start gap-2">
-                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                              <span className="text-blue-600 text-xs font-medium">👤</span>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">Admin</p>
-                              <p className="text-xs text-gray-600">Role</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                        <div className="flex items-start gap-3 mb-2">
-                          <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
-                            <span className="text-gray-600 text-sm">👤</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-900">mohamed</p>
-                            <p className="text-gray-700 mt-1">Approved</p>
-                            <div className="flex items-center gap-3 mt-2">
-                              <p className="text-sm text-gray-500">Today 12:35 PM</p>
-                              <button className="text-sm text-gray-600 hover:text-gray-800">Like</button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                  <div className="space-y-3">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Process Remarks</label>
+                    <textarea
+                      className="w-full p-4 bg-slate-50 rounded-2xl border-none ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm resize-none h-14"
+                      placeholder="Provide reasoning for this change..."
+                      value={form.reason}
+                      onChange={(e) => setForm({ ...form, reason: e.target.value })}
+                    />
                   </div>
                 </div>
-              )}
-            </div>
 
-            <div className="flex items-start gap-3 bg-gray-50 rounded-lg p-4">
-              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
-                <span className="text-gray-600 text-sm">👤</span>
-              </div>
-              <input
-                type="text"
-                placeholder="Write a comment..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 min-w-0"
-              />
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Filter Modal */}
-      <Dialog open={showFilterModal} onOpenChange={setShowFilterModal}>
-        <DialogContent className="fixed right-0 top-0 h-full w-full sm:w-[400px] max-w-md translate-x-0 translate-y-0 rounded-none border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right flex flex-col p-0">
-          <div className="p-6 border-b">
-            <DialogTitle>Filter</DialogTitle>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="relative mb-6">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Field Search"
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <div className="mb-6">
-              <button className="flex items-center justify-between w-full py-3 text-left">
-                <span className="text-lg font-semibold text-gray-900">System Filter</span>
-                <ChevronDown className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">Approval Status</label>
-                <div className="relative">
-                  <select className="appearance-none w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500">
-                    <option>All Requests</option>
-                    <option>Approved</option>
-                    <option>Rejected</option>
-                    <option>Pending</option>
-                    <option>Drafts</option>
-                    <option>Cancelled</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 pointer-events-none" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">Employee</label>
-                <input
-                  type="text"
-                  placeholder="Employee"
-                  className="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">Employee Status</label>
-                <div className="relative">
-                  <select className="appearance-none w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500">
-                    <option>All Requests</option>
-                    <option>All Active Employee Requests</option>
-                    <option>Ex-Employee Requests</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 pointer-events-none" />
+                <div className="flex justify-end pt-6">
+                  <button
+                    onClick={handleProcess}
+                    disabled={selectedIds.length === 0 || !form.date || isProcessing}
+                    className="px-10 py-4 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl font-bold flex items-center gap-3 transition-all shadow-xl shadow-blue-100 disabled:opacity-50 disabled:grayscale"
+                  >
+                    {isProcessing ? 'Processing Transaction...' : (
+                      <>
+                        <ArrowRight size={20} />
+                        Complete & Log Transaction
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="p-6 bg-white border-t border-gray-200">
-            <div className="flex items-center gap-3">
-              <button className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded font-medium transition-colors">
-                Apply
-              </button>
-              <button 
-                onClick={() => setShowFilterModal(false)}
-                className="flex-1 text-gray-600 hover:text-gray-800 px-8 py-3 rounded font-medium transition-colors border border-gray-300"
+        {/* Audit History */}
+        <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
+          <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+            <h3 className="text-xl font-bold flex items-center gap-3">
+              <History className="text-blue-500" /> Organizational Audit History
+            </h3>
+            {history.length > 0 && (
+              <button
+                onClick={() => {
+                  if (confirm("Clear all process history?")) {
+                    setHistory([]);
+                    localStorage.removeItem('hr_process_history');
+                  }
+                }}
+                className="text-xs font-bold text-slate-400 hover:text-red-500 transition-colors uppercase tracking-widest flex items-center gap-2"
               >
-                Reset
+                <Trash2 size={14} /> Clear History
               </button>
-            </div>
+            )}
           </div>
-        </DialogContent>
-      </Dialog>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left font-medium">
+              <thead>
+                <tr className="bg-slate-50/50">
+                  <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ref ID</th>
+                  <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Employee(s)</th>
+                  <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Type</th>
+                  <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Transition</th>
+                  <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Eff. Date</th>
+                  <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {history.map((req) => (
+                  <tr key={req.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-8 py-6 text-xs font-bold text-blue-600">#{req.id}</td>
+                    <td className="px-8 py-6">
+                      <p className="text-sm font-bold text-slate-700 truncate max-w-xs">{req.employeeNames}</p>
+                    </td>
+                    <td className="px-8 py-6">
+                      <span className={`px-4 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase ${req.type === 'Promotion' ? 'bg-green-50 text-green-600' :
+                        req.type === 'Location' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'
+                        }`}>
+                        {req.type}
+                      </span>
+                    </td>
+                    <td className="px-8 py-6 flex items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-400">{req.from}</span>
+                      <ChevronRight size={14} className="text-slate-300" />
+                      <span className="text-xs font-bold text-slate-700">{req.to}</span>
+                    </td>
+                    <td className="px-8 py-6 text-xs font-bold text-slate-600">{req.effectiveDate}</td>
+                    <td className="px-8 py-6">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        <span className="text-xs font-bold text-slate-700">Committed</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {history.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-8 py-10 text-center text-slate-400 font-medium italic">
+                      No organizational transactions recorded in this session.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
