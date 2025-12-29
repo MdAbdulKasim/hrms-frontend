@@ -177,9 +177,8 @@ export default function LoginForm() {
             const dest = isSetupCompleted ? "/admin/my-space/overview" : "/admin/setup";
             window.location.href = dest;
           } else {
-            // Redirect employees based on actual profile setup status from backend
-            const dest = isEmployeeSetupCompleted ? "/employee/my-space/overview" : "/employee/setup";
-            window.location.href = dest;
+            // Redirect employees directly to overview, bypassing setup
+            window.location.href = "/employee/my-space/overview";
           }
         } else {
           setErrors(prev => ({

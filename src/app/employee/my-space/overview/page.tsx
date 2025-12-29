@@ -1,7 +1,7 @@
 
 
 
-import Dashboard from "@/components/employee/employeedashboard/myspace/dashboard";
+import Dashboard from "@/components/employee/home";
 import Layout from "@/components/layout/Layout";
 
 

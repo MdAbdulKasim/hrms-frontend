@@ -118,8 +118,8 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
                         </div>
 
                         <div className="border-b md:border-b-0 border-gray-100 pb-4 md:pb-0">
-                            <label className="block text-sm font-medium text-gray-500 mb-1">Team Position</label>
-                            <div className="text-gray-900 font-medium capitalize">{candidate.teamPosition === 'lead' ? 'Team Lead' : 'Member'}</div>
+                            <label className="block text-sm font-medium text-gray-500 mb-1">Date of Joining</label>
+                            <div className="text-gray-900 font-medium">{candidate.dateOfJoining || 'N/A'}</div>
                         </div>
 
                         <div className="border-b md:border-b-0 md:border-r border-gray-100 pb-4 md:pb-0 md:pr-4">

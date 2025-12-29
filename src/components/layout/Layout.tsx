@@ -46,7 +46,8 @@ export default function Layout({ children }: LayoutProps) {
       if (role === 'admin') {
         router.push('/admin/setup');
       } else if (role === 'employee') {
-        router.push('/employee/setup');
+        // router.push('/employee/setup');
+        // router.push('/employee/my-space/overview');
       }
     }
   }, [pathname, router, role, isChecking]);

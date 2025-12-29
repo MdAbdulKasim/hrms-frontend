@@ -26,9 +26,14 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
   // New state for row selection
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
+    key: 'fullName',
+    direction: 'asc'
+  });
 
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateForm | null>(null);
-
   const [employees, setEmployees] = useState<Employee[]>([]);
 
   const [candidateForm, setCandidateForm] = useState<CandidateForm>({
@@ -40,7 +45,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
     designationId: '',
     locationId: '',
     reportingToId: '',
-    teamPosition: 'member',
+    dateOfJoining: '',
     shiftType: '',
     timeZone: 'Asia/Kolkata',
     empType: 'permanent',
@@ -49,9 +54,12 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
   useEffect(() => {
     const orgId = getOrgId();
+    console.log("ONBOARDING MOUNT: OrgId detected:", orgId);
     if (orgId) {
       fetchOnboardingData();
       fetchEmployees();
+    } else {
+      console.warn("ONBOARDING MOUNT: No OrgId found, skipping fetch.");
     }
   }, []); // Run on mount
 
@@ -83,6 +91,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
     const orgId = getOrgId();
     const token = getAuthToken();
     const apiUrl = getApiUrl();
+    console.log("FETCH EMPLOYEES: Config:", { apiUrl, orgId, hasToken: !!token });
     if (!orgId || !token) return;
 
     try {
@@ -90,7 +99,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
+      console.log("FETCH EMPLOYEES: Response status:", res.status);
       const employeeData = res.data.data || res.data || [];
+      console.log("FETCH EMPLOYEES: Raw data count:", Array.isArray(employeeData) ? employeeData.length : "Not an array");
       const employeeList = Array.isArray(employeeData) ? employeeData : [];
 
       const formattedEmployees = employeeList.map((emp: any) => ({
@@ -100,14 +111,15 @@ const EmployeeOnboardingSystem: React.FC = () => {
         lastName: emp.lastName || emp.fullName?.split(' ').slice(1).join(' ') || '',
         emailId: emp.email || emp.emailId || '',
         officialEmail: emp.officialEmail || emp.email || '',
-        onboardingStatus: emp.onboardingStatus || emp.status || 'Active',
-        department: emp.department?.departmentName || emp.department || '',
-        sourceOfHire: emp.sourceOfHire || 'Direct',
+        onboardingStatus: String(emp.onboardingStatus || emp.status || 'Active'),
+        department: String(emp.department?.departmentName || emp.department?.name || emp.department || ''),
+        sourceOfHire: String(emp.sourceOfHire || 'Direct'),
         panCard: emp.panCard || '**********',
         aadhaar: emp.aadhaar || '**********',
         uan: emp.uan || '**********'
       }));
 
+      console.log("FETCH EMPLOYEES: Formatted count:", formattedEmployees.length);
       setReportingManagers(formattedEmployees);
       setEmployees(formattedEmployees);
     } catch (error) {
@@ -176,7 +188,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
         designationId: candidateForm.designationId,
         locationId: candidateForm.locationId,
         reportingToId: reportingManagers.length > 0 ? candidateForm.reportingToId : null,
-        teamPosition: candidateForm.teamPosition,
+        dateOfJoining: candidateForm.dateOfJoining,
         shiftType: candidateForm.shiftType,
         timeZone: candidateForm.timeZone,
         empType: candidateForm.empType
@@ -216,7 +228,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
           designationId: '',
           locationId: '',
           reportingToId: '',
-          teamPosition: 'member',
+          dateOfJoining: '',
           shiftType: '',
           timeZone: 'Asia/Kolkata',
           empType: 'permanent',
@@ -236,6 +248,114 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
       const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || "Unknown error";
       alert(`Failed to onboard employee: ${errorMessage}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditEmployee = async (id: string) => {
+    const orgId = getOrgId();
+    const token = getAuthToken();
+    const apiUrl = getApiUrl();
+    if (!orgId || !token) return;
+
+    setIsLoading(true);
+    try {
+      const response = await axios.get(`${apiUrl}/org/${orgId}/employees/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = response.data.data || response.data;
+      // Handle the case where the API might return an array or a single object
+      const emp = Array.isArray(data) ? data[0] : data;
+
+      if (!emp) throw new Error("Employee not found");
+
+      setCandidateForm({
+        fullName: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
+        email: emp.email || emp.emailId || '',
+        phoneNumber: emp.phoneNumber || emp.mobileNumber || '',
+        role: "employee",
+        departmentId: emp.departmentId || emp.department?.id || emp.department?._id || emp.department || '',
+        designationId: emp.designationId || emp.designation?.id || emp.designation?._id || emp.designation || '',
+        locationId: emp.locationId || emp.location?.id || emp.location?._id || emp.location || '',
+        reportingToId: emp.reportingToId || emp.reportingTo?.id || emp.reportingTo?._id || emp.reportingTo || '',
+        dateOfJoining: emp.dateOfJoining ? new Date(emp.dateOfJoining).toISOString().split('T')[0] : '',
+        shiftType: emp.shiftType || emp.shift?.id || emp.shift?._id || emp.shift || 'morning',
+        timeZone: emp.timeZone || 'Asia/Kolkata',
+        empType: emp.empType || 'permanent',
+        employeeStatus: emp.employeeStatus || emp.status || 'Active'
+      });
+      setEditingEmployeeId(id);
+      setCurrentView('addCandidate');
+    } catch (err: any) {
+      console.error(err);
+      alert(`Failed to fetch employee details: ${err.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateCandidate = async () => {
+    const orgId = getOrgId();
+    const token = getAuthToken();
+    const apiUrl = getApiUrl();
+
+    if (!orgId || !token || !editingEmployeeId) {
+      alert("Authentication or operation error. Please try again.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const payload = {
+        fullName: candidateForm.fullName,
+        email: candidateForm.email,
+        phoneNumber: candidateForm.phoneNumber || candidateForm.mobileNumber,
+        role: "employee",
+        departmentId: candidateForm.departmentId,
+        designationId: candidateForm.designationId,
+        locationId: candidateForm.locationId,
+        reportingToId: candidateForm.reportingToId || null,
+        dateOfJoining: candidateForm.dateOfJoining,
+        shiftType: candidateForm.shiftType,
+        timeZone: candidateForm.timeZone,
+        empType: candidateForm.empType
+      };
+
+      await axios.patch(
+        `${apiUrl}/org/${orgId}/employees/${editingEmployeeId}`,
+        payload,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      alert("Employee details updated successfully!");
+      fetchEmployees();
+      setCandidateForm({
+        fullName: '',
+        email: '',
+        phoneNumber: '',
+        role: 'employee',
+        departmentId: '',
+        designationId: '',
+        locationId: '',
+        reportingToId: '',
+        dateOfJoining: '',
+        shiftType: '',
+        timeZone: 'Asia/Kolkata',
+        empType: 'permanent',
+        employeeStatus: 'Active'
+      });
+      setEditingEmployeeId(null);
+      setCurrentView('list');
+    } catch (error: any) {
+      console.error('Update ERROR:', error);
+      const errorMessage = error.response?.data?.message || error.message || "Unknown error";
+      alert(`Failed to update employee: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
@@ -281,7 +401,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
         designationId: emp.designationId || emp.designation?.id || emp.designation?._id || emp.designation,
         locationId: emp.locationId || emp.location?.id || emp.location?._id || emp.location,
         reportingToId: emp.reportingToId || emp.reportingTo?.id || emp.reportingTo?._id || emp.reportingTo,
-        teamPosition: emp.teamPosition || 'member',
+        dateOfJoining: emp.dateOfJoining || '',
         shiftType: emp.shiftType || emp.shift?.id || emp.shift?._id || emp.shift || 'morning',
         timeZone: emp.timeZone || 'Asia/Kolkata',
         empType: emp.empType || 'permanent',
@@ -361,14 +481,14 @@ const EmployeeOnboardingSystem: React.FC = () => {
     if (importType === 'new') {
       headers = [
         'Full Name', 'Email Address', 'Role', 'Reporting To', 'Department',
-        'Team Position', 'Shift', 'Location', 'Time Zone', 'Mobile Number',
+        'Date of Joining', 'Shift', 'Location', 'Time Zone', 'Mobile Number',
         'Employee Type', 'Employee Status'
       ];
     } else {
       headers = [
         'Employee ID', 'Full Name', 'Email ID', 'Official Email', 'Date of Joining',
         'Total Experience', 'Date of Birth', 'Marital Status', 'PAN Number', 'UAN',
-        'Identity Proof', 'Role', 'Department', 'Reporting To', 'Team Position',
+        'Identity Proof', 'Role', 'Department', 'Reporting To',
         'Shift', 'Location', 'Employee Type', 'Employee Status', 'Mobile Number',
         'Present Address', 'Previous Company Name', 'Job Title', 'From Date',
         'To Date', 'Job Description', 'Institute Name', 'Degree', 'Diploma',
@@ -414,11 +534,62 @@ const EmployeeOnboardingSystem: React.FC = () => {
     setCurrentView('list');
   };
 
+  const handleExportCSV = () => {
+    if (employees.length === 0) {
+      alert("No data to export");
+      return;
+    }
+
+    const headers = [
+      'Full Name', 'Email ID', 'Official Email', 'Onboarding Status', 'Department',
+      'Source of Hire', 'PAN Card', 'Aadhaar', 'UAN'
+    ];
+
+    const csvRows = employees.map(emp => [
+      emp.fullName || `${emp.firstName} ${emp.lastName}`,
+      emp.emailId,
+      emp.officialEmail,
+      emp.onboardingStatus,
+      emp.department,
+      emp.sourceOfHire,
+      emp.panCard,
+      emp.aadhaar,
+      emp.uan
+    ].map(val => `"${val}"`).join(','));
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `onboarding_employees_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const filteredEmployees = employees
+    .filter(emp => {
+      const searchStr = searchQuery.toLowerCase();
+      const fullName = (emp.fullName || `${emp.firstName} ${emp.lastName}`).toLowerCase();
+      const email = (emp.emailId || '').toLowerCase();
+      const dept = (emp.department || '').toLowerCase();
+
+      return fullName.includes(searchStr) || email.includes(searchStr) || dept.includes(searchStr);
+    })
+    .sort((a: any, b: any) => {
+      const valA = String(a[sortConfig.key] || '').toLowerCase();
+      const valB = String(b[sortConfig.key] || '').toLowerCase();
+      if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+
   return (
     <>
       {currentView === 'list' && (
         <CandidateList
-          employees={employees}
+          employees={filteredEmployees}
           selectedIds={selectedIds}
           onSelectAll={handleSelectAll}
           onSelectOne={handleSelectOne}
@@ -432,21 +603,31 @@ const EmployeeOnboardingSystem: React.FC = () => {
           onBulkImportClick={() => setCurrentView('bulkImport')}
           onDelete={handleDeleteEmployee}
           onView={handleViewEmployee}
+          onEdit={handleEditEmployee}
           onBulkDelete={handleBulkDelete}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          onExportCSV={handleExportCSV}
+          sortConfig={sortConfig}
+          setSortConfig={setSortConfig}
         />
       )}
       {currentView === 'addCandidate' && (
         <AddCandidateForm
           candidateForm={candidateForm}
           onInputChange={handleInputChange}
-          onAddCandidate={handleAddCandidate}
-          onCancel={() => setCurrentView('list')}
+          onAddCandidate={editingEmployeeId ? handleUpdateCandidate : handleAddCandidate}
+          onCancel={() => {
+            setEditingEmployeeId(null);
+            setCurrentView('list');
+          }}
           departments={departments}
           designations={designations}
           locations={locations}
           reportingManagers={reportingManagers}
           shifts={shifts}
           isLoading={isLoading}
+          isEditing={!!editingEmployeeId}
         />
       )}
       {currentView === 'viewCandidate' && selectedCandidate && (
