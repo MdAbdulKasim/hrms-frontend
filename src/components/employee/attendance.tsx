@@ -19,6 +19,8 @@ import {
   endOfMonth,
   startOfYear,
   endOfYear,
+  startOfWeek,
+  endOfWeek,
   isWithinInterval,
   subDays,
   addDays,
@@ -34,17 +36,26 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import axios from 'axios';
-import { getApiUrl, getAuthToken } from '@/lib/auth';
+import { getOrgId } from '@/lib/auth';
+import attendanceService from '@/lib/attendanceService';
 
 interface AttendanceRecord {
-  date: string; // Dynamic date string or ISO
+  date: string;
   checkIn: string;
   checkOut: string;
   hoursWorked: string;
-  status: 'Present' | 'Late' | 'Leave' | 'Weekend' | 'Absent';
+  status: string;
 }
 
-type ViewMode = 'daily' | 'weekly' | 'monthly' | 'yearly';
+interface PersonalAttendanceRecord {
+  date: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  totalHours?: number;
+  status?: string;
+}
+
+type ViewMode = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'all';
 
 const AttendanceTracker: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('monthly');
@@ -74,27 +85,75 @@ const AttendanceTracker: React.FC = () => {
     const fetchAttendanceData = async () => {
       try {
         setLoading(true);
-        const apiUrl = getApiUrl();
-        const token = getAuthToken();
+        const orgId = getOrgId();
+        if (!orgId) return;
 
-        const response = await axios.get(`${apiUrl}/attendance`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        if (viewMode === 'all') {
+          const res = await attendanceService.getAllAttendance(orgId);
+          if (res && !res.error) {
+            const rawData = res as any;
+            const records = rawData.attendance ||
+              (rawData.data && rawData.data.attendance) ||
+              (Array.isArray(rawData.data) ? rawData.data : (Array.isArray(rawData) ? rawData : []));
 
-        const attendanceData = response.data.data || response.data || [];
+            const transformedData: AttendanceRecord[] = records.map((r: any) => ({
+              date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : '-',
+              checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
+              checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : '-',
+              hoursWorked: r.totalHours ? `${r.totalHours}h` : '-',
+              status: r.status || (r.checkInTime ? 'Present' : 'Absent')
+            }));
 
-        // Transform API data to match component interface
-        const transformedData: AttendanceRecord[] = attendanceData.map((record: any) => ({
-          date: record.date ? new Date(record.date).toISOString().split('T')[0] : '',
-          checkIn: record.checkIn || '-',
-          checkOut: record.checkOut || '-',
-          hoursWorked: record.hoursWorked || '-',
-          status: record.status || 'Present'
-        }));
+            setAllAttendanceData(transformedData);
+          }
+          return; // Skip date range fetching
+        }
 
-        setAllAttendanceData(transformedData);
+        let startDateStr = '';
+        let endDateStr = '';
+
+        const start = viewMode === 'daily' ? currentDate :
+          viewMode === 'weekly' ? startOfWeek(currentDate, { weekStartsOn: 1 }) :
+            viewMode === 'monthly' ? startOfMonth(currentDate) :
+              startOfYear(currentDate);
+
+        const end = viewMode === 'daily' ? currentDate :
+          viewMode === 'weekly' ? endOfWeek(currentDate, { weekStartsOn: 1 }) :
+            viewMode === 'monthly' ? endOfMonth(currentDate) :
+              endOfYear(currentDate);
+
+        startDateStr = format(start, 'yyyy-MM-dd');
+        endDateStr = format(end, 'yyyy-MM-dd');
+
+        const res = await attendanceService.getMyHistory(orgId, startDateStr, endDateStr);
+        if (res && !res.error) {
+          const rawData = res as any;
+          const records = rawData.attendance ||
+            (rawData.data && rawData.data.attendance) ||
+            (Array.isArray(rawData.data) ? rawData.data : (Array.isArray(rawData) ? rawData : []));
+
+          const transformedData: AttendanceRecord[] = records.map((r: any) => {
+            const rawStatus = r.status?.toLowerCase();
+            let status = r.checkInTime ? 'Present' : 'Absent';
+
+            if (rawStatus === 'holiday') status = 'Holiday';
+            else if (rawStatus === 'leave') status = 'Leave';
+            else if (rawStatus === 'weekend') status = 'Weekend';
+            else if (rawStatus === 'present' || r.checkInTime) status = 'Present';
+            else if (rawStatus === 'late') status = 'Late';
+            else if (rawStatus === 'absent') status = 'Absent';
+
+            return {
+              date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : '-',
+              checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
+              checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : '-',
+              hoursWorked: r.totalHours ? `${r.totalHours}h` : '-',
+              status: status
+            };
+          });
+
+          setAllAttendanceData(transformedData);
+        }
       } catch (error) {
         console.error('Error fetching attendance data:', error);
         setAllAttendanceData([]);
@@ -104,51 +163,42 @@ const AttendanceTracker: React.FC = () => {
     };
 
     fetchAttendanceData();
-  }, []);
-
-  const filteredData = useMemo(() => {
-    let start: Date, end: Date;
-
-    switch (viewMode) {
-      case 'daily':
-        return allAttendanceData.filter(d => isSameDay(parse(d.date, 'yyyy-MM-dd', new Date()), currentDate));
-      case 'weekly':
-        start = currentDate;
-        end = addDays(currentDate, 6);
-        break;
-      case 'monthly':
-        start = startOfMonth(currentDate);
-        end = endOfMonth(currentDate);
-        break;
-      case 'yearly':
-        start = startOfYear(currentDate);
-        end = endOfYear(currentDate);
-        break;
-      default:
-        return allAttendanceData;
-    }
-
-    return allAttendanceData.filter(d => {
-      const recordDate = parse(d.date, 'yyyy-MM-dd', new Date());
-      return isWithinInterval(recordDate, { start, end });
-    });
   }, [viewMode, currentDate]);
 
+  const filteredData = allAttendanceData;
+
   const stats = useMemo(() => {
-    const presentCount = filteredData.filter(d => d.status === 'Present').length;
+    const totalRecords = filteredData.length;
+    const workingDaysData = filteredData.filter(d => d.status !== 'Holiday' && d.status !== 'Weekend');
+    const totalWorkingDays = workingDaysData.length;
+
+    const presentCount = filteredData.filter(d => d.status === 'Present' || d.status === 'Late').length;
     const lateCount = filteredData.filter(d => d.status === 'Late').length;
     const leaveCount = filteredData.filter(d => d.status === 'Leave').length;
-    const absentCount = filteredData.filter(d => d.status === 'Absent').length;
-    const totalWorkingDays = filteredData.filter(d => d.status !== 'Weekend').length;
+    const absentCount = workingDaysData.filter(d => d.status === 'Absent').length;
+    const holidayCount = filteredData.filter(d => d.status === 'Holiday').length;
+
+    // Estimate hours
+    let totalMinutes = 0;
+    filteredData.forEach(r => {
+      if (r.hoursWorked && r.hoursWorked !== '-') {
+        const h = parseFloat(r.hoursWorked);
+        if (!isNaN(h)) totalMinutes += h * 60;
+      }
+    });
+
+    const avgMinutes = totalWorkingDays > 0 ? totalMinutes / totalWorkingDays : 0;
+    const totalHoursStr = `${Math.floor(totalMinutes / 60)}h ${Math.round(totalMinutes % 60)}m`;
+    const avgHoursStr = `${Math.floor(avgMinutes / 60)}h ${Math.round(avgMinutes % 60)}m`;
 
     return [
       { icon: CalendarIcon, label: 'Working Days', value: totalWorkingDays.toString(), color: 'text-gray-700' },
       { icon: CheckCircle, label: 'Present', value: presentCount.toString(), color: 'text-green-500' },
       { icon: Clock, label: 'Late', value: lateCount.toString(), color: 'text-yellow-500' },
       { icon: FileText, label: 'Leave', value: leaveCount.toString(), color: 'text-blue-500' },
+      { icon: CalendarIcon, label: 'Holiday', value: holidayCount.toString(), color: 'text-orange-500' },
       { icon: XCircle, label: 'Absent', value: absentCount.toString(), color: 'text-red-500' },
-      { icon: TrendingUp, label: 'Avg Hours', value: '8h 45m', color: 'text-purple-500' },
-      { icon: Timer, label: 'Total Hours', value: '157h 30m', color: 'text-gray-700' },
+      { icon: TrendingUp, label: 'Avg Hours', value: avgHoursStr, color: 'text-purple-500' },
     ];
   }, [filteredData]);
 
@@ -157,6 +207,7 @@ const AttendanceTracker: React.FC = () => {
       case 'Present': return 'bg-green-100 text-green-700';
       case 'Late': return 'bg-yellow-100 text-yellow-700';
       case 'Leave': return 'bg-blue-100 text-blue-700';
+      case 'Holiday': return 'bg-orange-100 text-orange-700';
       case 'Weekend': return 'bg-gray-100 text-gray-600';
       case 'Absent': return 'bg-red-100 text-red-700';
       default: return 'bg-gray-100 text-gray-600';
@@ -169,6 +220,7 @@ const AttendanceTracker: React.FC = () => {
       case 'weekly': setCurrentDate(subWeeks(currentDate, 1)); break;
       case 'monthly': setCurrentDate(subMonths(currentDate, 1)); break;
       case 'yearly': setCurrentDate(subYears(currentDate, 1)); break;
+      case 'all': break;
     }
   };
 
@@ -178,6 +230,7 @@ const AttendanceTracker: React.FC = () => {
       case 'weekly': setCurrentDate(addWeeks(currentDate, 1)); break;
       case 'monthly': setCurrentDate(addMonths(currentDate, 1)); break;
       case 'yearly': setCurrentDate(addYears(currentDate, 1)); break;
+      case 'all': break;
     }
   };
 
@@ -192,39 +245,41 @@ const AttendanceTracker: React.FC = () => {
         return format(currentDate, 'MMMM yyyy');
       case 'yearly':
         return format(currentDate, 'yyyy');
+      case 'all':
+        return 'All Records';
     }
+  };
+
+  const downloadCSV = (headers: string[], rows: any[][], fileName: string) => {
+    const BOM = '\uFEFF';
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(val => {
+        const str = String(val ?? '').replace(/"/g, '""');
+        return `"${str}"`;
+      }).join(','))
+    ].join('\n');
+
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
 
   const handleExportCSV = () => {
     const headers = ['Date', 'Check In', 'Check Out', 'Hours Worked', 'Status'];
     const rows = filteredData.map(r => [
-      format(parse(r.date, 'yyyy-MM-dd', new Date()), 'PP'),
+      r.date,
       r.checkIn,
       r.checkOut,
       r.hoursWorked,
       r.status
     ]);
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(e => e.join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    let fileName = `attendance_${viewMode}_${format(currentDate, 'yyyyMMdd')}.csv`;
-    if (viewMode === 'weekly') {
-      const end = addDays(currentDate, 6);
-      fileName = `attendance_weekly_${format(currentDate, 'yyyyMMdd')}_to_${format(end, 'yyyyMMdd')}.csv`;
-    }
-
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', fileName);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const fileName = `my_attendance_${viewMode}_${format(currentDate, 'yyyyMMdd')}.csv`;
+    downloadCSV(headers, rows, fileName);
   };
 
   return (
@@ -236,23 +291,13 @@ const AttendanceTracker: React.FC = () => {
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">Attendance</h1>
             <p className="text-sm md:text-base text-gray-500">Track your daily attendance</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={handleExportCSV}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Export CSV
-            </Button>
-          </div>
         </div>
 
         {/* Filters and Navigation */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex flex-wrap p-1 bg-gray-100 rounded-lg w-fit">
-              {(['daily', 'weekly', 'monthly', 'yearly'] as ViewMode[]).map((mode) => (
+              {(['daily', 'weekly', 'monthly', 'yearly', 'all'] as ViewMode[]).map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setViewMode(mode)}
@@ -322,8 +367,12 @@ const AttendanceTracker: React.FC = () => {
 
         {/* Attendance History */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <div className="p-4 md:p-6 border-b border-gray-200">
+          <div className="p-4 md:p-6 border-b border-gray-200 flex items-center gap-4">
             <h2 className="text-lg md:text-xl font-bold text-gray-900">Attendance History</h2>
+            <Button onClick={handleExportCSV} variant="outline" size="sm" className="flex items-center gap-2">
+              <Download className="w-4 h-4" />
+              Export CSV
+            </Button>
           </div>
 
           <div className="overflow-x-auto">
@@ -348,7 +397,7 @@ const AttendanceTracker: React.FC = () => {
                   filteredData.map((record, idx) => (
                     <tr key={idx} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 md:px-6 md:py-4 text-sm font-medium text-gray-900 whitespace-nowrap">
-                        {format(parse(record.date, 'yyyy-MM-dd', new Date()), 'EEE, MMM d, yyyy')}
+                        {record.date}
                       </td>
                       <td className="px-4 py-3 md:px-6 md:py-4 text-sm text-gray-700 whitespace-nowrap">{record.checkIn}</td>
                       <td className="px-4 py-3 md:px-6 md:py-4 text-sm text-gray-700 whitespace-nowrap">{record.checkOut}</td>
