@@ -10,6 +10,7 @@ export interface Employee {
     panCard: string;
     aadhaar: string;
     uan: string;
+    fullName?: string;
 }
 
 export interface CandidateForm {
@@ -21,7 +22,7 @@ export interface CandidateForm {
     designationId: string;
     locationId: string;
     reportingToId: string;
-    teamPosition: 'member' | 'lead';
+    dateOfJoining: string;
     shiftType: string;
     timeZone: string;
     empType: string;
@@ -31,4 +32,4 @@ export interface CandidateForm {
     employeeStatus?: string;
 }
 
-export type OnboardingView = 'list' | 'addCandidate' | 'bulkImport' | 'viewCandidate';
+export type OnboardingView = 'list' | 'addCandidate' | 'bulkImport' | 'viewCandidate' | 'editCandidate';

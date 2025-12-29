@@ -157,7 +157,8 @@ export const requiresSetup = (role: 'admin' | 'employee' | string | null): boole
     if (role === 'admin') {
         return !checkSetupStatus();
     } else if (role === 'employee') {
-        return !checkEmployeeSetupStatus();
+        // Employee setup is currently bypassed as per request
+        return false;
     }
     return false;
 };

@@ -213,7 +213,7 @@ const Dashboard: React.FC = () => {
           <AnnouncementsSection />
  
           {/* Upcoming Holidays - Extracted Component */}
-          <UpcomingHolidaysSection />
+          {/* <UpcomingHolidaysSection /> */}
         </div>
  
         {/* Bottom Row */}

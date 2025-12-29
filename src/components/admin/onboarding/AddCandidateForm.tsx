@@ -107,6 +107,7 @@ interface AddCandidateFormProps {
     reportingManagers: any[];
     shifts: any[];
     isLoading: boolean;
+    isEditing?: boolean;
 }
 
 const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
@@ -120,12 +121,13 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
     reportingManagers,
     shifts,
     isLoading,
+    isEditing = false,
 }) => {
     return (
         <div className="min-h-screen bg-gray-50 p-4 md:p-8">
             <div className="max-w-5xl mx-auto">
                 <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-xl md:text-2xl font-bold">Add Candidate</h1>
+                    <h1 className="text-xl md:text-2xl font-bold">{isEditing ? 'Edit Employee' : 'Add Candidate'}</h1>
                     <button
                         onClick={onCancel}
                         className="p-2 hover:bg-gray-200 rounded-full"
@@ -229,32 +231,14 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Team Position
+                                Date of Joining
                             </label>
-                            <div className="flex flex-wrap gap-4 mt-2">
-                                <label className="flex items-center gap-2">
-                                    <input
-                                        type="radio"
-                                        name="teamPosition"
-                                        value="lead"
-                                        checked={candidateForm.teamPosition === 'lead'}
-                                        onChange={(e) => onInputChange('teamPosition', e.target.value)}
-                                        className="w-4 h-4 text-blue-600"
-                                    />
-                                    <span className="text-sm text-gray-700">Team Lead</span>
-                                </label>
-                                <label className="flex items-center gap-2">
-                                    <input
-                                        type="radio"
-                                        name="teamPosition"
-                                        value="member"
-                                        checked={candidateForm.teamPosition === 'member'}
-                                        onChange={(e) => onInputChange('teamPosition', e.target.value)}
-                                        className="w-4 h-4 text-blue-600"
-                                    />
-                                    <span className="text-sm text-gray-700">Member</span>
-                                </label>
-                            </div>
+                            <input
+                                type="date"
+                                value={candidateForm.dateOfJoining || ''}
+                                onChange={(e) => onInputChange('dateOfJoining', e.target.value)}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
                         </div>
 
                         <SearchableSelect
@@ -323,7 +307,7 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                             </svg>
                         )}
-                        {isLoading ? 'Processing...' : 'Send Onboarding Invitation'}
+                        {isLoading ? (isEditing ? 'Updating...' : 'Adding...') : (isEditing ? 'Update Employee' : 'Add Candidate')}
                     </button>
                 </div>
             </div>

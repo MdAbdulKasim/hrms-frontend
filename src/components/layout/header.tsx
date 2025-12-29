@@ -52,7 +52,7 @@ const employeeNavigationConfig: MainTab[] = [
     subTabs: [
       { name: 'Overview', path: '/employee/my-space/overview' },
       { name: 'Dashboard', path: '/employee/my-space/dashboard' },
-      { name: 'Calendar', path: '/employee/my-space/calendar' }
+      { name: 'Calendar', path: '/employee/my-space/calender' }
     ]
   },
   {

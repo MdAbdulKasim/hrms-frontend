@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Calendar, X } from 'lucide-react';
+import { Calendar, X, Plus } from 'lucide-react';
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 
@@ -137,9 +137,10 @@ const UpcomingHolidaysSection: React.FC = () => {
           </div>
           <button
             onClick={() => setShowHolidayModal(true)}
-            className="text-blue-500 hover:text-blue-600 text-2xl leading-none px-2 transition-colors"
+            className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors bg-blue-50 px-3 py-1.5 rounded-md border border-blue-100"
           >
-            +
+            <Plus className="w-4 h-4" />
+            <span>Add Holiday</span>
           </button>
         </div>
         <div className="space-y-3">
@@ -159,7 +160,7 @@ const UpcomingHolidaysSection: React.FC = () => {
       {showHolidayModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
           <div className="relative w-full max-w-sm gap-4 border border-slate-200 bg-white p-6 shadow-lg sm:rounded-lg animate-in fade-in-0 zoom-in-95 duration-200">
-            
+
             <div className="flex flex-col space-y-1.5 text-center sm:text-left mb-5">
               <h2 className="text-lg font-semibold leading-none tracking-tight text-slate-900">Add Holiday</h2>
               <p className="text-sm text-slate-500">Schedule a new upcoming holiday.</p>
