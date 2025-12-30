@@ -29,8 +29,6 @@ import {
 import { getApiUrl, getAuthToken, getOrgId } from "@/lib/auth"
 import PayRunDialog from "./payrundialog"
 
-
-
 /* ================= TYPES ================= */
 
 export interface SalaryEmployee {
@@ -51,61 +49,103 @@ export default function SalaryPage() {
   const router = useRouter()
   const [employees, setEmployees] = useState<SalaryEmployee[]>([])
   const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] =
-    useState<"all" | "Paid" | "Pending">("all")
+  const [statusFilter, setStatusFilter] = useState<"all" | "Paid" | "Pending">("all")
   const [page, setPage] = useState(1)
   const [openPayRun, setOpenPayRun] = useState(false)
 
+  // Filters state
+  const [departments, setDepartments] = useState<any[]>([])
+  const [designations, setDesignations] = useState<any[]>([])
+  const [locations, setLocations] = useState<any[]>([])
+  const [deptFilter, setDeptFilter] = useState("all")
+  const [desigFilter, setDesigFilter] = useState("all")
+  const [locFilter, setLocFilter] = useState("all")
+
   const ITEMS_PER_PAGE = 5
 
-  /* ================= FETCH EMPLOYEES ================= */
+  /* ================= FETCH DATA ================= */
 
   useEffect(() => {
-    fetchEmployees()
+    fetchData()
   }, [])
 
-  const fetchEmployees = async () => {
+  const fetchData = async () => {
     const orgId = getOrgId()
     const token = getAuthToken()
     const apiUrl = getApiUrl()
 
-    if (!orgId || !token) return
+    if (!orgId || !token) {
+      console.error("Missing authentication credentials")
+      return
+    }
 
     try {
-      const res = await axios.get(
-        `${apiUrl}/org/${orgId}/employees`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
+      const headers = { Authorization: `Bearer ${token}` }
+
+      const [empRes, deptRes, desigRes, locRes] = await Promise.all([
+        axios.get(`${apiUrl}/org/${orgId}/employees`, { headers }),
+        axios.get(`${apiUrl}/org/${orgId}/departments`, { headers }),
+        axios.get(`${apiUrl}/org/${orgId}/designations`, { headers }),
+        axios.get(`${apiUrl}/org/${orgId}/locations`, { headers })
+      ])
+
+      // Parse metadata
+      const departmentsData = deptRes.data.data || deptRes.data || []
+      const designationsData = desigRes.data.data || desigRes.data || []
+      const locationsData = locRes.data.data || locRes.data || []
+
+      setDepartments(departmentsData)
+      setDesignations(designationsData)
+      setLocations(locationsData)
+
+      // Create Lookups for ID -> Name
+      const deptMap = new Map<string, string>(departmentsData.map((d: any) => [d.id || d._id, d.departmentName || d.name]))
+      const desigMap = new Map<string, string>(designationsData.map((d: any) => [d.id || d._id, d.designationName || d.name]))
+      const locMap = new Map<string, string>(locationsData.map((d: any) => [d.id || d._id, d.locationName || d.name]))
+
+      // Process Employees
+      const empData = empRes.data.data || empRes.data || []
+      const formatted: SalaryEmployee[] = empData.map((emp: any) => {
+        // Resolve Department
+        let deptName = emp.department?.departmentName || emp.department?.name || emp.departmentName || ""
+        if (!deptName && (emp.department || emp.departmentId)) {
+          const id = typeof emp.department === 'object' ? (emp.department.id || emp.department._id) : (emp.department || emp.departmentId)
+          deptName = deptMap.get(id) || ""
         }
-      )
 
-      const data = res.data.data || res.data || []
+        // Resolve Designation
+        let desigName = emp.designation?.designationName || emp.designation?.name || emp.designationName || ""
+        if (!desigName && (emp.designation || emp.designationId)) {
+          const id = typeof emp.designation === 'object' ? (emp.designation.id || emp.designation._id) : (emp.designation || emp.designationId)
+          desigName = desigMap.get(id) || ""
+        }
 
-      const formatted: SalaryEmployee[] = data.map((emp: any) => ({
-        id: emp.id || emp._id,
-        name:
-          emp.fullName ||
-          `${emp.firstName || ""} ${emp.lastName || ""}`.trim(),
-        department:
-          emp.department?.departmentName ||
-          emp.department?.name ||
-          "",
-        designation:
-          emp.designation?.designationName ||
-          emp.designation?.name ||
-          "",
-        location:
-          emp.location?.locationName ||
-          emp.location?.name ||
-          "",
-        salary: Number(emp.salary || emp.ctc || 0),
-        status: emp.salaryStatus === "Paid" ? "Paid" : "Pending",
-        selected: false,
-      }))
+        // Resolve Location
+        let locName = emp.location?.locationName || emp.location?.name || emp.locationName || ""
+        if (!locName && (emp.location || emp.locationId)) {
+          const id = typeof emp.location === 'object' ? (emp.location.id || emp.location._id) : (emp.location || emp.locationId)
+          locName = locMap.get(id) || ""
+        }
+
+        return {
+          id: emp.id || emp._id,
+          name: emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "",
+          department: deptName || "N/A",
+          designation: desigName || "N/A",
+          location: locName || "N/A",
+          salary: Number(emp.salary || emp.ctc || emp.baseSalary || 0),
+          status: "Pending", // Default to Pending, will be updated after payment
+          selected: false,
+        }
+      })
 
       setEmployees(formatted)
-    } catch (error) {
-      console.error("Failed to fetch salary employees", error)
+
+    } catch (error: any) {
+      console.error("Failed to fetch data", error)
+      if (error.response?.status === 401) {
+        alert("Authentication failed. Please log in again.")
+      }
     }
   }
 
@@ -116,12 +156,21 @@ export default function SalaryPage() {
       .filter((e) =>
         statusFilter === "all" ? true : e.status === statusFilter
       )
+      .filter((e) =>
+        deptFilter === "all" ? true : e.department === deptFilter
+      )
+      .filter((e) =>
+        desigFilter === "all" ? true : e.designation === desigFilter
+      )
+      .filter((e) =>
+        locFilter === "all" ? true : e.location === locFilter
+      )
       .filter(
         (e) =>
           e.name.toLowerCase().includes(search.toLowerCase()) ||
           e.department.toLowerCase().includes(search.toLowerCase())
       )
-  }, [employees, search, statusFilter])
+  }, [employees, search, statusFilter, deptFilter, desigFilter, locFilter])
 
   /* ================= PAGINATION ================= */
 
@@ -160,18 +209,8 @@ export default function SalaryPage() {
   /* ================= PAY RUN CONFIRM ================= */
 
   const handlePayConfirm = (paidDate: Date) => {
-    setEmployees((prev) =>
-      prev.map((e) =>
-        e.selected
-          ? {
-              ...e,
-              status: "Paid",
-              selected: false,
-              paidDate,
-            }
-          : e
-      )
-    )
+    // Refresh the unpaid salary list after successful payment
+    fetchData()
     setOpenPayRun(false)
   }
 
@@ -211,7 +250,7 @@ export default function SalaryPage() {
   /* ================= UI ================= */
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+    <div className="p-6 space-y-6 bg-white min-h-screen">
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <div>
@@ -222,8 +261,8 @@ export default function SalaryPage() {
         </div>
 
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => router.push('/admin/salary/history')}
           >
             <History className="w-4 h-4 mr-2" />
@@ -233,7 +272,7 @@ export default function SalaryPage() {
           <Button
             disabled={selectedCount === 0}
             onClick={() => setOpenPayRun(true)}
-            className="bg-blue-600 text-white"
+            className="bg-blue-600 text-white hover:bg-blue-700"
           >
             Pay Run ({selectedCount})
           </Button>
@@ -267,11 +306,12 @@ export default function SalaryPage() {
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* Status Filter */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="rounded-none border-l">
                 <Filter className="w-4 h-4 mr-2" />
-                Filter
+                Status: {statusFilter === 'all' ? 'All' : statusFilter}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
@@ -284,6 +324,66 @@ export default function SalaryPage() {
               <DropdownMenuItem onClick={() => setStatusFilter("Pending")}>
                 Unpaid
               </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Department Filter */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="rounded-none border-l">
+                Department: {deptFilter === 'all' ? 'All' : deptFilter}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => setDeptFilter("all")}>All</DropdownMenuItem>
+              {departments.map((dept) => (
+                <DropdownMenuItem
+                  key={dept.id || dept._id}
+                  onClick={() => setDeptFilter(dept.departmentName || dept.name)}
+                >
+                  {dept.departmentName || dept.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Designation Filter */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="rounded-none border-l">
+                Designation: {desigFilter === 'all' ? 'All' : desigFilter}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => setDesigFilter("all")}>All</DropdownMenuItem>
+              {designations.map((desig) => (
+                <DropdownMenuItem
+                  key={desig.id || desig._id}
+                  onClick={() => setDesigFilter(desig.designationName || desig.name)}
+                >
+                  {desig.designationName || desig.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Location Filter */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="rounded-none border-l">
+                Location: {locFilter === 'all' ? 'All' : locFilter}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => setLocFilter("all")}>All</DropdownMenuItem>
+              {locations.map((loc) => (
+                <DropdownMenuItem
+                  key={loc.id || loc._id}
+                  onClick={() => setLocFilter(loc.locationName || loc.name)}
+                >
+                  {loc.locationName || loc.name}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -329,11 +429,10 @@ export default function SalaryPage() {
                 <TableCell>₹{e.salary.toLocaleString()}</TableCell>
                 <TableCell>
                   <span
-                    className={`px-3 py-1 rounded-full text-xs ${
-                      e.status === "Paid"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-gray-100 text-gray-600"
-                    }`}
+                    className={`px-3 py-1 rounded-full text-xs ${e.status === "Paid"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-gray-100 text-gray-600"
+                      }`}
                   >
                     {e.status}
                   </span>
@@ -375,4 +474,3 @@ export default function SalaryPage() {
     </div>
   )
 }
-

@@ -32,12 +32,18 @@ import {
   ChevronDown,
   Download,
   Eye,
-  FileText,
   Search,
 } from "lucide-react"
 import { getApiUrl, getAuthToken, getOrgId } from "@/lib/auth"
 
 /* ================= TYPES ================= */
+
+interface DeductionBreakdown {
+  homeDeduction: number
+  foodDeduction: number
+  travelDeduction: number
+  insuranceDeduction: number
+}
 
 interface PayHistoryRecord {
   id: string
@@ -46,12 +52,14 @@ interface PayHistoryRecord {
   department: string
   designation: string
   grossSalary: number
-  deductions: number
+  totalDeductions: number
   netPay: number
-  payPeriod: string
+  payPeriodStart: string
+  payPeriodEnd: string
   paidDate: Date
   paymentMethod: string
   transactionId?: string
+  deductionBreakdown: DeductionBreakdown
 }
 
 /* ================= PAGE ================= */
@@ -66,47 +74,70 @@ export default function PayHistoryPage() {
     useState<"all" | "month" | "quarter" | "year">("all")
   const [viewDetails, setViewDetails] =
     useState<PayHistoryRecord | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const ITEMS_PER_PAGE = 10
 
   /* ================= FETCH ================= */
 
   useEffect(() => {
     fetchHistory()
-  }, [])
+  }, [currentPage])
 
   const fetchHistory = async () => {
+    setLoading(true)
     const orgId = getOrgId()
     const token = getAuthToken()
     const apiUrl = getApiUrl()
 
     if (!orgId || !token) return
 
-    setLoading(true)
     try {
-      const res = await axios.get(
-        `${apiUrl}/org/${orgId}/payroll/history`,
+      // Fetch paginated salary records
+      // GET /org/:organizationId/salaries
+      const response = await axios.get(
+        `${apiUrl}/org/${orgId}/salaries`,
         {
           headers: { Authorization: `Bearer ${token}` },
+          params: {
+            page: currentPage,
+            limit: ITEMS_PER_PAGE,
+          },
         }
       )
 
-      const rows = res.data?.data || []
+      console.log('Salary history response:', response.data)
 
-      const formatted: PayHistoryRecord[] = rows.map((r: any) => ({
-        id: r.id || r._id,
-        employeeId: r.employee?.id,
-        employeeName: r.employee?.fullName || "",
-        department: r.employee?.department?.name || "",
-        designation: r.employee?.designation?.name || "",
-        grossSalary: Number(r.grossSalary || 0),
-        deductions: Number(r.deductions || 0),
-        netPay: Number(r.netPay || 0),
-        payPeriod: r.payPeriod,
-        paidDate: new Date(r.paidDate),
-        paymentMethod: r.paymentMethod || "Bank Transfer",
-        transactionId: r.transactionId,
-      }))
+      const rows = response.data?.data || []
+      const apiTotalPages = response.data?.totalPages || 1
+
+      // Filter for paid records only and format
+      const formatted: PayHistoryRecord[] = rows
+        .filter((r: any) => r.status === "paid")
+        .map((r: any) => ({
+          id: r.id || r._id,
+          employeeId: r.employeeId,
+          employeeName: r.employeeName || "",
+          department: r.department || "",
+          designation: r.designation || "",
+          grossSalary: Number(r.grossSalary || 0),
+          totalDeductions: Number(r.totalDeductions || 0),
+          netPay: Number(r.netSalary || 0),
+          payPeriodStart: r.payPeriodStart || "",
+          payPeriodEnd: r.payPeriodEnd || "",
+          paidDate: new Date(r.paidDate),
+          paymentMethod: r.paymentMethod || "Bank Transfer",
+          transactionId: r.transactionId,
+          deductionBreakdown: r.deductionBreakdown || {
+            homeDeduction: 0,
+            foodDeduction: 0,
+            travelDeduction: 0,
+            insuranceDeduction: 0,
+          },
+        }))
 
       setHistory(formatted)
+      setTotalPages(apiTotalPages)
     } catch (err) {
       console.error("Pay history fetch failed", err)
     } finally {
@@ -125,7 +156,8 @@ export default function PayHistoryPage() {
           r.employeeName +
           r.department +
           r.designation +
-          r.payPeriod
+          r.payPeriodStart +
+          r.payPeriodEnd
 
         if (!text.toLowerCase().includes(search.toLowerCase()))
           return false
@@ -140,7 +172,7 @@ export default function PayHistoryPage() {
         if (dateFilter === "quarter") {
           return (
             Math.floor(r.paidDate.getMonth() / 3) ===
-              Math.floor(now.getMonth() / 3) &&
+            Math.floor(now.getMonth() / 3) &&
             r.paidDate.getFullYear() === now.getFullYear()
           )
         }
@@ -174,7 +206,7 @@ export default function PayHistoryPage() {
         r.grossSalary,
         r.netPay,
         r.paidDate.toLocaleDateString(),
-        r.payPeriod,
+        `${r.payPeriodStart} to ${r.payPeriodEnd}`,
       ]),
     ]
       .map((r) => r.join(","))
@@ -192,7 +224,7 @@ export default function PayHistoryPage() {
   /* ================= UI ================= */
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+    <div className="p-6 space-y-6 bg-white min-h-screen">
       {/* HEADER */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
@@ -283,7 +315,7 @@ export default function PayHistoryPage() {
                     {r.employeeName}
                   </TableCell>
                   <TableCell>{r.department}</TableCell>
-                  <TableCell>{r.payPeriod}</TableCell>
+                  <TableCell>{r.payPeriodStart} to {r.payPeriodEnd}</TableCell>
                   <TableCell>₹{r.grossSalary.toLocaleString()}</TableCell>
                   <TableCell className="text-green-600 font-semibold">
                     ₹{r.netPay.toLocaleString()}
@@ -307,6 +339,27 @@ export default function PayHistoryPage() {
         </Table>
       </div>
 
+      {/* PAGINATION */}
+      <div className="flex justify-end items-center gap-2">
+        <Button
+          variant="outline"
+          disabled={currentPage === 1}
+          onClick={() => setCurrentPage((p) => p - 1)}
+        >
+          Previous
+        </Button>
+        <span className="text-sm">
+          Page {currentPage} of {totalPages}
+        </span>
+        <Button
+          variant="outline"
+          disabled={currentPage === totalPages}
+          onClick={() => setCurrentPage((p) => p + 1)}
+        >
+          Next
+        </Button>
+      </div>
+
       {/* DETAILS MODAL */}
       {viewDetails && (
         <Dialog open onOpenChange={() => setViewDetails(null)}>
@@ -319,9 +372,18 @@ export default function PayHistoryPage() {
               <p><b>Employee:</b> {viewDetails.employeeName}</p>
               <p><b>Department:</b> {viewDetails.department}</p>
               <p><b>Designation:</b> {viewDetails.designation}</p>
-              <p><b>Pay Period:</b> {viewDetails.payPeriod}</p>
+              <p><b>Pay Period:</b> {viewDetails.payPeriodStart} to {viewDetails.payPeriodEnd}</p>
               <p><b>Gross:</b> ₹{viewDetails.grossSalary.toLocaleString()}</p>
-              <p><b>Deductions:</b> ₹{viewDetails.deductions.toLocaleString()}</p>
+              <p><b>Total Deductions:</b> ₹{viewDetails.totalDeductions.toLocaleString()}</p>
+              <div className="mt-3">
+                <p className="font-semibold mb-2">Deduction Breakdown:</p>
+                <div className="ml-4 space-y-1 text-sm">
+                  <p>• Home: ₹{viewDetails.deductionBreakdown.homeDeduction.toLocaleString()}</p>
+                  <p>• Food: ₹{viewDetails.deductionBreakdown.foodDeduction.toLocaleString()}</p>
+                  <p>• Travel: ₹{viewDetails.deductionBreakdown.travelDeduction.toLocaleString()}</p>
+                  <p>• Insurance: ₹{viewDetails.deductionBreakdown.insuranceDeduction.toLocaleString()}</p>
+                </div>
+              </div>
               <p className="font-bold text-green-600">
                 Net Pay: ₹{viewDetails.netPay.toLocaleString()}
               </p>
