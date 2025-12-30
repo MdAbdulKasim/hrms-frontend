@@ -4,23 +4,21 @@ import { useState, useEffect } from "react";
 import { Search, ArrowLeft, Download, X, Filter } from "lucide-react";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import leaveService from "@/lib/leaveService";
-import { getOrgId } from "@/lib/auth";
+import axios from 'axios';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 
 export interface LeaveRecord {
   id: string;
   employeeName?: string;
+  employeeId?: string;
   leaveTypeCode: string;
+  leaveType?: string;
   startDate: string;
   endDate: string;
-  totalDays: number;
+  totalDays?: number;
+  days?: number;
   status: string;
   reason?: string;
-}
-
-export interface LeaveType {
-  code: string;
-  name: string;
 }
 
 export default function LeaveReportPage() {
@@ -29,6 +27,7 @@ export default function LeaveReportPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [employeeMap, setEmployeeMap] = useState<{ [key: string]: string }>({});
 
   // Selection states
   const [selectedRecords, setSelectedRecords] = useState<Set<number>>(new Set());
@@ -42,6 +41,46 @@ export default function LeaveReportPage() {
   const [filterStatus, setFilterStatus] = useState("");
   const [filterLeaveType, setFilterLeaveType] = useState("");
 
+  // Fetch employees for name mapping
+  const fetchEmployees = async () => {
+    if (!organizationId) return;
+    try {
+      const apiUrl = getApiUrl();
+      const token = getAuthToken();
+      const response = await axios.get(`${apiUrl}/org/${organizationId}/employees`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const employees = Array.isArray(response.data) ? response.data : (response.data.data || []);
+      const mapping: { [key: string]: string } = {};
+      employees.forEach((emp: any) => {
+        const fullName = emp.fullName || 
+          `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 
+          emp.name || 
+          emp.email || 
+          'Unknown';
+        mapping[emp.id] = fullName;
+      });
+      setEmployeeMap(mapping);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+    }
+  };
+
+  // Helper function to calculate days between two dates
+  const calculateDays = (startDate: string, endDate: string): number => {
+    try {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+      const diffTime = end.getTime() - start.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      return diffDays > 0 ? diffDays : 1;
+    } catch (error) {
+      return 1;
+    }
+  };
+
   // Fetch leave data
   const fetchLeaveData = async () => {
     if (!organizationId) {
@@ -54,32 +93,61 @@ export default function LeaveReportPage() {
     setError(null);
 
     try {
-      const response = await leaveService.getLeaveReport(organizationId);
+      const apiUrl = getApiUrl();
+      const token = getAuthToken();
+      
+      // Use the same endpoint as LeaveTracker
+      const response = await axios.get(`${apiUrl}/org/${organizationId}/leaves/admin/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-      if (response.error || response.success === false) {
-        setError(response.error || "Failed to fetch leave report");
-        setLeaveData([]);
-        return;
+      console.log('API Response:', response.data);
+
+      // Handle different response structures
+      let data = response.data;
+      
+      // If response has a data property, use that
+      if (data && typeof data === 'object' && 'data' in data) {
+        data = data.data;
       }
 
-      const data = response.data;
+      // Ensure we have an array
+      const leaves = Array.isArray(data) ? data : [];
 
-      if (Array.isArray(data)) {
-        const leaveRecords = data.filter(
-          (item: any) =>
-            "leaveTypeCode" in item &&
-            "startDate" in item &&
-            "endDate" in item &&
-            "status" in item
-        ) as LeaveRecord[];
-        setLeaveData(leaveRecords);
-      } else if (data && typeof data === "object") {
-        setLeaveData([data as LeaveRecord]);
-      } else {
-        setLeaveData([]);
+      console.log('Processed leaves:', leaves);
+
+      // Transform and enrich the data
+      const enrichedLeaves = leaves.map((leave: any) => {
+        const employeeId = leave.employeeId || leave.employee?.id;
+        const employeeName = leave.employeeName || 
+          (leave.employee && (leave.employee.fullName || leave.employee.name || `${leave.employee.firstName || ''} ${leave.employee.lastName || ''}`.trim())) ||
+          employeeMap[employeeId] ||
+          'Unknown';
+
+        // Calculate days if not present
+        const days = leave.totalDays || leave.days || calculateDays(leave.startDate, leave.endDate);
+
+        return {
+          id: leave.id,
+          employeeId: employeeId,
+          employeeName: employeeName,
+          leaveTypeCode: leave.leaveTypeCode || leave.leaveType || 'Unknown',
+          startDate: leave.startDate,
+          endDate: leave.endDate,
+          totalDays: days,
+          status: leave.status || 'pending',
+          reason: leave.reason || ''
+        } as LeaveRecord;
+      });
+
+      setLeaveData(enrichedLeaves);
+      
+      if (enrichedLeaves.length === 0) {
+        console.warn('No leave records found after processing');
       }
     } catch (err: any) {
-      setError(err.message || "Unexpected error occurred");
+      console.error('Error fetching leave data:', err);
+      setError(err.response?.data?.error || err.message || "Failed to fetch leave report");
       setLeaveData([]);
     } finally {
       setLoading(false);
@@ -87,8 +155,19 @@ export default function LeaveReportPage() {
   };
 
   useEffect(() => {
-    fetchLeaveData();
-  }, []);
+    if (organizationId) {
+      fetchEmployees();
+    }
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (organizationId && Object.keys(employeeMap).length > 0) {
+      fetchLeaveData();
+    } else if (organizationId) {
+      // Fetch anyway if no employees (might be a small org or data issue)
+      fetchLeaveData();
+    }
+  }, [organizationId, employeeMap]);
 
   const handleBack = () => {
     window.history.back();
@@ -141,12 +220,12 @@ export default function LeaveReportPage() {
   });
 
   const handleExportPDF = () => {
-    // If no record selected, export all visible data
     const dataToExport = selectedRecords.size === 0 
       ? filteredLeaves 
       : Array.from(selectedRecords).map(index => filteredLeaves[index]);
 
     if (!dataToExport || dataToExport.length === 0) {
+      alert("No records to export");
       setShowExportDropdown(false);
       return;
     }
@@ -154,20 +233,18 @@ export default function LeaveReportPage() {
     try {
       const doc = new jsPDF();
 
-      // Title and metadata
       doc.setFontSize(18);
       doc.text('Leave Report', 14, 20);
       doc.setFontSize(10);
       doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
       doc.text(`Total Records: ${dataToExport.length}`, 14, 36);
 
-      // Table body
       const tableData = dataToExport.map(record => [
         record.employeeName || 'N/A',
         record.leaveTypeCode,
         new Date(record.startDate).toLocaleDateString(),
         new Date(record.endDate).toLocaleDateString(),
-        record.totalDays.toString(),
+        (record.totalDays || 0).toString(),
         record.status,
         record.reason || '-'
       ]);
@@ -193,6 +270,7 @@ export default function LeaveReportPage() {
       doc.save(`leave-report-${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (err) {
       console.error('Error generating PDF:', err);
+      alert("Failed to generate PDF");
     } finally {
       setShowExportDropdown(false);
     }
@@ -205,10 +283,10 @@ export default function LeaveReportPage() {
 
     if (dataToExport.length === 0) {
       alert("No records to export");
+      setShowExportDropdown(false);
       return;
     }
 
-    // Create CSV content
     const headers = ['Employee', 'Leave Type', 'Start Date', 'End Date', 'Days', 'Status', 'Reason'];
     const csvRows = [headers.join(',')];
 
@@ -218,7 +296,7 @@ export default function LeaveReportPage() {
         `"${record.leaveTypeCode}"`,
         `"${new Date(record.startDate).toLocaleDateString()}"`,
         `"${new Date(record.endDate).toLocaleDateString()}"`,
-        `"${record.totalDays}"`,
+        `"${record.totalDays || 0}"`,
         `"${record.status}"`,
         `"${record.reason || '-'}"`
       ];
@@ -251,7 +329,6 @@ export default function LeaveReportPage() {
     }
   };
 
-  // Get unique leave types for filter
   const uniqueLeaveTypes = Array.from(new Set(leaveData.map(l => l.leaveTypeCode)));
 
   return (
@@ -297,7 +374,6 @@ export default function LeaveReportPage() {
             </button>
           </div>
 
-          {/* Filters Dropdown */}
           {showFilters && (
             <div className="mt-4 pt-4 border-t border-gray-200">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -347,7 +423,6 @@ export default function LeaveReportPage() {
           )}
         </div>
 
-        {/* Selection Actions */}
         {selectedRecords.size > 0 && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-center justify-between">
             <p className="text-sm font-medium text-blue-900">
@@ -393,7 +468,6 @@ export default function LeaveReportPage() {
           </div>
         )}
 
-        {/* Click outside to close dropdown */}
         {showExportDropdown && (
           <div 
             className="fixed inset-0 z-0" 
@@ -401,14 +475,12 @@ export default function LeaveReportPage() {
           />
         )}
 
-        {/* Error Message */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
             <p className="font-medium">Error: {error}</p>
           </div>
         )}
 
-        {/* Table */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -493,7 +565,7 @@ export default function LeaveReportPage() {
                         {new Date(leave.endDate).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {leave.totalDays}
+                        {leave.totalDays || 0}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
@@ -515,7 +587,6 @@ export default function LeaveReportPage() {
           </div>
         </div>
 
-        {/* Results count */}
         {!loading && filteredLeaves.length > 0 && (
           <div className="mt-4 text-sm text-gray-600 text-center">
             Showing {filteredLeaves.length} of {leaveData.length} records

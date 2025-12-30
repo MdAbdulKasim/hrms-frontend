@@ -1,359 +1,281 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Download, Search, X, Filter, User, ArrowLeft } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
+import { Search, ArrowLeft, Download, X, Filter, User } from "lucide-react";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import axios from 'axios';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 
-// Employee Service
-const employeeService = {
-  async getAll(organizationId: string, params?: { page?: number; limit?: number; q?: string }) {
-    try {
-      const queryParams = new URLSearchParams();
-      if (params?.page) queryParams.append('page', params.page.toString());
-      if (params?.limit) queryParams.append('limit', params.limit.toString());
-      if (params?.q) queryParams.append('q', params.q);
-      
-      const response = await fetch(
-        `${getApiUrl()}/org/${organizationId}/employees${queryParams.toString() ? '?' + queryParams.toString() : ''}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${getAuthToken()}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      if (!response.ok) throw new Error('Failed to fetch employees');
-      return await response.json();
-    } catch (error: any) {
-      console.error('Error:', error);
-      return { error: error.message };
-    }
-  },
-};
+export interface EmployeeRecord {
+  id: string;
+  employeeId?: string;
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phoneNumber?: string;
+  department?: any;
+  departmentId?: string;
+  designation?: any;
+  designationId?: string;
+  location?: any;
+  locationId?: string;
+  dateOfJoining?: string;
+  status?: string;
+}
 
 export default function EmployeeReportPage() {
   const organizationId = getOrgId();
-  const router = useRouter();
-  
-  const [loading, setLoading] = useState(false);
-  const [employeeData, setEmployeeData] = useState<any[]>([]);
+  const [employeeData, setEmployeeData] = useState<EmployeeRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  // Search and pagination states
-  const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalEmployees, setTotalEmployees] = useState(0);
-  const [showFilters, setShowFilters] = useState(false);
-
-  // Filter states
-  const [departmentFilter, setDepartmentFilter] = useState("");
-  const [designationFilter, setDesignationFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  // Lookup maps
+  const [departmentsMap, setDepartmentsMap] = useState<{ [key: string]: string }>({});
+  const [designationsMap, setDesignationsMap] = useState<{ [key: string]: string }>({});
+  const [locationsMap, setLocationsMap] = useState<{ [key: string]: string }>({});
 
   // Selection states
   const [selectedRecords, setSelectedRecords] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
+
   // Export dropdown state
   const [showExportDropdown, setShowExportDropdown] = useState(false);
 
-  // Lookup maps for department/designation/location id -> name
-  const [departmentsMap, setDepartmentsMap] = useState<Record<string, string>>({});
-  const [designationsMap, setDesignationsMap] = useState<Record<string, string>>({});
-  const [locationsMap, setLocationsMap] = useState<Record<string, string>>({});
+  // Filter states
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterDepartment, setFilterDepartment] = useState("");
+  const [filterDesignation, setFilterDesignation] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
 
-  // Fetch data
-  const fetchData = async () => {
-    if (!organizationId) {
-      setError("Organization ID not found. Please log in again.");
-      return;
+  // Fetch lookup data
+  const fetchLookups = async () => {
+    if (!organizationId) return;
+    try {
+      const apiUrl = getApiUrl();
+      const token = getAuthToken();
+
+      const [deptRes, desigRes, locRes] = await Promise.all([
+        axios.get(`${apiUrl}/org/${organizationId}/departments`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get(`${apiUrl}/org/${organizationId}/designations`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get(`${apiUrl}/org/${organizationId}/locations`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      // Build department map
+      const depts = Array.isArray(deptRes.data) ? deptRes.data : (deptRes.data.data || []);
+      const deptMap: { [key: string]: string } = {};
+      depts.forEach((d: any) => {
+        const id = d.id || d._id || d.departmentId;
+        if (id) {
+          const name = d.name || d.title || d.departmentName || 'Unknown';
+          deptMap[String(id)] = name;
+        }
+      });
+      setDepartmentsMap(deptMap);
+
+      // Build designation map
+      const desigs = Array.isArray(desigRes.data) ? desigRes.data : (desigRes.data.data || []);
+      const desigMap: { [key: string]: string } = {};
+      desigs.forEach((d: any) => {
+        const id = d.id || d._id || d.designationId;
+        if (id) desigMap[String(id)] = d.name || d.title || d.designationName || 'Unknown';
+      });
+      setDesignationsMap(desigMap);
+
+      // Build location map
+      const locs = Array.isArray(locRes.data) ? locRes.data : (locRes.data.data || []);
+      const locMap: { [key: string]: string } = {};
+      locs.forEach((l: any) => {
+        const id = l.id || l._id || l.locationId;
+        if (id) locMap[String(id)] = l.name || l.title || l.locationName || 'Unknown';
+      });
+      setLocationsMap(locMap);
+    } catch (error) {
+      console.error('Error fetching lookups:', error);
+    }
+  };
+
+  // Helper to get full name
+  const getFullName = (emp: any): string => {
+    if (emp.fullName) return emp.fullName;
+    const first = emp.firstName || '';
+    const last = emp.lastName || '';
+    return `${first} ${last}`.trim() || emp.email || 'Unknown';
+  };
+
+  // Helper to resolve department name
+  const getDepartmentName = (emp: any): string => {
+    // First check if department is an object with a name
+    if (emp.department && typeof emp.department === 'object') {
+      if (emp.department.name) return emp.department.name;
+      if (emp.department.title) return emp.department.title;
+      if (emp.department.departmentName) return emp.department.departmentName;
     }
     
-    setLoading(true);
-    setError(null);
+    // Get the department ID (could be in multiple places)
+    const deptId = emp.departmentId || 
+                   (typeof emp.department === 'string' ? emp.department : null) ||
+                   (emp.department && (emp.department.id || emp.department._id));
+    
+    // Look up in the map
+    if (deptId && departmentsMap[String(deptId)]) {
+      return departmentsMap[String(deptId)];
+    }
+    
+    // If we have an ID but no mapping, try to fetch it individually
+    if (deptId && !departmentsMap[String(deptId)]) {
+      fetchMissingDepartment(String(deptId));
+      return 'Loading...';
+    }
+    
+    return '';
+  };
+
+  // Fetch a missing department by ID
+  const fetchMissingDepartment = async (deptId: string) => {
+    if (!organizationId || departmentsMap[deptId]) return;
     
     try {
-      const result = await employeeService.getAll(organizationId, {
-        page: currentPage,
-        limit: 50,
-        q: searchQuery,
+      const apiUrl = getApiUrl();
+      const token = getAuthToken();
+      
+      const response = await axios.get(`${apiUrl}/org/${organizationId}/departments/${deptId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      const dept = response.data.data || response.data;
+      const name = dept.name || dept.title || dept.departmentName || 'Unknown';
+      
+      setDepartmentsMap(prev => ({ ...prev, [deptId]: name }));
+    } catch (error) {
+      console.error(`Failed to fetch department ${deptId}:`, error);
+      setDepartmentsMap(prev => ({ ...prev, [deptId]: 'Not Found' }));
+    }
+  };
+
+  // Helper to resolve designation name
+  const getDesignationName = (emp: any): string => {
+    // First check if designation is an object with a name
+    if (emp.designation && typeof emp.designation === 'object') {
+      if (emp.designation.name) return emp.designation.name;
+      if (emp.designation.title) return emp.designation.title;
+      if (emp.designation.designationName) return emp.designation.designationName;
+    }
+    
+    // Get the designation ID
+    const desigId = emp.designationId || 
+                    (typeof emp.designation === 'string' ? emp.designation : null) ||
+                    (emp.designation && (emp.designation.id || emp.designation._id));
+    
+    // Look up in the map
+    if (desigId && designationsMap[String(desigId)]) {
+      return designationsMap[String(desigId)];
+    }
+    
+    return '';
+  };
+
+  // Helper to resolve location name
+  const getLocationName = (emp: any): string => {
+    // First check if location is an object with a name
+    if (emp.location && typeof emp.location === 'object') {
+      if (emp.location.name) return emp.location.name;
+      if (emp.location.title) return emp.location.title;
+      if (emp.location.locationName) return emp.location.locationName;
+    }
+    
+    // Get the location ID
+    const locId = emp.locationId || 
+                  (typeof emp.location === 'string' ? emp.location : null) ||
+                  (emp.location && (emp.location.id || emp.location._id));
+    
+    // Look up in the map
+    if (locId && locationsMap[String(locId)]) {
+      return locationsMap[String(locId)];
+    }
+    
+    return '';
+  };
+
+  // Fetch employee data
+  const fetchEmployeeData = async () => {
+    if (!organizationId) {
+      setError("Organization ID not found.");
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const apiUrl = getApiUrl();
+      const token = getAuthToken();
+      
+      const response = await axios.get(`${apiUrl}/org/${organizationId}/employees`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (result.error) {
-        setError(result.error);
-        setEmployeeData([]);
-      } else {
-        const data = result.data || result.employees || result;
-        const employees = Array.isArray(data) ? data : (data.data || []);
-        
-        // Apply local filters
-        let filteredEmployees = employees;
-        if (departmentFilter) {
-          const f = departmentFilter.toLowerCase().trim();
-          filteredEmployees = filteredEmployees.filter((emp: any) => {
-            const deptNameFromObj = emp.department?.name?.toLowerCase?.() || '';
-            const deptFromMapById = emp.departmentId && departmentsMap[emp.departmentId] ? departmentsMap[emp.departmentId].toLowerCase() : '';
-            const deptFromMapByField = emp.department && typeof emp.department === 'string' && departmentsMap[emp.department] ? departmentsMap[emp.department].toLowerCase() : '';
-            const deptFromMapByObjId = emp.department && typeof emp.department === 'object' && (departmentsMap[emp.department.id] || departmentsMap[emp.department._id]) ? (departmentsMap[emp.department.id] || departmentsMap[emp.department._id]).toLowerCase() : '';
-            return (
-              emp.departmentId === departmentFilter ||
-              emp.department?.id === departmentFilter ||
-              deptNameFromObj.includes(f) ||
-              deptFromMapById.includes(f) ||
-              deptFromMapByField.includes(f) ||
-              deptFromMapByObjId.includes(f)
-            );
-          });
-        }
-        if (designationFilter) {
-          const f = designationFilter.toLowerCase().trim();
-          filteredEmployees = filteredEmployees.filter((emp: any) => {
-            const desNameFromObj = emp.designation?.name?.toLowerCase?.() || '';
-            const desFromMapById = emp.designationId && designationsMap[emp.designationId] ? designationsMap[emp.designationId].toLowerCase() : '';
-            const desFromMapByField = emp.designation && typeof emp.designation === 'string' && designationsMap[emp.designation] ? designationsMap[emp.designation].toLowerCase() : '';
-            const desFromMapByObjId = emp.designation && typeof emp.designation === 'object' && (designationsMap[emp.designation.id] || designationsMap[emp.designation._id]) ? (designationsMap[emp.designation.id] || designationsMap[emp.designation._id]).toLowerCase() : '';
-            return (
-              emp.designationId === designationFilter ||
-              emp.designation?.id === designationFilter ||
-              desNameFromObj.includes(f) ||
-              desFromMapById.includes(f) ||
-              desFromMapByField.includes(f) ||
-              desFromMapByObjId.includes(f)
-            );
-          });
-        }
-        if (statusFilter) {
-          filteredEmployees = filteredEmployees.filter((emp: any) => 
-            emp.status === statusFilter
-          );
-        }
+      console.log('API Response:', response.data);
 
-        setEmployeeData(filteredEmployees);
-        setTotalEmployees(result.total || filteredEmployees.length);
-        setTotalPages(result.totalPages || 1);
-        setSelectedRecords(new Set());
-        setSelectAll(false);
+      let data = response.data;
+      
+      if (data && typeof data === 'object' && 'data' in data) {
+        data = data.data;
+      }
+
+      const employees = Array.isArray(data) ? data : [];
+
+      setEmployeeData(employees);
+      
+      if (employees.length === 0) {
+        console.warn('No employee records found');
       }
     } catch (err: any) {
-      setError(err.message);
+      console.error('Error fetching employee data:', err);
+      setError(err.response?.data?.error || err.message || "Failed to fetch employee data");
       setEmployeeData([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Auto-fetch when searchQuery, filters, or page changes
   useEffect(() => {
     if (organizationId) {
-      const timeoutId = setTimeout(() => {
-        fetchData();
-      }, 300); // 300ms debounce - waits for user to stop typing
-
-      return () => clearTimeout(timeoutId);
+      fetchLookups();
     }
-  }, [searchQuery, currentPage, departmentFilter, designationFilter, statusFilter, organizationId]);
-
-  // Fetch lookup lists (departments, designations, locations) so we can show names when only ids are present
-  useEffect(() => {
-    if (!organizationId) return;
-
-    const parseJson = async (res: Response) => {
-      if (!res.ok) return [];
-      const body = await res.json();
-      return body?.data || body || [];
-    };
-
-    const fetchLookups = async () => {
-      try {
-        const defaultHeaders = {
-          'Authorization': `Bearer ${getAuthToken()}`,
-          'Content-Type': 'application/json'
-        };
-
-        const [deptRes, desigRes, locRes] = await Promise.all([
-          fetch(`${getApiUrl()}/org/${organizationId}/departments`, { headers: defaultHeaders }),
-          fetch(`${getApiUrl()}/org/${organizationId}/designations`, { headers: defaultHeaders }),
-          fetch(`${getApiUrl()}/org/${organizationId}/locations`, { headers: defaultHeaders }),
-        ]);
-
-        const [depts, desigs, locs] = await Promise.all([
-          parseJson(deptRes),
-          parseJson(desigRes),
-          parseJson(locRes),
-        ]);
-
-        const dMap: Record<string, string> = {};
-        (depts || []).forEach((d: any) => {
-          const id = d.id || d._id || d.departmentId || String(d.id);
-          if (id) dMap[id] = d.name || d.title || d.department || d.name || '';
-        });
-
-        const desMap: Record<string, string> = {};
-        (desigs || []).forEach((d: any) => {
-          const id = d.id || d._id || d.designationId || String(d.id);
-          if (id) desMap[id] = d.name || d.title || d.designation || d.name || '';
-        });
-
-        const locMap: Record<string, string> = {};
-        (locs || []).forEach((l: any) => {
-          const id = l.id || l._id || l.locationId || String(l.id);
-          if (id) locMap[id] = l.name || l.title || l.location || l.name || '';
-        });
-
-        setDepartmentsMap(dMap);
-        setDesignationsMap(desMap);
-        setLocationsMap(locMap);
-      } catch (err) {
-        console.error('Failed fetching lookup lists:', err);
-      }
-    };
-
-    fetchLookups();
   }, [organizationId]);
 
-  // When employeeData changes, try to resolve any missing lookup names by fetching individual entries
   useEffect(() => {
-    if (!organizationId || !employeeData || employeeData.length === 0) return;
+    if (organizationId && Object.keys(departmentsMap).length > 0) {
+      fetchEmployeeData();
+    } else if (organizationId) {
+      fetchEmployeeData();
+    }
+  }, [organizationId, departmentsMap]);
 
-    const missingDeptIds = new Set<string>();
-    const missingDesigIds = new Set<string>();
-    const missingLocIds = new Set<string>();
+  const handleBack = () => {
+    window.history.back();
+  };
 
-    employeeData.forEach(emp => {
-      const deptId = emp.departmentId || (emp.department && (emp.department.id || emp.department._id)) || (typeof emp.department === 'string' ? emp.department : null);
-      if (deptId && !departmentsMap[deptId]) missingDeptIds.add(String(deptId));
-
-      const desigId = emp.designationId || (emp.designation && (emp.designation.id || emp.designation._id)) || (typeof emp.designation === 'string' ? emp.designation : null);
-      if (desigId && !designationsMap[desigId]) missingDesigIds.add(String(desigId));
-
-      const locId = emp.locationId || (emp.location && (emp.location.id || emp.location._id)) || (typeof emp.location === 'string' ? emp.location : null);
-      if (locId && !locationsMap[locId]) missingLocIds.add(String(locId));
-    });
-
-    const fetchMissing = async () => {
-      try {
-        console.debug('EmployeeReportPage: checking missing lookups', {
-          missingDeptIds: Array.from(missingDeptIds),
-          missingDesigIds: Array.from(missingDesigIds),
-          missingLocIds: Array.from(missingLocIds),
-          departmentsMapKeys: Object.keys(departmentsMap).slice(0,50)
-        });
-
-        // Log first 3 employees for debugging
-        console.debug('EmployeeReportPage: sample employees', employeeData.slice(0,3).map(emp => ({
-          id: emp.id || emp.employeeId,
-          department: emp.department,
-          departmentId: emp.departmentId,
-          designation: emp.designation,
-          designationId: emp.designationId,
-          location: emp.location,
-          locationId: emp.locationId
-        })));
-
-        // Fetch departments by id
-        if (missingDeptIds.size) {
-          await Promise.all(Array.from(missingDeptIds).map(async (id) => {
-            try {
-              // try two URL patterns in case API differs
-              const urls = [
-                `${getApiUrl()}/org/${organizationId}/departments/${id}`,
-                `${getApiUrl()}/departments/${id}`
-              ];
-              for (const url of urls) {
-                try {
-                  const res = await fetch(url, { headers: { 'Authorization': `Bearer ${getAuthToken()}`, 'Content-Type': 'application/json' } });
-                  if (!res.ok) continue;
-                  const body = await res.json();
-                  const item = body?.data || body;
-                  const name = item?.name || item?.title || item?.department || '';
-                  if (name) {
-                    setDepartmentsMap(prev => ({ ...prev, [id]: name }));
-                    break;
-                  }
-                } catch (err) {
-                  console.error('Failed fetch dept (url)', url, err);
-                }
-              }
-            } catch (err) { console.error('Failed fetch dept', id, err); }
-          }));
-        }
-
-        // Fetch designations by id
-        if (missingDesigIds.size) {
-          await Promise.all(Array.from(missingDesigIds).map(async (id) => {
-            try {
-              const urls = [
-                `${getApiUrl()}/org/${organizationId}/designations/${id}`,
-                `${getApiUrl()}/designations/${id}`
-              ];
-              for (const url of urls) {
-                try {
-                  const res = await fetch(url, { headers: { 'Authorization': `Bearer ${getAuthToken()}`, 'Content-Type': 'application/json' } });
-                  if (!res.ok) continue;
-                  const body = await res.json();
-                  const item = body?.data || body;
-                  const name = item?.name || item?.title || item?.designation || '';
-                  if (name) {
-                    setDesignationsMap(prev => ({ ...prev, [id]: name }));
-                    break;
-                  }
-                } catch (err) {
-                  console.error('Failed fetch desig (url)', url, err);
-                }
-              }
-            } catch (err) { console.error('Failed fetch desig', id, err); }
-          }));
-        }
-
-        // Fetch locations by id
-        if (missingLocIds.size) {
-          await Promise.all(Array.from(missingLocIds).map(async (id) => {
-            try {
-              const urls = [
-                `${getApiUrl()}/org/${organizationId}/locations/${id}`,
-                `${getApiUrl()}/locations/${id}`
-              ];
-              for (const url of urls) {
-                try {
-                  const res = await fetch(url, { headers: { 'Authorization': `Bearer ${getAuthToken()}`, 'Content-Type': 'application/json' } });
-                  if (!res.ok) continue;
-                  const body = await res.json();
-                  const item = body?.data || body;
-                  const name = item?.name || item?.title || item?.location || '';
-                  if (name) {
-                    setLocationsMap(prev => ({ ...prev, [id]: name }));
-                    break;
-                  }
-                } catch (err) {
-                  console.error('Failed fetch loc (url)', url, err);
-                }
-              }
-            } catch (err) { console.error('Failed fetch loc', id, err); }
-          }));
-        }
-      } catch (err) {
-        console.error('Error fetching missing lookups', err);
-      }
-    };
-
-    fetchMissing();
-  }, [organizationId, employeeData, departmentsMap, designationsMap, locationsMap]);
-
-  // Handle select all
   const handleSelectAll = () => {
     if (selectAll) {
       setSelectedRecords(new Set());
     } else {
-      const allIds = new Set(employeeData.map((_, index) => index));
+      const allIds = new Set(filteredEmployees.map((_, index) => index));
       setSelectedRecords(allIds);
     }
     setSelectAll(!selectAll);
   };
 
-  // Handle individual checkbox
   const handleSelectRecord = (index: number) => {
     const newSelected = new Set(selectedRecords);
     if (newSelected.has(index)) {
@@ -362,14 +284,49 @@ export default function EmployeeReportPage() {
       newSelected.add(index);
     }
     setSelectedRecords(newSelected);
-    setSelectAll(newSelected.size === employeeData.length);
+    setSelectAll(newSelected.size === filteredEmployees.length);
   };
 
-  // Export selected records as PDF (or all if none selected)
-  const handleExportPDF = () => {
-    const selectedData = selectedRecords.size === 0 ? employeeData : Array.from(selectedRecords).map(index => employeeData[index]);
+  const handleCancelSelection = () => {
+    setSelectedRecords(new Set());
+    setSelectAll(false);
+  };
 
-    if (!selectedData || selectedData.length === 0) {
+  const handleClearFilters = () => {
+    setFilterDepartment("");
+    setFilterDesignation("");
+    setFilterStatus("");
+    setShowFilters(false);
+  };
+
+  const filteredEmployees = employeeData.filter((emp) => {
+    const term = searchTerm.toLowerCase();
+    const fullName = getFullName(emp).toLowerCase();
+    const email = (emp.email || '').toLowerCase();
+    const phone = (emp.phoneNumber || '').toLowerCase();
+    const dept = getDepartmentName(emp).toLowerCase();
+    const desig = getDesignationName(emp).toLowerCase();
+    
+    const matchesSearch = fullName.includes(term) || 
+                         email.includes(term) || 
+                         phone.includes(term) ||
+                         dept.includes(term) ||
+                         desig.includes(term);
+
+    const matchesDepartment = !filterDepartment || dept.includes(filterDepartment.toLowerCase());
+    const matchesDesignation = !filterDesignation || desig.includes(filterDesignation.toLowerCase());
+    const matchesStatus = !filterStatus || (emp.status || 'active').toLowerCase() === filterStatus.toLowerCase();
+
+    return matchesSearch && matchesDepartment && matchesDesignation && matchesStatus;
+  });
+
+  const handleExportPDF = () => {
+    const dataToExport = selectedRecords.size === 0 
+      ? filteredEmployees 
+      : Array.from(selectedRecords).map(index => filteredEmployees[index]);
+
+    if (!dataToExport || dataToExport.length === 0) {
+      alert("No records to export");
       setShowExportDropdown(false);
       return;
     }
@@ -377,66 +334,56 @@ export default function EmployeeReportPage() {
     try {
       const doc = new jsPDF();
 
-      // Add title
       doc.setFontSize(18);
       doc.text('Employee Report', 14, 20);
-
-      // Add metadata
       doc.setFontSize(10);
       doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
-      doc.text(`Total Employees: ${selectedData.length}`, 14, 36);
+      doc.text(`Total Records: ${dataToExport.length}`, 14, 36);
 
-      // Prepare table data (Full Name, Email, Phone, Department, Designation, Location, Joined)
-      const tableData = selectedData.map(emp => [
-        emp.fullName || 'N/A',
+      const tableData = dataToExport.map(emp => [
+        getFullName(emp),
         emp.email || 'N/A',
         emp.phoneNumber || 'N/A',
-        resolveDepartmentName(emp) || 'N/A',
-        resolveDesignationName(emp) || 'N/A',
-        resolveLocationName(emp) || 'N/A',
+        getDepartmentName(emp) || 'N/A',
+        getDesignationName(emp) || 'N/A',
+        getLocationName(emp) || 'N/A',
         emp.dateOfJoining ? new Date(emp.dateOfJoining).toLocaleDateString() : 'N/A'
       ]);
 
-      // Add table using autoTable
       autoTable(doc, {
         startY: 45,
         head: [['Full Name', 'Email', 'Phone', 'Department', 'Designation', 'Location', 'Joined']],
         body: tableData,
         theme: 'grid',
-        headStyles: {
-          fillColor: [59, 130, 246],
-          textColor: 255,
-          fontStyle: 'bold'
-        },
-        styles: {
-          fontSize: 8,
-          cellPadding: 3
-        },
+        headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 8, cellPadding: 2 },
         columnStyles: {
-          0: { cellWidth: 40 },
-          1: { cellWidth: 35 },
+          0: { cellWidth: 35 },
+          1: { cellWidth: 30 },
           2: { cellWidth: 25 },
           3: { cellWidth: 25 },
           4: { cellWidth: 25 },
-          5: { cellWidth: 30 },
-          6: { cellWidth: 20 }
+          5: { cellWidth: 25 },
+          6: { cellWidth: 25 }
         }
       });
 
-      // Save the PDF
       doc.save(`employee-report-${new Date().toISOString().split('T')[0]}.pdf`);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      alert("Failed to generate PDF");
     } finally {
       setShowExportDropdown(false);
     }
   };
 
-  // Export selected records as Excel (CSV format) - exports all if none selected
   const handleExportExcel = () => {
-    const selectedData = selectedRecords.size === 0 ? employeeData : Array.from(selectedRecords).map(index => employeeData[index]);
+    const dataToExport = selectedRecords.size === 0 
+      ? filteredEmployees 
+      : Array.from(selectedRecords).map(index => filteredEmployees[index]);
 
-    if (!selectedData || selectedData.length === 0) {
+    if (dataToExport.length === 0) {
+      alert("No records to export");
       setShowExportDropdown(false);
       return;
     }
@@ -444,14 +391,14 @@ export default function EmployeeReportPage() {
     const headers = ['Full Name', 'Email', 'Phone', 'Department', 'Designation', 'Location', 'Joined'];
     const csvRows = [headers.join(',')];
 
-    selectedData.forEach(emp => {
+    dataToExport.forEach(emp => {
       const row = [
-        `"${emp.fullName || 'N/A'}"`,
+        `"${getFullName(emp)}"`,
         `"${emp.email || 'N/A'}"`,
         `"${emp.phoneNumber || 'N/A'}"`,
-        `"${resolveDepartmentName(emp) || 'N/A'}"`,
-        `"${resolveDesignationName(emp) || 'N/A'}"`,
-        `"${resolveLocationName(emp) || 'N/A'}"`,
+        `"${getDepartmentName(emp) || 'N/A'}"`,
+        `"${getDesignationName(emp) || 'N/A'}"`,
+        `"${getLocationName(emp) || 'N/A'}"`,
         `"${emp.dateOfJoining ? new Date(emp.dateOfJoining).toLocaleDateString() : 'N/A'}"`
       ];
       csvRows.push(row.join(','));
@@ -466,21 +413,8 @@ export default function EmployeeReportPage() {
     a.click();
     window.URL.revokeObjectURL(url);
 
+    alert(`Exported ${dataToExport.length} records to Excel (CSV format).`);
     setShowExportDropdown(false);
-  };
-
-  // Cancel selection
-  const handleCancelSelection = () => {
-    setSelectedRecords(new Set());
-    setSelectAll(false);
-  };
-
-  // Clear filters
-  const handleClearFilters = () => {
-    setDepartmentFilter("");
-    setDesignationFilter("");
-    setStatusFilter("");
-    setShowFilters(false);
   };
 
   const getStatusColor = (status: string) => {
@@ -496,54 +430,21 @@ export default function EmployeeReportPage() {
     }
   };
 
-  // Resolve name helpers (handles multiple possible id/name shapes)
-  const resolveDepartmentName = (emp: any) => {
-    if (!emp) return '';
-    // Direct object with name
-    if (emp.department && typeof emp.department === 'object' && (emp.department.name || emp.department.title)) {
-      return emp.department.name || emp.department.title;
-    }
-    // department may be a string id
-    const deptIdCandidate = emp.departmentId || emp.department || (emp.department && (emp.department.id || emp.department._id));
-    if (deptIdCandidate && departmentsMap[deptIdCandidate]) return departmentsMap[deptIdCandidate];
-    // fallback: return the id string so user can still see something
-    return deptIdCandidate ? String(deptIdCandidate) : '';
-  };
-
-  const resolveDesignationName = (emp: any) => {
-    if (!emp) return '';
-    if (emp.designation && typeof emp.designation === 'object' && (emp.designation.name || emp.designation.title)) {
-      return emp.designation.name || emp.designation.title;
-    }
-    const desIdCandidate = emp.designationId || emp.designation || (emp.designation && (emp.designation.id || emp.designation._id));
-    if (desIdCandidate && designationsMap[desIdCandidate]) return designationsMap[desIdCandidate];
-    return desIdCandidate ? String(desIdCandidate) : '';
-  };
-
-  const resolveLocationName = (emp: any) => {
-    if (!emp) return '';
-    if (emp.location && typeof emp.location === 'object' && (emp.location.name || emp.location.title)) {
-      return emp.location.name || emp.location.title;
-    }
-    const locIdCandidate = emp.locationId || emp.location || (emp.location && (emp.location.id || emp.location._id));
-    if (locIdCandidate && locationsMap[locIdCandidate]) return locationsMap[locIdCandidate];
-    return locIdCandidate ? String(locIdCandidate) : '';
-  };
+  const uniqueDepartments = Array.from(new Set(employeeData.map(e => getDepartmentName(e)).filter(Boolean)));
+  const uniqueDesignations = Array.from(new Set(employeeData.map(e => getDesignationName(e)).filter(Boolean)));
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Back Button */}
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span className="font-medium">Back</span>
-        </button>
-
         {/* Header */}
         <div className="mb-6">
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-medium">Back</span>
+          </button>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">
             Employee Report
           </h1>
@@ -559,9 +460,9 @@ export default function EmployeeReportPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by name, email, or phone..."
+                placeholder="Search by name, email, phone, department..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -575,7 +476,6 @@ export default function EmployeeReportPage() {
             </button>
           </div>
 
-          {/* Filters Dropdown */}
           {showFilters && (
             <div className="mt-4 pt-4 border-t border-gray-200">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -583,33 +483,43 @@ export default function EmployeeReportPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Department
                   </label>
-                  <input
-                    type="text"
-                    value={departmentFilter}
-                    onChange={(e) => setDepartmentFilter(e.target.value)}
-                    placeholder="Filter by department (name)"
+                  <select
+                    value={filterDepartment}
+                    onChange={(e) => setFilterDepartment(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                  >
+                    <option value="">All Departments</option>
+                    {uniqueDepartments.map((dept) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Designation
                   </label>
-                  <input
-                    type="text"
-                    value={designationFilter}
-                    onChange={(e) => setDesignationFilter(e.target.value)}
-                    placeholder="Filter by designation (name)"
+                  <select
+                    value={filterDesignation}
+                    onChange={(e) => setFilterDesignation(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                  >
+                    <option value="">All Designations</option>
+                    {uniqueDesignations.map((desig) => (
+                      <option key={desig} value={desig}>
+                        {desig}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Status
                   </label>
                   <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">All Statuses</option>
@@ -632,11 +542,10 @@ export default function EmployeeReportPage() {
           )}
         </div>
 
-        {/* Selection Actions */}
         {selectedRecords.size > 0 && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-center justify-between">
             <p className="text-sm font-medium text-blue-900">
-              {selectedRecords.size} employee{selectedRecords.size !== 1 ? 's' : ''} selected
+              {selectedRecords.size} record{selectedRecords.size !== 1 ? 's' : ''} selected
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -654,7 +563,7 @@ export default function EmployeeReportPage() {
                   <Download className="w-4 h-4" />
                   Export
                 </button>
-
+                
                 {showExportDropdown && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
                     <button
@@ -678,7 +587,6 @@ export default function EmployeeReportPage() {
           </div>
         )}
 
-        {/* Click outside to close dropdown */}
         {showExportDropdown && (
           <div 
             className="fixed inset-0 z-0" 
@@ -686,14 +594,12 @@ export default function EmployeeReportPage() {
           />
         )}
 
-        {/* Error Message */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
             <p className="font-medium">Error: {error}</p>
           </div>
         )}
 
-        {/* Data Table */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -704,7 +610,7 @@ export default function EmployeeReportPage() {
                       type="checkbox"
                       checked={selectAll}
                       onChange={handleSelectAll}
-                      disabled={employeeData.length === 0}
+                      disabled={filteredEmployees.length === 0}
                       className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
                   </th>
@@ -738,7 +644,7 @@ export default function EmployeeReportPage() {
                       </div>
                     </td>
                   </tr>
-                ) : employeeData.length === 0 ? (
+                ) : filteredEmployees.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                       <User className="w-12 h-12 mx-auto mb-3 text-gray-400" />
@@ -747,7 +653,7 @@ export default function EmployeeReportPage() {
                     </td>
                   </tr>
                 ) : (
-                  employeeData.map((employee, index) => (
+                  filteredEmployees.map((employee, index) => (
                     <tr 
                       key={employee.id || index} 
                       className={`hover:bg-gray-50 transition-colors ${
@@ -762,8 +668,8 @@ export default function EmployeeReportPage() {
                           className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                         />
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {employee.fullName || "N/A"}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {getFullName(employee)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {employee.email || "N/A"}
@@ -772,13 +678,13 @@ export default function EmployeeReportPage() {
                         {employee.phoneNumber || "—"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {resolveDepartmentName(employee) || "—"}
+                        {getDepartmentName(employee) || "—"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {resolveDesignationName(employee) || "—"}
+                        {getDesignationName(employee) || "—"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {resolveLocationName(employee) || "—"}
+                        {getLocationName(employee) || "—"}
                       </td>
                     </tr>
                   ))
@@ -788,33 +694,9 @@ export default function EmployeeReportPage() {
           </div>
         </div>
 
-        {/* Pagination & Results Count */}
-        {!loading && employeeData.length > 0 && (
-          <div className="mt-4 flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              Showing {employeeData.length} of {totalEmployees} employee{totalEmployees !== 1 ? 's' : ''}
-            </div>
-            {totalPages > 1 && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                >
-                  Previous
-                </button>
-                <span className="text-sm text-gray-600">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                >
-                  Next
-                </button>
-              </div>
-            )}
+        {!loading && filteredEmployees.length > 0 && (
+          <div className="mt-4 text-sm text-gray-600 text-center">
+            Showing {filteredEmployees.length} of {employeeData.length} records
           </div>
         )}
       </div>
