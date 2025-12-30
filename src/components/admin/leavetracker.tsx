@@ -123,10 +123,10 @@ const LeaveTracker = () => {
       const employees = Array.isArray(response.data) ? response.data : (response.data.data || []);
       const mapping: { [key: string]: { name: string; email?: string } } = {};
       employees.forEach((emp: any) => {
-        const fullName = emp.fullName || 
-          `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 
-          emp.name || 
-          emp.email || 
+        const fullName = emp.fullName ||
+          `${emp.firstName || ''} ${emp.lastName || ''}`.trim() ||
+          emp.name ||
+          emp.email ||
           'Unknown';
         mapping[emp.id] = {
           name: fullName,
@@ -162,21 +162,21 @@ const LeaveTracker = () => {
   const enrichLeaveWithEmployeeName = (leave: any): LeaveRequest => {
     const employeeId = leave.employeeId || leave.employee?.id;
     const employeeInfo = employeeMap[employeeId];
-    
+
     // Calculate days if not present or invalid
     let days = leave.days;
     if (!days || days === 0 || isNaN(days)) {
       days = calculateDays(leave.startDate, leave.endDate);
     }
-    
+
     return {
       ...leave,
       employeeId: employeeId,
-      employeeName: leave.employeeName || 
+      employeeName: leave.employeeName ||
         (leave.employee && (leave.employee.fullName || leave.employee.name || `${leave.employee.firstName || ''} ${leave.employee.lastName || ''}`.trim())) ||
         employeeInfo?.name ||
         'Unknown',
-      employeeEmail: leave.employeeEmail || 
+      employeeEmail: leave.employeeEmail ||
         (leave.employee && leave.employee.email) ||
         employeeInfo?.email,
       days: days
@@ -533,12 +533,14 @@ const LeaveTracker = () => {
           <Button
             variant={viewMode === 'all' ? 'default' : 'outline'}
             onClick={() => setViewMode('all')}
+            className={viewMode === 'all' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}
           >
             All Leaves
           </Button>
           <Button
             variant={viewMode === 'pending' ? 'default' : 'outline'}
             onClick={() => setViewMode('pending')}
+            className={viewMode === 'pending' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}
           >
             Pending ({pendingLeaves.length})
           </Button>
