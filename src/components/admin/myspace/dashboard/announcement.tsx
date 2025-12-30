@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Megaphone, X } from 'lucide-react';
 import axios from 'axios';
-import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId, getCookie } from '@/lib/auth';
 
 interface Announcement {
   id: string;
@@ -15,6 +15,11 @@ const AnnouncementsSection: React.FC = () => {
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    setUserRole(getCookie('role'));
+  }, []);
 
   const [announcementForm, setAnnouncementForm] = useState({
     title: '',
@@ -23,7 +28,6 @@ const AnnouncementsSection: React.FC = () => {
     disableComments: false,
     pinToTop: false,
     notifyAll: false
-
   });
 
   // Fetch announcements from API
@@ -137,6 +141,8 @@ const AnnouncementsSection: React.FC = () => {
     }
   };
 
+  const isEmployee = userRole === 'employee';
+
   return (
     <>
       <div className="bg-white rounded-lg shadow p-4 sm:p-5 border border-slate-100">
@@ -147,25 +153,27 @@ const AnnouncementsSection: React.FC = () => {
             </div>
             <h2 className="text-lg font-semibold truncate text-slate-900">Announcements</h2>
           </div>
-          <button
-            onClick={() => setShowAnnouncementModal(true)}
-            className="text-blue-500 hover:text-blue-600 text-2xl leading-none px-2 transition-colors"
-          >
-            +
-          </button>
+          {!isEmployee && (
+            <button
+              onClick={() => setShowAnnouncementModal(true)}
+              className="text-blue-500 hover:text-blue-600 text-2xl leading-none px-2 transition-colors"
+            >
+              +
+            </button>
+          )}
         </div>
         <div className="space-y-4">
           {announcements.length === 0 ? (
-             <p className="text-sm text-slate-400">No announcements yet.</p>
+            <p className="text-sm text-slate-400">No announcements yet.</p>
           ) : (
             announcements.map((announcement) => (
               <div key={announcement.id}>
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start justify-between gap-2 border-b border-slate-50 pb-3 last:border-0 last:pb-0">
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm truncate text-slate-900">{announcement.title}</div>
                     <div className="text-xs text-slate-500 mt-1 line-clamp-2">{announcement.description}</div>
                   </div>
-                  <div className="text-xs text-slate-400 whitespace-nowrap">{announcement.date}</div>
+                  <div className="text-[10px] text-slate-400 whitespace-nowrap bg-slate-50 px-2 py-0.5 rounded">{announcement.date}</div>
                 </div>
               </div>
             ))
@@ -176,7 +184,7 @@ const AnnouncementsSection: React.FC = () => {
       {showAnnouncementModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
           <div className="relative w-full max-w-lg gap-4 border border-slate-200 bg-white p-6 shadow-lg sm:rounded-lg animate-in fade-in-0 zoom-in-95 duration-200">
-            
+
             <div className="flex flex-col space-y-1.5 text-center sm:text-left mb-5">
               <h2 className="text-lg font-semibold leading-none tracking-tight text-slate-900">Create Announcement</h2>
               <p className="text-sm text-slate-500">Post a new update for the team.</p>

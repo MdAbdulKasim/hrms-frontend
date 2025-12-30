@@ -109,6 +109,7 @@ export default function RegisterForm() {
         setCookie("registrationEmail", formData.email);
         setCookie("hrms_user_firstName", firstName);
         setCookie("hrms_user_lastName", lastName);
+        setCookie("hrms_user_fullName", formData.fullName);
         setCookie("hrms_user_email", formData.email);
         setCookie("registrationOrgName", formData.organizationName);
 
@@ -117,6 +118,7 @@ export default function RegisterForm() {
           localStorage.setItem("registrationEmail", formData.email);
           localStorage.setItem("hrms_user_firstName", firstName);
           localStorage.setItem("hrms_user_lastName", lastName);
+          localStorage.setItem("hrms_user_fullName", formData.fullName);
           localStorage.setItem("hrms_user_email", formData.email);
           localStorage.setItem("registrationOrgName", formData.organizationName);
         }

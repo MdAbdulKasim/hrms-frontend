@@ -109,8 +109,9 @@ export default function LoginForm() {
 
           // Store first and last name if available
           // NOW using fields directly from the response if available
-          const firstName = data.firstName || employee?.firstName || employee?.fullName?.split(' ')[0];
-          const lastName = data.lastName || employee?.lastName || employee?.fullName?.split(' ').slice(1).join(' ');
+          const rawFullName = data.fullName || employee?.fullName;
+          const firstName = data.firstName || employee?.firstName || rawFullName?.split(' ')[0];
+          const lastName = data.lastName || employee?.lastName || rawFullName?.split(' ').slice(1).join(' ');
 
           if (firstName) {
             setCookie('hrms_user_firstName', firstName, 7);
@@ -119,6 +120,10 @@ export default function LoginForm() {
           if (lastName) {
             setCookie('hrms_user_lastName', lastName, 7);
             if (typeof window !== 'undefined') localStorage.setItem('hrms_user_lastName', lastName);
+          }
+          if (rawFullName) {
+            setCookie('hrms_user_fullName', rawFullName, 7);
+            if (typeof window !== 'undefined') localStorage.setItem('hrms_user_fullName', rawFullName);
           }
 
           // Always sync setup state from backend to get accurate status
@@ -138,12 +143,15 @@ export default function LoginForm() {
 
           const orgId = orgIdRaw ? String(orgIdRaw) : null;
 
-          if (role === 'admin' && orgId && orgId !== 'undefined') {
+          if (orgId && orgId !== 'undefined') {
             setOrgId(orgId);
+          }
+
+          if (role === 'admin') {
             // Always sync setup state from backend to check if setup is actually completed
             // This ensures that once setup is completed, it's properly detected on subsequent logins
             try {
-              const syncResult = await syncSetupState(token, orgId);
+              const syncResult = await syncSetupState(token, orgId || undefined);
               isSetupCompleted = syncResult;
               if (syncResult) {
                 // Setup is completed - ensure cookie is set

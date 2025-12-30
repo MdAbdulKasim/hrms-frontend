@@ -1,25 +1,23 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-  User, 
-  Clock, 
-  Sun, 
-  Calendar, 
-  AlertCircle, 
-  Briefcase
+import {
+  User,
+  Sun,
+  Briefcase,
+  X
 } from 'lucide-react';
+import ProfilePage from '../profile/ProfilePage';
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId, getCookie } from '@/lib/auth';
 import attendanceService from '@/lib/attendanceService';
 
-
-// --- Types ---
 type Reportee = {
   id: string;
   name: string;
   roleId: string;
   status: string;
+  employeeId: string;
 };
 
 type CurrentUser = {
@@ -27,68 +25,32 @@ type CurrentUser = {
   employeeId: string;
   firstName: string;
   lastName: string;
+  fullName: string;
   designation: string;
   profileImage?: string;
 };
 
-type ScheduleDay = {
-  day: string;
-  date: string;
-  status: 'Weekend' | 'Absent' | 'Present' | 'Upcoming';
-  isToday?: boolean;
-};
-
-// --- State ---
-
-// --- Sub-Components ---
-
 interface ProfileCardProps {
   currentUser: CurrentUser | null;
+  token: string | null;
+  orgId: string | null;
+  currentEmployeeId: string | null;
+  onCheckInStatusChange?: (isCheckedIn: boolean) => void;
 }
 
-const ProfileCard = ({ currentUser }: ProfileCardProps) => {
+const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInStatusChange }: ProfileCardProps) => {
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (isCheckedIn) {
       interval = setInterval(() => { setSeconds((prev) => prev + 1); }, 1000);
-    } 
+    }
     return () => { if (interval) clearInterval(interval); };
   }, [isCheckedIn]);
-
-  // Fetch current status on component mount
-  useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const orgId = getOrgId();
-        if (!orgId) return;
-
-        const response = await attendanceService.getStatus(orgId);
-        if (response.data) {
-          const record = response.data as any;
-          if (record.checkIn && !record.checkOut) {
-            setIsCheckedIn(true);
-            // Calculate seconds if we have checkIn time
-            if (record.checkIn) {
-              const checkInTime = new Date(record.checkIn);
-              const now = new Date();
-              const diffSeconds = Math.floor((now.getTime() - checkInTime.getTime()) / 1000);
-              setSeconds(Math.max(0, diffSeconds));
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching attendance status:', err);
-      }
-    };
-
-    fetchStatus();
-  }, []);
 
   const formatTime = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -99,42 +61,37 @@ const ProfileCard = ({ currentUser }: ProfileCardProps) => {
   };
 
   const handleToggleCheckIn = async () => {
+    if (!token || !orgId) {
+      alert('Authentication required');
+      return;
+    }
+
     try {
-      setIsLoading(true);
-      setError(null);
-
-      const orgId = getOrgId();
-      if (!orgId) {
-        setError('Organization ID not found');
-        return;
-      }
-
-      let response;
+      setLoading(true);
       if (isCheckedIn) {
-        // Check out
-        response = await attendanceService.checkOut(orgId);
-      } else {
-        // Check in
-        response = await attendanceService.checkIn(orgId);
-      }
-
-      if (response.error) {
-        setError(response.error);
-        return;
-      }
-
-      // Update UI state
-      if (!isCheckedIn) {
-        setSeconds(0);
-        setIsCheckedIn(true);
-      } else {
+        const response = await attendanceService.checkOut(orgId);
+        if (response.error) {
+          alert('Failed to check out: ' + response.error);
+          return;
+        }
         setIsCheckedIn(false);
         setSeconds(0);
+        onCheckInStatusChange?.(false);
+      } else {
+        const response = await attendanceService.checkIn(orgId);
+        if (response.error) {
+          alert('Failed to check in: ' + response.error);
+          return;
+        }
+        setIsCheckedIn(true);
+        setSeconds(0);
+        onCheckInStatusChange?.(true);
       }
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
+    } catch (error) {
+      console.error('Error toggling check-in:', error);
+      alert('Error toggling check-in');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
@@ -153,22 +110,28 @@ const ProfileCard = ({ currentUser }: ProfileCardProps) => {
     setProfileImage(null);
   };
 
+  // Get display name
+  const displayName = currentUser?.fullName || 
+    (currentUser?.firstName && currentUser?.lastName 
+      ? `${currentUser.firstName} ${currentUser.lastName}`.trim()
+      : currentUser?.firstName || '');
+
   return (
     <div className="bg-white rounded-xl shadow-sm p-6 flex flex-col items-center text-center border border-gray-100 w-full">
       <div className="relative group">
-        <input 
-          type="file" 
-          id="profile-upload" 
-          accept="image/*" 
+        <input
+          type="file"
+          id="profile-upload"
+          accept="image/*"
           onChange={handleImageUpload}
           className="hidden"
         />
-        <label 
-          htmlFor="profile-upload" 
+        <label
+          htmlFor="profile-upload"
           className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-gray-400 cursor-pointer overflow-hidden hover:opacity-80 transition-opacity"
         >
-          {profileImage ? (
-            <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+          {profileImage || currentUser?.profileImage ? (
+            <img src={profileImage || currentUser?.profileImage} alt="Profile" className="w-full h-full object-cover" />
           ) : (
             <User size={40} />
           )}
@@ -181,7 +144,7 @@ const ProfileCard = ({ currentUser }: ProfileCardProps) => {
           </label>
         </div>
         {profileImage && (
-          <div 
+          <div
             onClick={handleRemoveImage}
             className="absolute bottom-3 left-0 bg-red-500 rounded-full p-1 cursor-pointer hover:bg-red-600 transition-colors z-10"
           >
@@ -191,7 +154,14 @@ const ProfileCard = ({ currentUser }: ProfileCardProps) => {
           </div>
         )}
       </div>
-      <h2 className="text-gray-800 font-medium text-sm break-all">{currentUser?.firstName ? `${currentUser.firstName}${currentUser.lastName ? ' ' + currentUser.lastName : ''}` : 'Loading...'}</h2>
+      
+      {/* Fixed: Show actual name or skeleton loader */}
+      {displayName ? (
+        <h2 className="text-gray-800 font-medium text-sm break-all">{displayName}</h2>
+      ) : (
+        <div className="h-5 w-32 bg-gray-200 rounded animate-pulse"></div>
+      )}
+      
       <p className="text-gray-500 text-xs mt-1">{currentUser?.designation || 'N/A'}</p>
       <p className={`text-xs font-medium mt-3 ${isCheckedIn ? 'text-green-500' : 'text-red-500'}`}>
         {isCheckedIn ? 'Checked In' : 'Yet to check-in'}
@@ -199,61 +169,74 @@ const ProfileCard = ({ currentUser }: ProfileCardProps) => {
       <div className={`bg-gray-100 px-4 py-2 rounded-md mt-3 font-mono font-medium tracking-wider w-full sm:w-auto ${isCheckedIn ? 'text-gray-900' : 'text-gray-600'}`}>
         {formatTime(seconds)}
       </div>
-      {error && (
-        <p className="text-red-500 text-xs mt-2 text-center">{error}</p>
-      )}
-      <button 
+      <button
         onClick={handleToggleCheckIn}
-        disabled={isLoading}
-        className={`mt-4 w-full py-2 border rounded-md transition-colors text-sm font-medium ${
-          isLoading ? 'opacity-50 cursor-not-allowed' : ''
-        } ${
-          isCheckedIn ? 'border-red-500 text-red-500 hover:bg-red-50 disabled:hover:bg-transparent' : 'border-green-500 text-green-500 hover:bg-green-50 disabled:hover:bg-transparent'
-        }`}
+        disabled={loading}
+        className={`mt-4 w-full py-2 border rounded-md transition-colors text-sm font-medium ${loading ? 'opacity-50 cursor-not-allowed' :
+          isCheckedIn ? 'border-red-500 text-red-500 hover:bg-red-50' : 'border-green-500 text-green-500 hover:bg-green-50'
+          }`}
       >
-        {isLoading ? 'Processing...' : (isCheckedIn ? 'Check-out' : 'Check-in')}
+        {loading ? 'Processing...' : isCheckedIn ? 'Check-out' : 'Check-in'}
       </button>
     </div>
   );
 };
 
-const ReporteesCard = ({ reportees }: { reportees: Reportee[] }) => {
+const ReporteesCard = ({ onEmployeeClick, reportees }: { onEmployeeClick: (employeeId: string, name: string) => void, reportees: Reportee[] }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 flex flex-col h-full w-full">
       <h3 className="text-gray-700 font-semibold mb-4 text-sm">Reportees</h3>
       <div className="flex-1 space-y-5">
-        {reportees.map((person) => (
-          <div key={person.id} className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-gray-200 rounded-full flex-shrink-0 overflow-hidden">
-               <div className="w-full h-full flex items-center justify-center bg-slate-300 text-slate-500">
-                 <User size={16} />
-               </div>
+        {reportees.length > 0 ? (
+          reportees.map((person) => (
+            <div key={person.id} className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-gray-200 rounded-full shrink-0 overflow-hidden">
+                <div className="w-full h-full flex items-center justify-center bg-slate-300 text-slate-500">
+                  <User size={16} />
+                </div>
+              </div>
+              <div className="min-w-0">
+                <p
+                  className="text-xs text-gray-500 font-medium truncate hover:text-blue-600 cursor-pointer transition-colors"
+                  onClick={() => onEmployeeClick(person.employeeId, person.name)}
+                >
+                  <span className="hover:text-blue-600">{person.name}</span>
+                </p>
+                <p className="text-[10px] text-red-400 mt-0.5">{person.status}</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-xs text-gray-500 font-medium truncate">{person.name}</p>
-              <p className="text-[10px] text-red-400 mt-0.5">{person.status}</p>
-            </div>
-          </div>
-        ))}
+          ))
+        ) : (
+          <p className="text-gray-400 text-xs">No reportees found</p>
+        )}
       </div>
-      <button className="text-blue-500 text-xs font-medium mt-4 text-left hover:underline">
-       
-      </button>
     </div>
   );
 };
 
-const ActivitiesSection = ({ schedule, currentUser }: { schedule: ScheduleDay[]; currentUser: CurrentUser | null }) => {
+const ActivitiesSection = ({ currentUser }: { currentUser: CurrentUser | null }) => {
+  // Get display name
+  const displayName = currentUser?.fullName || 
+    (currentUser?.firstName && currentUser?.lastName 
+      ? `${currentUser.firstName} ${currentUser.lastName}`.trim()
+      : currentUser?.firstName || '');
+
   return (
     <div className="space-y-4">
-      {/* Greeting Card */}
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 flex flex-shrink-0 items-center justify-center bg-blue-50 rounded-lg">
-             <Briefcase className="text-blue-600" size={20} />
+          <div className="w-10 h-10 flex shrink-0 items-center justify-center bg-blue-50 rounded-lg">
+            <Briefcase className="text-blue-600" size={20} />
           </div>
           <div>
-            <h3 className="text-gray-800 font-medium">Welcome,<span className="text-gray-500 font-normal block sm:inline">{currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'User'}</span></h3>
+            <h3 className="text-gray-800 font-medium">
+              Welcome,
+              {displayName ? (
+                <span className="text-gray-500 font-normal block sm:inline"> {displayName}</span>
+              ) : (
+                <span className="inline-block ml-2 h-5 w-32 bg-gray-200 rounded animate-pulse"></span>
+              )}
+            </h3>
             <p className="text-gray-500 text-sm">Have a productive day!</p>
           </div>
         </div>
@@ -261,151 +244,102 @@ const ActivitiesSection = ({ schedule, currentUser }: { schedule: ScheduleDay[];
           <Sun className="text-yellow-500" size={24} />
         </div>
       </div>
-
-      {/* Check-in Reminder */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-start gap-3">
-          <div className="p-2 bg-orange-50 rounded-full text-orange-400 flex-shrink-0">
-            <Calendar size={20} />
-          </div>
-          <div>
-            <h4 className="font-semibold text-gray-700 text-sm">Check-in reminder</h4>
-            <p className="text-gray-500 text-sm mt-0.5">Your shift has already started</p>
-          </div>
-        </div>
-        <div className="text-left sm:text-right w-full sm:w-auto pl-12 sm:pl-0">
-          <span className="text-gray-500 text-xs font-semibold uppercase tracking-wide">General</span>
-          <p className="text-gray-400 text-sm mt-0.5">9:00 AM-6:00 PM</p>
-        </div>
-      </div>
-
-      {/* Work Schedule Timeline */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 overflow-hidden">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-blue-50 rounded-full text-blue-400 flex-shrink-0">
-            <Clock size={20} />
-          </div>
-          <div>
-            <h4 className="font-semibold text-gray-700 text-sm">Work Schedule</h4>
-            <p className="text-gray-500 text-xs mt-0.5">07-Dec-2025 - 13-Dec-2025</p>
-          </div>
-        </div>
-        <div className="mb-8">
-           <div className="border-l-2 border-gray-200 pl-4 py-1">
-             <span className="text-gray-500 text-xs font-semibold uppercase tracking-wide">General</span>
-             <p className="text-gray-400 text-sm mt-0.5">9:00 AM - 6:00 PM</p>
-           </div>
-        </div>
-        
-        {/* Responsive Timeline Container */}
-        <div className="relative pt-4 pb-2 overflow-x-auto">
-          {/* Constrain width so timeline doesn't squash on mobile, forcing scroll */}
-          <div className="min-w-[600px] relative"> 
-            <div className="absolute top-[19px] left-0 w-full h-[2px] bg-gray-100 z-0"></div>
-            <div className="grid grid-cols-7 gap-2 relative z-10">
-              {schedule.map((item, index) => (
-                <div key={index} className="flex flex-col items-center">
-                  <div className={`w-2.5 h-2.5 rounded-full mb-3 flex-shrink-0 ${item.isToday ? 'bg-blue-500 ring-4 ring-blue-100' : 'bg-gray-300'}`}></div>
-                  <div className="text-center">
-                    <p className={`text-xs ${item.isToday ? 'text-gray-800 font-bold' : 'text-gray-500'}`}>
-                      {item.day} <span className="text-gray-800">{item.date}</span>
-                    </p>
-                    <p className={`text-[10px] mt-1 ${
-                      item.status === 'Weekend' ? 'text-yellow-600' : 
-                      item.status === 'Absent' ? 'text-red-500' : 'text-gray-400'
-                    }`}>
-                      {item.status === 'Upcoming' ? '' : item.status}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom Alert */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-start sm:items-center gap-3">
-        <div className="p-1.5 bg-yellow-50 rounded-full text-yellow-500 flex-shrink-0">
-           <AlertCircle size={18} />
-        </div>
-        <p className="text-gray-700 text-sm leading-tight sm:leading-normal pt-0.5 sm:pt-0">You are yet to submit your time logs today!</p>
-      </div>
     </div>
   );
 };
 
-// --- Main Page Component ---
-
 export default function Dashboard() {
+  const [showProfile, setShowProfile] = useState(false);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [reportees, setReportees] = useState<Reportee[]>([]);
-  const [schedule, setSchedule] = useState<ScheduleDay[]>([]);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
+  const [currentEmployeeId, setCurrentEmployeeId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const token = getAuthToken();
-        const orgId = getOrgId();
+        const authToken = getAuthToken();
+        const authOrgId = getOrgId();
         const apiUrl = getApiUrl();
-        const currentEmployeeId = getCookie('hrms_user_id');
+        const authEmployeeId = getCookie('hrms_user_id');
 
-        if (!token || !orgId || !currentEmployeeId) return;
+        console.log('=== DASHBOARD DEBUG ===');
+        console.log('authToken:', authToken ? 'exists' : 'missing');
+        console.log('authOrgId:', authOrgId);
+        console.log('authEmployeeId:', authEmployeeId);
+
+        if (!authToken || !authOrgId || !authEmployeeId) {
+          console.error('Missing auth credentials');
+          setLoading(false);
+          return;
+        }
+
+        setToken(authToken);
+        setOrgId(authOrgId);
+        setCurrentEmployeeId(authEmployeeId);
 
         // Fetch current user data
-        const currentUserRes = await axios.get(`${apiUrl}/org/${orgId}/employees/${currentEmployeeId}`, {
-          headers: { Authorization: `Bearer ${token}` }
+        const endpoint = `${apiUrl}/org/${authOrgId}/employees/${authEmployeeId}`;
+        console.log('Fetching from:', endpoint);
+
+        const currentUserRes = await axios.get(endpoint, {
+          headers: { Authorization: `Bearer ${authToken}` }
         });
+        
+        console.log('API Response:', currentUserRes.data);
+        
         const userData = currentUserRes.data.data || currentUserRes.data;
-        
-        // Parse full name - API returns fullName as single string
-        const fullName = userData.fullName || `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
-        const [firstName, ...lastNameParts] = fullName.split(' ');
-        const lastName = lastNameParts.join(' ');
-        
+
+        // Handle name extraction - try multiple field combinations
+        let firstName = userData.firstName || '';
+        let lastName = userData.lastName || '';
+        let fullName = userData.fullName || userData.full_name || userData.name || '';
+
+        // If no fullName but has firstName/lastName, construct it
+        if (!fullName && (firstName || lastName)) {
+          fullName = `${firstName} ${lastName}`.trim();
+        }
+
+        // If fullName exists but no firstName/lastName, split it
+        if (fullName && !firstName && !lastName) {
+          const nameParts = fullName.split(' ');
+          firstName = nameParts[0] || '';
+          lastName = nameParts.slice(1).join(' ') || '';
+        }
+
+        console.log('Processed name:', { firstName, lastName, fullName });
+
         setCurrentUser({
-          id: userData.id || userData._id,
-          employeeId: userData.employeeId || userData.id,
-          firstName: firstName || '',
-          lastName: lastName || '',
+          id: userData.id || userData._id || '',
+          employeeId: userData.employeeId || userData.id || '',
+          firstName: firstName,
+          lastName: lastName,
+          fullName: fullName,
           designation: userData.designation?.name || userData.designation || 'N/A',
           profileImage: userData.profileImage
         });
 
-        // Fetch reportees (for employee, might be team members or something)
-        const reporteesRes = await axios.get(`${apiUrl}/org/${orgId}/employees`, {
-          headers: { Authorization: `Bearer ${token}` }
+        // Fetch reportees
+        const reporteesRes = await axios.get(`${apiUrl}/org/${authOrgId}/employees`, {
+          headers: { Authorization: `Bearer ${authToken}` }
         });
         const reporteesData = reporteesRes.data.data || reporteesRes.data;
         setReportees(reporteesData.slice(0, 5).map((emp: any) => ({
           id: emp.id || emp._id,
-          name: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.email,
+          name: emp.fullName || emp.full_name || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.email || 'Unknown',
           roleId: emp.employeeId || emp.id,
-          status: 'Yet to check-in'
+          status: 'Yet to check-in',
+          employeeId: emp.id || emp._id
         })));
-
-        // Fetch attendance for schedule
-        const today = new Date();
-        const weekSchedule: ScheduleDay[] = [];
-        for (let i = 0; i < 7; i++) {
-          const date = new Date(today);
-          date.setDate(today.getDate() - today.getDay() + i);
-          const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-          const dateStr = date.getDate().toString().padStart(2, '0');
-          const isToday = date.toDateString() === today.toDateString();
-          const isWeekend = i === 0 || i === 6;
-          weekSchedule.push({
-            day: dayName,
-            date: dateStr,
-            status: isWeekend ? 'Weekend' : isToday ? 'Upcoming' : 'Absent',
-            isToday
-          });
-        }
-        setSchedule(weekSchedule);
 
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+        if (axios.isAxiosError(error)) {
+          console.error('API Error Response:', error.response?.data);
+        }
       } finally {
         setLoading(false);
       }
@@ -414,32 +348,57 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
+  const handleEmployeeClick = (employeeId: string, name: string) => {
+    setSelectedEmployeeId(employeeId);
+    setShowProfile(true);
+  };
+
+  const handleCloseProfile = () => {
+    setShowProfile(false);
+    setSelectedEmployeeId('');
+  };
+
+  if (showProfile) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <ProfilePage
+          employeeId={selectedEmployeeId}
+          onBack={handleCloseProfile}
+        />
+      </div>
+    );
+  }
+
   if (loading) {
-    return <div className="min-h-screen bg-white flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    
-      <div className="min-h-screen bg-white p-4 md:p-8 font-sans">
-        
-        {/* Main Content Area */}
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            
-            {/* Left Column: Profile & Reportees */}
-            <div className="lg:col-span-1 flex flex-col gap-6">
-              <ProfileCard currentUser={currentUser} />
-              <ReporteesCard reportees={reportees} />
-            </div>
+    <div className="bg-white p-4 md:p-8 font-sans scrollbar-hide">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <ActivitiesSection currentUser={currentUser} />
 
-            {/* Right Column: Activities & Schedule */}
-            <div className="lg:col-span-3">
-              <ActivitiesSection schedule={schedule} currentUser={currentUser} />
-            </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="md:col-span-1">
+            <ProfileCard
+              currentUser={currentUser}
+              token={token}
+              orgId={orgId}
+              currentEmployeeId={currentEmployeeId}
+            />
+          </div>
+          <div className="md:col-span-2 lg:col-span-3">
+            <ReporteesCard onEmployeeClick={handleEmployeeClick} reportees={reportees} />
           </div>
         </div>
       </div>
-   
+    </div>
   );
 }
