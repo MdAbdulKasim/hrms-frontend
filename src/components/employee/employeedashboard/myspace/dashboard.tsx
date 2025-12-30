@@ -7,7 +7,6 @@ import AnnouncementsSection from '@/components/admin/myspace/dashboard/announcem
 
 const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [onLeaveToday, setOnLeaveToday] = useState<any[]>([]);
   const [attendanceSummary, setAttendanceSummary] = useState({
     checkIn: '---',
     status: 'Not Checked In',
@@ -27,22 +26,6 @@ const Dashboard: React.FC = () => {
         if (!orgId) return;
 
         const today = new Date();
-
-        // Fetch on leave today - wrap in try-catch since endpoint may not exist
-        try {
-          const attendanceRes = await axios.get(`${apiUrl}/org/${orgId}/attendance`, {
-            headers: { Authorization: `Bearer ${token}` },
-            params: { date: today.toISOString().split('T')[0] }
-          });
-          const attendanceRecords = attendanceRes.data?.data || attendanceRes.data || [];
-          setOnLeaveToday(attendanceRecords.filter((record: any) =>
-            record.status?.toLowerCase() === 'leave'
-          ));
-        } catch (attendanceError) {
-          // If attendance endpoint doesn't exist or returns error, just set empty
-          console.log('On leave data not available');
-          setOnLeaveToday([]);
-        }
 
         // Fetch current day attendance status for summary
         try {
@@ -135,41 +118,8 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Column */}
-          <div className="lg:col-span-2 space-y-8">
-            <AnnouncementsSection />
-          </div>
-
-          {/* Sidebar Column */}
-          <div className="space-y-8">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
-                  <UserCheck className="w-5 h-5 text-red-600" />
-                </div>
-                <h2 className="text-lg font-bold text-slate-900">On Leave Today</h2>
-              </div>
-              <div className="space-y-4">
-                {onLeaveToday.length === 0 ? (
-                  <p className="text-sm text-slate-400 italic">Everyone is in today!</p>
-                ) : (
-                  onLeaveToday.map((record: any) => (
-                    <div key={record.id} className="flex items-center gap-3 p-2 bg-slate-50 rounded-xl border border-slate-100">
-                      <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-slate-600 font-bold text-xs ring-2 ring-slate-100">
-                        {record.employeeName?.charAt(0) || 'U'}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-900 truncate">{record.employeeName}</p>
-                        <p className="text-[10px] text-red-600 font-medium uppercase tracking-tight">{record.leaveType || 'Leave'}</p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Announcements Section - Full Width */}
+        <AnnouncementsSection />
 
       </div>
     </div>
