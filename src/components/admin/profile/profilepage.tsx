@@ -189,7 +189,7 @@ export default function EmployeeProfileForm() {
           emailAddress: employee.email || "",
           mobileNumber: employee.phoneNumber || employee.mobileNumber || "",
           role: employee.role || "",
-          department: employee.department?.name || "",
+          department: employee.department?.departmentName || employee.department?.name || "",
           designation: employee.designation?.name || "",
           reportingTo: employee.reportingTo?.fullName || 
             (employee.reportingTo?.firstName && employee.reportingTo?.lastName 
@@ -428,7 +428,7 @@ export default function EmployeeProfileForm() {
             : prev.fullName),
         emailAddress: refreshedEmployee.email || prev.emailAddress,
         mobileNumber: refreshedEmployee.phoneNumber || refreshedEmployee.mobileNumber || prev.mobileNumber,
-        department: refreshedEmployee.department?.name || prev.department,
+        department: refreshedEmployee.department?.departmentName || refreshedEmployee.department?.name || prev.department,
         designation: refreshedEmployee.designation?.name || prev.designation,
         reportingTo: refreshedEmployee.reportingTo?.fullName || 
           (refreshedEmployee.reportingTo?.firstName && refreshedEmployee.reportingTo?.lastName 

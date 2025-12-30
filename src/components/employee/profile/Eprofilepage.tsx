@@ -168,9 +168,11 @@ export default function EmployeeProfileForm() {
         const apiUrl = getApiUrl()
 
         if (!token || !orgId || !employeeId) {
-          console.error("Authentication, organization ID, or employee ID missing")
+          console.error("Authentication, organization ID, or employee ID missing", { token: !!token, orgId, employeeId })
           return
         }
+
+        console.log("Fetching employee data:", { apiUrl, orgId, employeeId })
 
         // Fetch employee data using the /:id endpoint (self-access)
         const response = await axios.get(`${apiUrl}/org/${orgId}/employees/${employeeId}`, {
@@ -189,7 +191,7 @@ export default function EmployeeProfileForm() {
           emailAddress: employee.email || "",
           mobileNumber: employee.phoneNumber || employee.mobileNumber || "",
           role: employee.role || "",
-          department: employee.department?.name || "",
+          department: employee.department?.departmentName || employee.department?.name || "",
           designation: employee.designation?.name || "",
           reportingTo: employee.reportingTo?.fullName || 
             (employee.reportingTo?.firstName && employee.reportingTo?.lastName 
@@ -262,8 +264,22 @@ export default function EmployeeProfileForm() {
           console.error("Failed to fetch profile picture:", error)
         }
 
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to fetch employee data:", error)
+        console.error("Error details:", {
+          message: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          url: error.config?.url
+        })
+        if (error.response?.status === 404) {
+          alert("Employee profile not found. Please contact your administrator.")
+        } else if (error.response?.status === 403) {
+          alert("You don't have permission to access this profile.")
+        } else {
+          alert("Failed to load profile. Please try again.")
+        }
       }
     }
 
@@ -440,7 +456,7 @@ export default function EmployeeProfileForm() {
             : prev.fullName),
         emailAddress: refreshedEmployee.email || prev.emailAddress,
         mobileNumber: refreshedEmployee.phoneNumber || refreshedEmployee.mobileNumber || prev.mobileNumber,
-        department: refreshedEmployee.department?.name || prev.department,
+        department: refreshedEmployee.department?.departmentName || refreshedEmployee.department?.name || prev.department,
         designation: refreshedEmployee.designation?.name || prev.designation,
         reportingTo: refreshedEmployee.reportingTo?.fullName || 
           (refreshedEmployee.reportingTo?.firstName && refreshedEmployee.reportingTo?.lastName 
