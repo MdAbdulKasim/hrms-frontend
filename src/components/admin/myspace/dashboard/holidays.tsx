@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, X, Plus } from 'lucide-react';
 import axios from 'axios';
-import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId, getCookie } from '@/lib/auth';
 
 interface Holiday {
   id: string;
@@ -14,6 +14,11 @@ const UpcomingHolidaysSection: React.FC = () => {
   const [showHolidayModal, setShowHolidayModal] = useState(false);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [loading, setLoading] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    setUserRole(getCookie('role'));
+  }, []);
 
   const [holidayForm, setHolidayForm] = useState({
     holidayName: '',
@@ -125,6 +130,8 @@ const UpcomingHolidaysSection: React.FC = () => {
     });
   };
 
+  const isEmployee = userRole === 'employee';
+
   return (
     <>
       <div className="bg-white rounded-lg shadow p-4 sm:p-5 border border-slate-100">
@@ -135,13 +142,15 @@ const UpcomingHolidaysSection: React.FC = () => {
             </div>
             <h2 className="text-lg font-semibold truncate text-slate-900">Upcoming Holidays</h2>
           </div>
-          <button
-            onClick={() => setShowHolidayModal(true)}
-            className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors bg-blue-50 px-3 py-1.5 rounded-md border border-blue-100"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Holiday</span>
-          </button>
+          {!isEmployee && (
+            <button
+              onClick={() => setShowHolidayModal(true)}
+              className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors bg-blue-50 px-3 py-1.5 rounded-md border border-blue-100"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Holiday</span>
+            </button>
+          )}
         </div>
         <div className="space-y-3">
           {holidays.length === 0 ? (

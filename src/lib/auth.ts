@@ -357,14 +357,15 @@ export const getUserDetails = (): {
     // Try cookies first
     let firstName = getCookie('hrms_user_firstName') || getCookie('registrationFirstName') || '';
     let lastName = getCookie('hrms_user_lastName') || getCookie('registrationLastName') || '';
+    let fullName = getCookie('hrms_user_fullName') || '';
     let email = getCookie('hrms_user_email') || getCookie('registrationEmail') || '';
 
     // Fallback to localStorage
     if ((!firstName || firstName === 'undefined') && typeof window !== 'undefined') firstName = localStorage.getItem('hrms_user_firstName') || localStorage.getItem('registrationFirstName') || '';
     if ((!lastName || lastName === 'undefined') && typeof window !== 'undefined') lastName = localStorage.getItem('hrms_user_lastName') || localStorage.getItem('registrationLastName') || '';
+    if (!fullName && typeof window !== 'undefined') fullName = localStorage.getItem('hrms_user_fullName') || '';
     if ((!email || email === 'undefined') && typeof window !== 'undefined') email = localStorage.getItem('hrms_user_email') || localStorage.getItem('registrationEmail') || '';
 
-    let fullName = '';
     const token = getAuthToken();
     let tokenData: any = null;
     if (token) {
@@ -374,27 +375,45 @@ export const getUserDetails = (): {
     // Clean up "undefined" strings potentially stored in cookies
     if (firstName === 'undefined') firstName = '';
     if (lastName === 'undefined') lastName = '';
+    if (fullName === 'undefined') fullName = '';
 
-    if (firstName || lastName) {
+    if (fullName) {
+        // We already have fullName
+    } else if (firstName || lastName) {
         fullName = `${firstName} ${lastName}`.trim();
     } else if (tokenData) {
-        // Try getting name from token structure
-        // Some JWTs have 'name', some 'fullName', some 'firstName'/'lastName'
-        fullName = tokenData.name ||
-            tokenData.fullName ||
+        // Aggressive name search in token
+        fullName = tokenData.fullName ||
+            tokenData.name ||
+            tokenData.display_name ||
             (tokenData.firstName && tokenData.lastName ? `${tokenData.firstName} ${tokenData.lastName}` : '') ||
+            tokenData.firstName ||
+            tokenData.lastName ||
+            tokenData.username ||
+            tokenData.email?.split('@')[0] ||
             'User';
+
+        // Clean up if the result is still just an ID or empty
+        const isId = (s: string) => s && s.length > 20 && /\d/.test(s);
+        if (isId(fullName) || fullName === 'undefined') fullName = 'User';
 
         if ((!email || email === 'undefined') && tokenData.email) email = tokenData.email;
     } else {
         fullName = 'User';
     }
 
-    if (!fullName || fullName === ' ') fullName = 'User';
+    if (!fullName || fullName === ' ' || fullName === 'undefined' || fullName === 'User') {
+        fullName = 'User';
+    }
 
     // Initials
     const getInitials = (name: string) => {
+        if ((!name || name === 'User') && email) {
+            const prefix = email.split('@')[0];
+            return prefix.substring(0, 2).toUpperCase();
+        }
         if (!name || name === 'User') return 'U';
+
         const parts = name.trim().split(' ').filter(Boolean);
         if (parts.length >= 2) {
             return `${parts[0][0]}${parts[1][0]}`.toUpperCase();

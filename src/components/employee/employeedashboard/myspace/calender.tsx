@@ -1,25 +1,27 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import axios from 'axios';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 
 interface Event {
   id: string;
   title: string;
   date: Date;
-  type: 'meeting' | 'deadline' | 'event' | 'holiday' | 'leave';
+  endDate?: Date;
+  type: 'holiday' | 'leave' | 'announcement';
 }
 
 const Calendar: React.FC = () => {
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 11, 1)); // December 2025
-  const [events] = useState<Event[]>([]);
+  const [currentDate, setCurrentDate] = useState(new Date()); // Use current date
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  
+
   const eventTypes = [
-    { label: 'Meeting', color: 'bg-blue-500' },
-    { label: 'Deadline', color: 'bg-red-500' },
-    { label: 'Event', color: 'bg-purple-500' },
     { label: 'Holiday', color: 'bg-green-500' },
+    { label: 'Announcement', color: 'bg-yellow-500' },
     { label: 'Leave', color: 'bg-orange-500' },
   ];
 
@@ -36,6 +38,65 @@ const Calendar: React.FC = () => {
 
   const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentDate);
 
+  useEffect(() => {
+    const fetchData = async () => {
+      const apiUrl = getApiUrl();
+      const token = getAuthToken();
+      const orgId = getOrgId();
+
+      if (!orgId || !apiUrl) return;
+
+      try {
+        setLoading(true);
+        // Fetch holidays, announcements, and leaves in parallel
+        const [holidaysRes, announcementsRes, leavesRes] = await Promise.all([
+          axios.get(`${apiUrl}/org/${orgId}/holidays?limit=100`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }).catch(err => ({ data: { data: [] } })),
+          axios.get(`${apiUrl}/org/${orgId}/announcements?limit=100`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }).catch(err => ({ data: { data: [] } })),
+          axios.get(`${apiUrl}/org/${orgId}/leaves?limit=100`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }).catch(err => ({ data: { data: [] } })),
+        ]);
+
+        const holidayData = holidaysRes.data.data || holidaysRes.data || [];
+        const holidayEvents: Event[] = holidayData.map((holiday: any) => ({
+          id: holiday.id || `holiday-${Math.random()}`,
+          title: holiday.holidayName,
+          date: new Date(holiday.date),
+          type: 'holiday' as const,
+        }));
+
+        const announcementData = announcementsRes.data.data || announcementsRes.data || [];
+        const announcementEvents: Event[] = announcementData.map((announcement: any) => ({
+          id: announcement.id || `announcement-${Math.random()}`,
+          title: announcement.title,
+          date: new Date(announcement.date || announcement.createdAt),
+          type: 'announcement' as const,
+        }));
+
+        const leaveData = leavesRes.data.data || leavesRes.data || [];
+        const leaveEvents: Event[] = leaveData.map((leave: any) => ({
+          id: leave.id || `leave-${Math.random()}`,
+          title: `Leave (${leave.status || 'Pending'})`,
+          date: new Date(leave.startDate || leave.from),
+          endDate: new Date(leave.endDate || leave.to),
+          type: 'leave' as const,
+        }));
+
+        setEvents([...holidayEvents, ...announcementEvents, ...leaveEvents]);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [currentDate]); // Refresh when month changes or on mount
+
   const goToPreviousMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   };
@@ -51,20 +112,20 @@ const Calendar: React.FC = () => {
   const isToday = (day: number) => {
     const today = new Date();
     return (
-      day === 15 &&
-      currentDate.getMonth() === 11 &&
-      currentDate.getFullYear() === 2025
+      day === today.getDate() &&
+      currentDate.getMonth() === today.getMonth() &&
+      currentDate.getFullYear() === today.getFullYear()
     );
   };
 
   const renderCalendarDays = () => {
     const days = [];
-    
+
     // Empty cells for days before month starts
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(
-        <div 
-          key={`empty-${i}`} 
+        <div
+          key={`empty-${i}`}
           className="min-h-[4rem] sm:min-h-[6rem] md:h-24 bg-white border border-gray-200"
         ></div>
       );
@@ -73,17 +134,42 @@ const Calendar: React.FC = () => {
     // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const isCurrentDay = isToday(day);
-      
+      const dayDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+      const dayEvents = events.filter(event => {
+        const start = new Date(event.date);
+        start.setHours(0, 0, 0, 0);
+        const end = event.endDate ? new Date(event.endDate) : start;
+        end.setHours(23, 59, 59, 999);
+        const current = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+        return current >= start && current <= end;
+      });
+
       days.push(
         <div
           key={day}
-          // RESPONSIVE UPDATE: Modified height, padding, and hover text size
-          className={`min-h-[4rem] sm:min-h-[6rem] md:h-24 bg-white border border-gray-200 p-1 sm:p-2 hover:bg-gray-50 transition-colors ${
-            isCurrentDay ? 'ring-2 ring-blue-400 ring-inset' : ''
-          }`}
+          className={`min-h-[4rem] sm:min-h-[6rem] md:h-24 bg-white border border-gray-200 p-1 sm:p-2 hover:bg-gray-50 transition-colors ${isCurrentDay ? 'ring-2 ring-blue-400 ring-inset' : ''
+            }`}
         >
-          {/* RESPONSIVE UPDATE: Text size adjusts based on screen */}
-          <div className="text-xs sm:text-sm text-gray-700 font-medium">{day}</div>
+          <div className="flex justify-between items-start">
+            <div className={`text-xs sm:text-sm font-medium ${isCurrentDay ? 'text-blue-600' : 'text-gray-700'}`}>
+              {day}
+            </div>
+          </div>
+          <div className="mt-1 space-y-1 overflow-y-auto max-h-[calc(100%-1.5rem)]">
+            {dayEvents.map(event => (
+              <div
+                key={event.id}
+                className={`text-[10px] sm:text-xs px-1 py-0.5 rounded truncate border ${event.type === 'holiday' ? 'bg-green-100 text-green-700 border-green-200' :
+                  event.type === 'announcement' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
+                    event.type === 'leave' ? 'bg-orange-100 text-orange-700 border-orange-200' :
+                      'bg-gray-100 text-gray-700 border-gray-200'
+                  }`}
+                title={event.title}
+              >
+                {event.title}
+              </div>
+            ))}
+          </div>
         </div>
       );
     }
@@ -108,7 +194,7 @@ const Calendar: React.FC = () => {
               {formatMonthYear(currentDate)}
             </h2>
           </div>
-          
+
           <div className="flex gap-2">
             <button
               onClick={goToPreviousMonth}

@@ -6,15 +6,16 @@ import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 // import QuickLinksSection from './quicklink';
 import AnnouncementsSection from './announcement';
 import UpcomingHolidaysSection from './holidays';
- 
- 
- 
+
+
+
 const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [birthdays, setBirthdays] = useState<any[]>([]);
   const [newHires, setNewHires] = useState<any[]>([]);
   const [pendingTasks, setPendingTasks] = useState<any[]>([]);
   const [onLeaveToday, setOnLeaveToday] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -35,12 +36,15 @@ const Dashboard: React.FC = () => {
           const employeesRes = await axios.get(`${apiUrl}/org/${orgId}/employees`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          const employees = employeesRes.data?.data || employeesRes.data || [];
-          
+          const employeesResult = employeesRes.data?.data || employeesRes.data || [];
+          setEmployees(Array.isArray(employeesResult) ? employeesResult : []);
+
+          const employees = Array.isArray(employeesResult) ? employeesResult : [];
+
           // Get current month for birthdays
           const today = new Date();
           const currentMonth = today.getMonth();
-          
+
           // Filter birthdays for current month
           const birthdayEmployees = employees.filter((emp: any) => {
             if (emp.dateOfBirth) {
@@ -54,7 +58,7 @@ const Dashboard: React.FC = () => {
           // Filter new hires (joined in last 30 days)
           const thirtyDaysAgo = new Date();
           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          
+
           const recentHires = employees.filter((emp: any) => {
             if (emp.joiningDate) {
               const joinDate = new Date(emp.joiningDate);
@@ -75,12 +79,12 @@ const Dashboard: React.FC = () => {
             headers: { Authorization: `Bearer ${token}` }
           });
           const leaveRequests = leaveRequestsRes.data?.data || leaveRequestsRes.data || [];
-          
+
           // Filter pending approvals
-          const pendingApprovals = leaveRequests.filter((request: any) => 
+          const pendingApprovals = leaveRequests.filter((request: any) =>
             request.status === 'pending' || request.status === 'Pending'
           );
-          
+
           // Convert to task format
           const tasks = pendingApprovals.map((request: any) => ({
             id: request.id,
@@ -88,13 +92,13 @@ const Dashboard: React.FC = () => {
             priority: 'high',
             type: 'leave_approval'
           }));
-          
+
           // Add some default tasks if needed
           const defaultTasks = [
             { id: 'review_timesheet', title: 'Review timesheet', priority: 'high', type: 'timesheet' },
             { id: 'complete_training', title: 'Complete training', priority: 'low', type: 'training' }
           ];
-          
+
           setPendingTasks([...tasks, ...defaultTasks]);
         } catch (error) {
           console.error('Error fetching leave requests:', error);
@@ -111,12 +115,12 @@ const Dashboard: React.FC = () => {
             params: { date: new Date().toISOString().split('T')[0] }
           });
           const attendanceRecords = attendanceRes.data?.data || attendanceRes.data || [];
-          
+
           // Filter employees on leave
-          const onLeaveEmployees = attendanceRecords.filter((record: any) => 
+          const onLeaveEmployees = attendanceRecords.filter((record: any) =>
             record.status === 'leave' || record.status === 'Leave'
           );
-          
+
           setOnLeaveToday(onLeaveEmployees);
         } catch (error) {
           console.error('Error fetching attendance:', error);
@@ -168,7 +172,7 @@ const Dashboard: React.FC = () => {
               )}
             </div>
           </div> */}
- 
+
           {/* New Hires */}
           {/* <div className="bg-white rounded-lg shadow p-4 sm:p-5">
             <div className="flex items-center gap-2 mb-4">
@@ -201,21 +205,21 @@ const Dashboard: React.FC = () => {
               )}
             </div>
           </div> */}
- 
+
           {/* Quick Links - Extracted Component */}
           {/* Note: Passing grid classes here to maintain layout */}
           {/* <QuickLinksSection className="sm:col-span-2 lg:col-span-1" /> */}
         </div>
- 
+
         {/* Middle Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
           {/* Announcements - Extracted Component */}
           <AnnouncementsSection />
- 
+
           {/* Upcoming Holidays - Extracted Component */}
           {/* <UpcomingHolidaysSection /> */}
         </div>
- 
+
         {/* Bottom Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* My Pending Tasks */}
@@ -246,7 +250,7 @@ const Dashboard: React.FC = () => {
               )}
             </div>
           </div> */}
- 
+
           {/* On Leave Today */}
           <div className="bg-white rounded-lg shadow p-4 sm:p-5">
             <div className="flex items-center gap-2 mb-4">
@@ -280,9 +284,74 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Employee Table Section */}
+        <div className="bg-white rounded-lg shadow overflow-hidden mt-6 mb-8">
+          <div className="p-4 sm:p-5 border-b border-gray-200 bg-gray-50 flex items-center gap-2">
+            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
+              <Users className="w-4 h-4 text-blue-600" />
+            </div>
+            <h2 className="text-lg font-semibold">Employee Details</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full whitespace-nowrap">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Full Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Designation</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500 italic">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                        Loading employees...
+                      </div>
+                    </td>
+                  </tr>
+                ) : employees.length > 0 ? (
+                  employees.map((employee: any) => (
+                    <tr key={employee.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 font-medium text-xs">
+                            {employee.fullName?.charAt(0) || 'U'}
+                          </div>
+                          <span className="text-sm font-medium text-gray-900">{employee.fullName}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{employee.email}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{employee.department?.name || employee.department || 'N/A'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{employee.designation?.name || employee.designation || 'N/A'}</td>
+                      <td className="px-6 py-4 text-sm">
+                        <span className={`px-2 py-1 text-xs rounded-full font-medium ${employee.status === 'active' || employee.status === 'Active'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-amber-100 text-amber-700'
+                          }`}>
+                          {employee.status || 'Active'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500 italic">
+                      No employees found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
- 
+
 export default Dashboard;

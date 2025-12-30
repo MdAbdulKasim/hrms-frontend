@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Settings, Bell, User, PanelLeft, Menu } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { getAuthToken, decodeToken, getCookie, getUserDetails, setCookie, getOrgId, getEmployeeId, getUserRole } from '@/lib/auth';
+import { getAuthToken, decodeToken, getCookie, getUserDetails, setCookie, getOrgId, getEmployeeId, getUserRole, getApiUrl } from '@/lib/auth';
 
 type SubTab = {
   name: string;
@@ -31,18 +31,9 @@ const adminNavigationConfig: MainTab[] = [
     name: 'Team',
     path: '/admin/team',
     subTabs: [
-      // { name: 'Reportees', path: '/admin/team/reportees' },
       { name: 'HR Process', path: '/admin/team/hr-process' }
     ]
-  },
-  // {
-  //   name: 'Organization',
-  //   path: '/admin/organization',
-  //   subTabs: [
-  //     { name: 'Employee Tree', path: '/admin/organization/employee-tree' },
-  //     { name: 'Department Tree', path: '/admin/organization/department-tree' }
-  //   ]
-  // }
+  }
 ];
 
 const employeeNavigationConfig: MainTab[] = [
@@ -54,23 +45,7 @@ const employeeNavigationConfig: MainTab[] = [
       { name: 'Dashboard', path: '/employee/my-space/dashboard' },
       { name: 'Calendar', path: '/employee/my-space/calender' }
     ]
-  },
-  {
-    name: 'Team',
-    path: '/employee/team',
-    subTabs: [
-      // { name: 'Reportees', path: '/employee/team/reportees' },
-      { name: 'HR Process', path: '/employee/team/hr-process' }
-    ]
-  },
-  // {
-  //   name: 'Organization',
-  //   path: '/employee/organization',
-  //   subTabs: [
-  //     { name: 'Employee Tree', path: '/employee/organization/employee-tree' },
-  //     { name: 'Department Tree', path: '/employee/organization/department-tree' }
-  //   ]
-  // }
+  }
 ];
 
 interface NavigationHeaderProps {
@@ -87,105 +62,154 @@ export default function NavigationHeader({
   const navigationConfig = userRole === 'admin' ? adminNavigationConfig : employeeNavigationConfig;
   const [activeMainTab, setActiveMainTab] = useState(navigationConfig[0]);
 
-  // User data state
+  // User data state - start with empty values
   const [userData, setUserData] = useState({
-    name: 'User',
+    name: '',
     email: '',
-    initials: 'U'
+    initials: ''
   });
 
+  const [isLoading, setIsLoading] = useState(true);
 
-
-  // Fetch user data from multiple sources
+  // Fetch user data based on role
   useEffect(() => {
-    const fetchUserData = () => {
-      const details = getUserDetails();
+    const fetchUserData = async () => {
+      const token = getAuthToken();
+      const orgId = getOrgId();
+      const empId = getEmployeeId();
+      const role = getUserRole();
 
-      console.log('Header - Retrieved user details:', details);
+      console.log('Header - Fetching user data for role:', role);
 
-      setUserData({
-        name: details.fullName,
-        email: details.email,
-        initials: details.initials
-      });
+      if (!token || !orgId || !empId) {
+        console.log('Header - Missing auth data');
+        setIsLoading(false);
+        return;
+      }
 
-      // Self-healing: if name is "User", try to fetch from API
-      if (details.fullName === 'User') {
-        const token = getAuthToken();
-        const orgId = getOrgId();
-        const empId = getEmployeeId();
-        const role = getUserRole();
+      const apiUrl = getApiUrl();
+      
+      // Fetch from the appropriate endpoint based on role
+      let endpoint = '';
+      if (role === 'admin') {
+        endpoint = `${apiUrl}/org/${orgId}/admin/${empId}`;
+      } else {
+        endpoint = `${apiUrl}/org/${orgId}/employees/${empId}`;
+      }
 
-        if (token && orgId && empId && role) {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-          const endpoint = role === 'admin'
-            ? `${apiUrl}/org/${orgId}/employees/${empId}`
-            : `${apiUrl}/org/${orgId}/employees/onboarding/status`;
+      console.log('Header - Fetching from endpoint:', endpoint);
 
-          fetch(endpoint, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          })
-            .then(res => res.json())
-            .then(data => {
-              const emp = data.data || data.employee || data; // handle different responses
-              if (emp && emp.fullName) {
-                // Parse names
-                let first = emp.firstName;
-                let last = emp.lastName;
-                if (!first && emp.fullName) {
-                  const parts = emp.fullName.split(' ');
-                  first = parts[0];
-                  last = parts.slice(1).join(' ');
-                }
+      try {
+        const response = await fetch(endpoint, {
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-                // Helper to check if string looks like an ID (uuid-ish)
-                const isId = (s: string) => s && s.length > 20 && /\d/.test(s);
-
-                if (isId(first)) {
-                  // If first name is ID, and we have a valid email, maybe use email prefix?
-                  // Or just "Admin"
-                  if (role === 'admin') first = "Admin";
-                  else first = "Employee";
-                  last = "";
-                }
-
-                const newFull = `${first} ${last}`.trim();
-
-                // Update state
-                setUserData({
-                  name: newFull,
-                  email: emp.email || details.email,
-                  initials: newFull.substring(0, 2).toUpperCase()
-                });
-
-                // Persist
-                if (first) {
-                  setCookie('hrms_user_firstName', first, 7);
-                  if (typeof window !== 'undefined') localStorage.setItem('hrms_user_firstName', first);
-                }
-                if (last) {
-                  setCookie('hrms_user_lastName', last, 7);
-                  if (typeof window !== 'undefined') localStorage.setItem('hrms_user_lastName', last);
-                }
-              }
-            })
-            .catch(err => console.error("Header auto-fetch failed", err));
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
+
+        const data = await response.json();
+        console.log('Header - API Response:', data);
+
+        const user = data.data || data.admin || data.employee || data;
+        
+        if (user) {
+          let firstName = user.firstName || '';
+          let lastName = user.lastName || '';
+          let fullName = user.fullName || user.name || '';
+          let email = user.email || '';
+
+          // If fullName exists, use it; otherwise construct from firstName and lastName
+          if (!fullName && (firstName || lastName)) {
+            fullName = `${firstName} ${lastName}`.trim();
+          }
+
+          // If still no fullName, extract from email
+          if (!fullName && email) {
+            fullName = email.split('@')[0];
+          }
+
+          // Helper to check if string looks like an ID
+          const isId = (s: string) => s && s.length > 20 && /\d/.test(s);
+          
+          // Clean up if firstName/lastName are IDs
+          if (isId(firstName) || isId(lastName)) {
+            firstName = '';
+            lastName = '';
+            fullName = '';
+          }
+
+          // Generate initials from fullName
+          const initials = fullName 
+            ? fullName.split(' ')
+                .filter((word: string) => word.length > 0)
+                .map((word: string) => word[0])
+                .join('')
+                .substring(0, 2)
+                .toUpperCase()
+            : (role === 'admin' ? 'AD' : 'EM');
+
+          console.log('Header - Setting user data:', { fullName, email, initials, role });
+
+          setUserData({
+            name: fullName,
+            email: email,
+            initials: initials
+          });
+
+          // Persist to storage for consistency
+          if (fullName) {
+            setCookie('hrms_user_firstName', firstName || '', 7);
+            setCookie('hrms_user_lastName', lastName || '', 7);
+            setCookie('hrms_user_fullName', fullName || '', 7);
+            setCookie('hrms_user_email', email || '', 7);
+            
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('hrms_user_firstName', firstName || '');
+              localStorage.setItem('hrms_user_lastName', lastName || '');
+              localStorage.setItem('hrms_user_fullName', fullName || '');
+              localStorage.setItem('hrms_user_email', email || '');
+              localStorage.setItem('hrms_user_role', role || '');
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Header - Failed to fetch user data:", error);
+        
+        // Try to get from local storage as fallback
+        const details = getUserDetails();
+        if (details.fullName) {
+          setUserData({
+            name: details.fullName,
+            email: details.email,
+            initials: details.initials
+          });
+        }
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchUserData();
 
-    // Listen for storage changes (in case user data is updated elsewhere)
+    // Listen for storage changes
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key?.includes('firstName') || e.key?.includes('lastName') || e.key?.includes('email')) {
-        fetchUserData();
+      if (e.key?.includes('firstName') || e.key?.includes('lastName') || e.key?.includes('email') || e.key?.includes('fullName')) {
+        const details = getUserDetails();
+        setUserData({
+          name: details.fullName,
+          email: details.email,
+          initials: details.initials
+        });
       }
     };
 
     window.addEventListener('storage', handleStorageChange);
 
-    // Also listen for custom events if you dispatch them after registration/login
+    // Listen for custom events
     const handleUserDataUpdate = () => {
       fetchUserData();
     };
@@ -195,7 +219,7 @@ export default function NavigationHeader({
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('userDataUpdated', handleUserDataUpdate);
     };
-  }, []);
+  }, [userRole]); // Re-fetch when userRole changes
 
   useEffect(() => {
     const matchedTab = navigationConfig.find(tab =>
@@ -245,40 +269,41 @@ export default function NavigationHeader({
 
         {/* Right Section - Icons */}
         <div className="flex items-center gap-2 md:gap-4 shrink-0">
-          {/* Desktop Search */}
-          <div className="relative hidden xl:block">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search features..."
-              className="pl-11 pr-4 py-2.5 w-64 text-sm bg-gray-50 border border-transparent rounded-xl focus:outline-none focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/20 transition-all font-medium"
-            />
-          </div>
-
           <button className="p-2.5 text-gray-500 hover:bg-gray-50 hover:text-blue-600 rounded-xl transition-all active:scale-95 relative">
             <Bell className="w-5 h-5" />
-            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-blue-600 rounded-full border-2 border-white"></span>
           </button>
 
-          {userRole === 'admin' && (
+          {/* {userRole === 'admin' && (
             <Link href="/admin/settings/permissions" className="hidden sm:block">
               <button className="p-2.5 text-gray-500 hover:bg-gray-50 hover:text-blue-600 rounded-xl transition-all active:scale-95">
                 <Settings className="w-5 h-5" />
               </button>
             </Link>
-          )}
+          )} */}
 
           <div className="h-8 w-px bg-gray-100 mx-1 hidden sm:block"></div>
 
-          <button className="flex items-center gap-2 p-1.5 md:p-2 hover:bg-gray-50 rounded-xl transition-all group">
-            <div className="w-8 h-8 md:w-9 md:h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/10 shrink-0">
-              <span className="text-white font-bold text-sm">{userData.initials}</span>
+          {!isLoading && userData.name && (
+            <button className="flex items-center gap-2 p-1.5 md:p-2 hover:bg-gray-50 rounded-xl transition-all group">
+              <div className="w-8 h-8 md:w-9 md:h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/10 shrink-0">
+                <span className="text-white font-bold text-sm">{userData.initials}</span>
+              </div>
+              <div className="hidden lg:flex flex-col items-start mr-1">
+                <span className="text-[13px] font-bold text-gray-900 leading-tight">{userData.name}</span>
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{userRole}</span>
+              </div>
+            </button>
+          )}
+
+          {isLoading && (
+            <div className="flex items-center gap-2 p-1.5 md:p-2">
+              <div className="w-8 h-8 md:w-9 md:h-9 bg-gray-200 rounded-xl animate-pulse shrink-0"></div>
+              <div className="hidden lg:flex flex-col gap-1">
+                <div className="h-3 w-20 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-2 w-16 bg-gray-200 rounded animate-pulse"></div>
+              </div>
             </div>
-            <div className="hidden lg:flex flex-col items-start mr-1">
-              <span className="text-[13px] font-bold text-gray-900 leading-tight">{userData.name}</span>
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{userRole}</span>
-            </div>
-          </button>
+          )}
         </div>
       </div>
 
