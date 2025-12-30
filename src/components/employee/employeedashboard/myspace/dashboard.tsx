@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { UserCheck, Clock, Sun, TrendingUp, Briefcase } from 'lucide-react';
+import { UserCheck, Sun, TrendingUp, Briefcase } from 'lucide-react';
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId, getUserDetails } from '@/lib/auth';
 import AnnouncementsSection from '@/components/admin/myspace/dashboard/announcement';
@@ -28,15 +28,21 @@ const Dashboard: React.FC = () => {
 
         const today = new Date();
 
-        // Fetch on leave today
-        const attendanceRes = await axios.get(`${apiUrl}/org/${orgId}/attendance`, {
-          headers: { Authorization: `Bearer ${token}` },
-          params: { date: today.toISOString().split('T')[0] }
-        });
-        const attendanceRecords = attendanceRes.data?.data || attendanceRes.data || [];
-        setOnLeaveToday(attendanceRecords.filter((record: any) =>
-          record.status?.toLowerCase() === 'leave'
-        ));
+        // Fetch on leave today - wrap in try-catch since endpoint may not exist
+        try {
+          const attendanceRes = await axios.get(`${apiUrl}/org/${orgId}/attendance`, {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { date: today.toISOString().split('T')[0] }
+          });
+          const attendanceRecords = attendanceRes.data?.data || attendanceRes.data || [];
+          setOnLeaveToday(attendanceRecords.filter((record: any) =>
+            record.status?.toLowerCase() === 'leave'
+          ));
+        } catch (attendanceError) {
+          // If attendance endpoint doesn't exist or returns error, just set empty
+          console.log('On leave data not available');
+          setOnLeaveToday([]);
+        }
 
         // Fetch current day attendance status for summary
         try {
@@ -99,16 +105,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Quick Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-            <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center shrink-0">
-              <Clock className="w-6 h-6 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Check In</p>
-              <p className="text-lg font-bold text-slate-900">{attendanceSummary.checkIn}</p>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
             <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center shrink-0">
               <UserCheck className="w-6 h-6 text-amber-600" />
