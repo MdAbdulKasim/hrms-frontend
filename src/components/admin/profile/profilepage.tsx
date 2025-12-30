@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/card"
 import { ChevronLeft, Edit, Upload, User, Plus, Trash2 } from "lucide-react"
 import { getApiUrl, getAuthToken, getOrgId, getEmployeeId } from "@/lib/auth"
 import { CustomAlertDialog } from "@/components/ui/custom-dialogs"
+import ChangePassword from "./ChangePassword"
 
 interface FormData {
   // Personal Details

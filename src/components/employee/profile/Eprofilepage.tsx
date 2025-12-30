@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import axios from "axios"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -130,6 +131,7 @@ const initialFormData: FormData = {
 }
 
 export default function EmployeeProfileForm() {
+  const router = useRouter();
   const [alertState, setAlertState] = useState<{
     open: boolean;
     title: string;
