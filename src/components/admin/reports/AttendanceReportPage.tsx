@@ -141,12 +141,13 @@ export default function AttendanceReportPage() {
   };
 
   const formatDateTime = (dateTimeString: string | undefined) => {
-    if (!dateTimeString) return '—';
+    if (!dateTimeString) return 'N/A';
     try {
       const date = new Date(dateTimeString);
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+      return timeStr;
     } catch {
-      return dateTimeString;
+      return dateTimeString || 'N/A';
     }
   };
 
@@ -186,9 +187,9 @@ export default function AttendanceReportPage() {
       const tableData = selectedData.map(record => [
         record.employeeName || record.employee?.fullName || record.employee?.name || record.employeeId || 'N/A',
         formatDate(record.date),
-        formatDateTime(record.checkInTime) || record.checkIn || '—',
-        formatDateTime(record.checkOutTime) || record.checkOut || '—',
-        record.totalHours ? `${record.totalHours}h` : (record.hoursWorked || '—'),
+        formatDateTime(record.checkInTime) || record.checkIn || 'N/A',
+        formatDateTime(record.checkOutTime) || record.checkOut || 'N/A',
+        record.totalHours ? `${record.totalHours}h` : (record.hoursWorked || 'N/A'),
         record.status || 'Unknown'
       ]);
 
@@ -219,23 +220,26 @@ export default function AttendanceReportPage() {
   };
 
   const handleExportExcel = () => {
-    if (selectedRecords.size === 0) {
-      alert("Please select at least one record to export");
+    const dataToExport = selectedRecords.size === 0 
+      ? attendanceData 
+      : Array.from(selectedRecords).map(index => attendanceData[index]);
+
+    if (dataToExport.length === 0) {
+      alert("No records to export");
+      setShowExportDropdown(false);
       return;
     }
 
-    const selectedData = Array.from(selectedRecords).map(index => attendanceData[index]);
-
-    // Create CSV content
-    const headers = ['Employee', 'Date', 'Check In', 'Check Out', 'Hours', 'Status'];
+    // Create CSV content with wider headers
+    const headers = ['Employee Name                    ', 'Date            ', 'Check In Time   ', 'Check Out Time  ', 'Hours Worked', 'Status        '];
     const csvRows = [headers.join(',')];
 
-    selectedData.forEach(record => {
+    dataToExport.forEach(record => {
       const employeeName = record.employeeName || record.employee?.fullName || record.employee?.name || record.employeeId || 'N/A';
       const date = formatDate(record.date);
-      const checkIn = formatDateTime(record.checkInTime) || record.checkIn || '—';
-      const checkOut = formatDateTime(record.checkOutTime) || record.checkOut || '—';
-      const hours = record.totalHours ? `${record.totalHours}h` : (record.hoursWorked || '—');
+      const checkIn = (formatDateTime(record.checkInTime) || record.checkIn || 'N/A').toString();
+      const checkOut = (formatDateTime(record.checkOutTime) || record.checkOut || 'N/A').toString();
+      const hours = record.totalHours ? `${record.totalHours}h` : (record.hoursWorked || 'N/A');
       const status = record.status || 'Unknown';
 
       const row = [
@@ -258,7 +262,7 @@ export default function AttendanceReportPage() {
     a.click();
     window.URL.revokeObjectURL(url);
 
-    alert(`Exported ${selectedData.length} records to Excel (CSV format).`);
+    alert(`Exported ${dataToExport.length} records to Excel (CSV format).`);
     setShowExportDropdown(false);
   };
 
@@ -515,13 +519,13 @@ export default function AttendanceReportPage() {
                         {formatDate(record.date)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDateTime(record.checkInTime) || record.checkIn || "—"}
+                        {formatDateTime(record.checkInTime) || record.checkIn || "N/A"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDateTime(record.checkOutTime) || record.checkOut || "—"}
+                        {formatDateTime(record.checkOutTime) || record.checkOut || "N/A"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {record.totalHours ? `${record.totalHours}h` : record.hoursWorked || "—"}
+                        {record.totalHours ? `${record.totalHours}h` : record.hoursWorked || "N/A"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
