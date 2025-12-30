@@ -57,6 +57,22 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
         return shift ? (shift.shiftName || shift.name) : id || 'N/A';
     };
 
+    const getSiteName = (locId: string, siteId: string) => {
+        const loc = locations.find(l => l.id === locId || l._id === locId);
+        if (!loc || !loc.sites) return siteId || 'N/A';
+        const site = loc.sites.find((s: any) => s.id === siteId || s._id === siteId || s.name === siteId);
+        return site ? (site.name || site.siteName) : siteId || 'N/A';
+    };
+
+    const getBuildingName = (locId: string, siteId: string, bldId: string) => {
+        const loc = locations.find(l => l.id === locId || l._id === locId);
+        if (!loc || !loc.sites) return bldId || 'N/A';
+        const site = loc.sites.find((s: any) => s.id === siteId || s._id === siteId || s.name === siteId);
+        if (!site || !site.buildings) return bldId || 'N/A';
+        const bld = site.buildings.find((b: any) => b.id === bldId || b._id === bldId || b.name === bldId);
+        return bld ? (bld.name || bld.buildingName) : bldId || 'N/A';
+    };
+
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -133,27 +149,73 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
                         </div>
 
                         <div className="border-b md:border-b-0 md:border-r border-gray-100 pb-4 md:pb-0 md:pr-4">
+                            <label className="block text-sm font-medium text-gray-500 mb-1">Site</label>
+                            <div className="text-gray-900 font-medium">{getSiteName(candidate.locationId, candidate.siteId || '')}</div>
+                        </div>
+
+                        <div className="border-b md:border-b-0 border-gray-100 pb-4 md:pb-0">
+                            <label className="block text-sm font-medium text-gray-500 mb-1">Building / Area</label>
+                            <div className="text-gray-900 font-medium">{getBuildingName(candidate.locationId, candidate.siteId || '', candidate.buildingId || '')}</div>
+                        </div>
+
+                        <div className="border-b md:border-b-0 md:border-r border-gray-100 pb-4 md:pb-0 md:pr-4">
                             <label className="block text-sm font-medium text-gray-500 mb-1">Time Zone</label>
                             <div className="text-gray-900 font-medium">{candidate.timeZone || 'Asia/Kolkata'}</div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-500 mb-1">Mobile Number</label>
-                            <div className="text-gray-900 font-medium">{candidate.phoneNumber || candidate.mobileNumber || 'N/A'}</div>
-                        </div>
-
                     </div>
 
-                    <div className="mt-8 flex justify-end">
-                        <button
-                            onClick={onClose}
-                            className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                        >
-                            Close View
-                        </button>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-500 mb-1">Mobile Number</label>
+                        <div className="text-gray-900 font-medium">{candidate.phoneNumber || candidate.mobileNumber || 'N/A'}</div>
+                    </div>
+
+                    <div className="border-t border-gray-100 pt-6 mt-2 col-span-1 md:col-span-2">
+                        <h3 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wider">Compensation & Benefits</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-500 mb-1">Basic Salary</label>
+                                <div className="text-gray-900 font-bold text-lg">
+                                    {candidate.basicSalary ? `₹${parseFloat(candidate.basicSalary).toLocaleString()}` : 'N/A'}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-500 mb-1">Insurance</label>
+                                <div className="text-gray-900 font-medium">
+                                    {candidate.insuranceType ? `${candidate.insuranceType} (${candidate.insurancePercentage}%)` : 'Not Selected'}
+                                </div>
+                            </div>
+
+                            <div className="col-span-1 md:col-span-2">
+                                <label className="block text-sm font-medium text-gray-500 mb-2">Allowances</label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {candidate.accommodationAllowances && candidate.accommodationAllowances.length > 0 ? (
+                                        candidate.accommodationAllowances.map((allowance, idx) => (
+                                            <div key={idx} className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                                <div className="text-xs text-gray-500 uppercase font-semibold">{allowance.type}</div>
+                                                <div className="text-gray-900 font-medium">{allowance.percentage}% of Basic</div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="text-gray-400 text-sm italic">No allowances specified</div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                 </div>
+
+                <div className="mt-8 flex justify-end">
+                    <button
+                        onClick={onClose}
+                        className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                        Close View
+                    </button>
+                </div>
+
             </div>
         </div>
     );

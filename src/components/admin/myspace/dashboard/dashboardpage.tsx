@@ -1,23 +1,24 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, List, UserCheck } from 'lucide-react';
+import { Users } from 'lucide-react';
 import axios from 'axios';
-import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId, getUserDetails } from '@/lib/auth';
 // import QuickLinksSection from './quicklink';
 import AnnouncementsSection from './announcement';
 import UpcomingHolidaysSection from './holidays';
+import ManageSection from './ManageSection';
 
 
 
 const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [birthdays, setBirthdays] = useState<any[]>([]);
-  const [newHires, setNewHires] = useState<any[]>([]);
-  const [pendingTasks, setPendingTasks] = useState<any[]>([]);
-  const [onLeaveToday, setOnLeaveToday] = useState<any[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]);
+  const [employeeCount, setEmployeeCount] = useState(0);
+  const [user, setUser] = useState<{ fullName: string; firstName: string } | null>(null);
+
+
 
   useEffect(() => {
+    setUser(getUserDetails());
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
@@ -31,100 +32,33 @@ const Dashboard: React.FC = () => {
           return;
         }
 
-        // Fetch employees for birthdays and new hires
+        // Fetch employee count
         try {
-          const employeesRes = await axios.get(`${apiUrl}/org/${orgId}/employees`, {
+          const employeesRes = await axios.get(`${apiUrl}/org/${orgId}/employees?limit=1`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          const employeesResult = employeesRes.data?.data || employeesRes.data || [];
-          setEmployees(Array.isArray(employeesResult) ? employeesResult : []);
 
-          const employees = Array.isArray(employeesResult) ? employeesResult : [];
+          console.log('Employee count response:', employeesRes.data);
 
-          // Get current month for birthdays
-          const today = new Date();
-          const currentMonth = today.getMonth();
+          // Extract total count from response metadata
+          // Try different possible response structures
+          let total = 0;
+          if (employeesRes.data?.total !== undefined) {
+            total = employeesRes.data.total;
+          } else if (employeesRes.data?.count !== undefined) {
+            total = employeesRes.data.count;
+          } else if (employeesRes.data?.data && Array.isArray(employeesRes.data.data)) {
+            // If the API returns all employees in data array, count them
+            total = employeesRes.data.data.length;
+          } else if (Array.isArray(employeesRes.data)) {
+            total = employeesRes.data.length;
+          }
 
-          // Filter birthdays for current month
-          const birthdayEmployees = employees.filter((emp: any) => {
-            if (emp.dateOfBirth) {
-              const birthDate = new Date(emp.dateOfBirth);
-              return birthDate.getMonth() === currentMonth;
-            }
-            return false;
-          });
-          setBirthdays(birthdayEmployees);
-
-          // Filter new hires (joined in last 30 days)
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-          const recentHires = employees.filter((emp: any) => {
-            if (emp.joiningDate) {
-              const joinDate = new Date(emp.joiningDate);
-              return joinDate >= thirtyDaysAgo;
-            }
-            return false;
-          });
-          setNewHires(recentHires);
+          console.log('Extracted employee count:', total);
+          setEmployeeCount(total);
         } catch (error) {
-          console.error('Error fetching employees:', error);
-          setBirthdays([]);
-          setNewHires([]);
-        }
-
-        // Fetch pending tasks (leave requests that need approval)
-        try {
-          const leaveRequestsRes = await axios.get(`${apiUrl}/org/${orgId}/leave-requests`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          const leaveRequests = leaveRequestsRes.data?.data || leaveRequestsRes.data || [];
-
-          // Filter pending approvals
-          const pendingApprovals = leaveRequests.filter((request: any) =>
-            request.status === 'pending' || request.status === 'Pending'
-          );
-
-          // Convert to task format
-          const tasks = pendingApprovals.map((request: any) => ({
-            id: request.id,
-            title: `Approve leave request from ${request.employeeName || 'Employee'}`,
-            priority: 'high',
-            type: 'leave_approval'
-          }));
-
-          // Add some default tasks if needed
-          const defaultTasks = [
-            { id: 'review_timesheet', title: 'Review timesheet', priority: 'high', type: 'timesheet' },
-            { id: 'complete_training', title: 'Complete training', priority: 'low', type: 'training' }
-          ];
-
-          setPendingTasks([...tasks, ...defaultTasks]);
-        } catch (error) {
-          console.error('Error fetching leave requests:', error);
-          setPendingTasks([
-            { id: 'review_timesheet', title: 'Review timesheet', priority: 'high', type: 'timesheet' },
-            { id: 'complete_training', title: 'Complete training', priority: 'low', type: 'training' }
-          ]);
-        }
-
-        // Fetch employees on leave today
-        try {
-          const attendanceRes = await axios.get(`${apiUrl}/org/${orgId}/attendance`, {
-            headers: { Authorization: `Bearer ${token}` },
-            params: { date: new Date().toISOString().split('T')[0] }
-          });
-          const attendanceRecords = attendanceRes.data?.data || attendanceRes.data || [];
-
-          // Filter employees on leave
-          const onLeaveEmployees = attendanceRecords.filter((record: any) =>
-            record.status === 'leave' || record.status === 'Leave'
-          );
-
-          setOnLeaveToday(onLeaveEmployees);
-        } catch (error) {
-          console.error('Error fetching attendance:', error);
-          setOnLeaveToday([]);
+          console.error('Error fetching employee count:', error);
+          setEmployeeCount(0);
         }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -136,219 +70,53 @@ const Dashboard: React.FC = () => {
     fetchDashboardData();
   }, []);
   return (
-    <div className="min-h-screen bg-white p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Top Row - Responsive Grid: 1 col mobile, 2 col tablet, 3 col desktop */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
-          {/* Birthdays */}
-          {/* <div className="bg-white rounded-lg shadow p-4 sm:p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-pink-100 rounded-lg flex items-center justify-center shrink-0">
-                <Calendar className="w-4 h-4 text-pink-600" />
-              </div>
-              <h2 className="text-lg font-semibold truncate">Birthdays</h2>
+    <div className="min-h-screen bg-white p-4 sm:p-6 space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Welcome Banner and Employee Count Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Welcome Banner */}
+          <div className="lg:col-span-2 bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-6 text-white shadow-lg relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+            <div className="relative z-10">
+              <h1 className="text-2xl font-bold mb-2">
+                Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}, {user?.firstName || 'Admin'}!
+              </h1>
+              <p className="text-blue-100 opacity-90">
+                Here's what's happening in your organization today.
+              </p>
             </div>
-            <div className="space-y-3">
-              {loading ? (
-                <p className="text-sm text-gray-500">Loading...</p>
-              ) : birthdays.length === 0 ? (
-                <p className="text-sm text-gray-500">No birthdays this month</p>
-              ) : (
-                birthdays.slice(0, 3).map((employee: any) => (
-                  <div key={employee.id} className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center text-pink-600 font-medium shrink-0">
-                      {employee.firstName?.charAt(0) || employee.name?.charAt(0) || 'U'}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-medium text-sm truncate">
-                        {employee.firstName} {employee.lastName}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {employee.dateOfBirth ? new Date(employee.dateOfBirth).toLocaleDateString() : 'Today'}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div> */}
+          </div>
 
-          {/* New Hires */}
-          {/* <div className="bg-white rounded-lg shadow p-4 sm:p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
-                <Users className="w-4 h-4 text-green-600" />
+          {/* Total Employees Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-medium text-gray-500">Total Employees</h3>
+              <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                <Users className="w-4 h-4 text-blue-600" />
               </div>
-              <h2 className="text-lg font-semibold truncate">New Hires</h2>
             </div>
-            <div className="space-y-3">
-              {loading ? (
-                <p className="text-sm text-gray-500">Loading...</p>
-              ) : newHires.length === 0 ? (
-                <p className="text-sm text-gray-500">No new hires recently</p>
-              ) : (
-                newHires.slice(0, 3).map((employee: any) => (
-                  <div key={employee.id} className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-medium shrink-0">
-                      {employee.firstName?.charAt(0) || employee.name?.charAt(0) || 'U'}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-medium text-sm truncate">
-                        {employee.firstName} {employee.lastName}
-                      </div>
-                      <div className="text-xs text-gray-500 truncate">
-                        {employee.designation || 'Employee'} · {employee.joiningDate ? new Date(employee.joiningDate).toLocaleDateString() : 'Recent'}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
+            <div>
+              <div className="text-2xl font-bold text-gray-900">{loading ? '...' : employeeCount}</div>
+              <p className="text-xs text-green-600 mt-1 flex items-center gap-1 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-600"></span> Active Staff
+              </p>
             </div>
-          </div> */}
-
-          {/* Quick Links - Extracted Component */}
-          {/* Note: Passing grid classes here to maintain layout */}
-          {/* <QuickLinksSection className="sm:col-span-2 lg:col-span-1" /> */}
+          </div>
         </div>
 
-        {/* Middle Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
-          {/* Announcements - Extracted Component */}
+        {/* Widgets Row: Announcements and Holidays */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Announcements */}
           <AnnouncementsSection />
 
-          {/* Upcoming Holidays - Extracted Component */}
-          {/* <UpcomingHolidaysSection /> */}
+          {/* Holidays */}
+          <UpcomingHolidaysSection />
         </div>
 
-        {/* Bottom Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-          {/* My Pending Tasks */}
-          {/* <div className="bg-white rounded-lg shadow p-4 sm:p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
-                <List className="w-4 h-4 text-gray-600" />
-              </div>
-              <h2 className="text-lg font-semibold truncate">My Pending Tasks</h2>
-            </div>
-            <div className="space-y-3">
-              {loading ? (
-                <p className="text-sm text-gray-500">Loading...</p>
-              ) : pendingTasks.length === 0 ? (
-                <p className="text-sm text-gray-500">No pending tasks</p>
-              ) : (
-                pendingTasks.slice(0, 5).map((task: any) => (
-                  <div key={task.id} className="flex items-center justify-between gap-2">
-                    <span className="text-sm truncate">{task.title}</span>
-                    <span className={`px-2 py-1 text-white text-xs rounded shrink-0 ${
-                      task.priority === 'high' ? 'bg-red-500' :
-                      task.priority === 'medium' ? 'bg-gray-800' : 'bg-gray-200 text-gray-700'
-                    }`}>
-                      {task.priority}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div> */}
 
-          {/* On Leave Today */}
-          <div className="bg-white rounded-lg shadow p-4 sm:p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center shrink-0">
-                <UserCheck className="w-4 h-4 text-red-600" />
-              </div>
-              <h2 className="text-lg font-semibold truncate">On Leave Today</h2>
-            </div>
-            <div className="space-y-3">
-              {loading ? (
-                <p className="text-sm text-gray-500">Loading...</p>
-              ) : onLeaveToday.length === 0 ? (
-                <p className="text-sm text-gray-500">No employees on leave today</p>
-              ) : (
-                onLeaveToday.slice(0, 3).map((record: any) => (
-                  <div key={record.id} className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 font-medium shrink-0">
-                      {record.employeeName?.charAt(0) || record.employee?.firstName?.charAt(0) || 'U'}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-medium text-sm truncate">
-                        {record.employeeName || `${record.employee?.firstName} ${record.employee?.lastName}`}
-                      </div>
-                      <div className="text-xs text-gray-500 truncate">
-                        {record.leaveType || 'Leave'} · {record.endDate ? `Until ${new Date(record.endDate).toLocaleDateString()}` : 'Today'}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
 
-        {/* Employee Table Section */}
-        <div className="bg-white rounded-lg shadow overflow-hidden mt-6 mb-8">
-          <div className="p-4 sm:p-5 border-b border-gray-200 bg-gray-50 flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
-              <Users className="w-4 h-4 text-blue-600" />
-            </div>
-            <h2 className="text-lg font-semibold">Employee Details</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full whitespace-nowrap">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Full Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Designation</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {loading ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500 italic">
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                        Loading employees...
-                      </div>
-                    </td>
-                  </tr>
-                ) : employees.length > 0 ? (
-                  employees.map((employee: any) => (
-                    <tr key={employee.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 font-medium text-xs">
-                            {employee.fullName?.charAt(0) || 'U'}
-                          </div>
-                          <span className="text-sm font-medium text-gray-900">{employee.fullName}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{employee.email}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{employee.department?.name || employee.department || 'N/A'}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{employee.designation?.name || employee.designation || 'N/A'}</td>
-                      <td className="px-6 py-4 text-sm">
-                        <span className={`px-2 py-1 text-xs rounded-full font-medium ${employee.status === 'active' || employee.status === 'Active'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-amber-100 text-amber-700'
-                          }`}>
-                          {employee.status || 'Active'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500 italic">
-                      No employees found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        {/* Manage Organization Section */}
+        <ManageSection />
       </div>
     </div>
   );

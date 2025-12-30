@@ -145,7 +145,7 @@ const AnnouncementsSection: React.FC = () => {
 
   return (
     <>
-      <div className="bg-white rounded-lg shadow p-4 sm:p-5 border border-slate-100">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center shrink-0">

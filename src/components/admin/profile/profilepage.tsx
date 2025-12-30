@@ -3,14 +3,16 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import axios from "axios"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card } from "@/components/ui/card"
-import { ChevronLeft, Edit, Upload, User } from "lucide-react"
+import { ChevronLeft, Edit, Upload, User, Plus, Trash2 } from "lucide-react"
 import { getApiUrl, getAuthToken, getOrgId, getEmployeeId } from "@/lib/auth"
+import ChangePassword from "./ChangePassword"
 
 interface FormData {
   // Personal Details
@@ -33,7 +35,6 @@ interface FormData {
   // Identity Information
   uan: string
   pan: string
-  aadhaarNumber: string
   passportNumber: string
   drivingLicenseNumber: string
 
@@ -48,16 +49,7 @@ interface FormData {
   }>
 
   // Contact Information
-  presentAddress: {
-    addressLine1: string
-    addressLine2: string
-    city: string
-    state: string
-    country: string
-    pinCode: string
-  }
-  sameAsPresentAddress: boolean
-  permanentAddress: {
+  address: {
     addressLine1: string
     addressLine2: string
     city: string
@@ -99,20 +91,10 @@ const initialFormData: FormData = {
   bloodGroup: "",
   uan: "",
   pan: "",
-  aadhaarNumber: "",
   passportNumber: "",
   drivingLicenseNumber: "",
   workExperience: [],
-  presentAddress: {
-    addressLine1: "",
-    addressLine2: "",
-    city: "",
-    state: "",
-    country: "",
-    pinCode: "",
-  },
-  sameAsPresentAddress: false,
-  permanentAddress: {
+  address: {
     addressLine1: "",
     addressLine2: "",
     city: "",
@@ -129,23 +111,10 @@ const initialFormData: FormData = {
 }
 
 export default function EmployeeProfileForm() {
+  const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
+  const [showPasswordChange, setShowPasswordChange] = useState(false)
   const [formData, setFormData] = useState<FormData>(initialFormData)
-  const [currentExperience, setCurrentExperience] = useState({
-    companyName: "",
-    jobTitle: "",
-    fromDate: "",
-    toDate: "",
-    currentlyWorkHere: false,
-    jobDescription: "",
-  })
-  const [currentEducation, setCurrentEducation] = useState({
-    instituteName: "",
-    degree: "",
-    fieldOfStudy: "",
-    startYear: "",
-    endYear: "",
-  })
   const [expandedSections, setExpandedSections] = useState({
     personal: true,
     identity: true,
@@ -180,20 +149,19 @@ export default function EmployeeProfileForm() {
         const employee = response.data?.data || response.data
 
         // Map API response fields to form data interface
-        // Ensure we show names instead of UUIDs
         setFormData({
-          fullName: employee.fullName || 
-            (employee.firstName && employee.lastName 
-              ? `${employee.firstName} ${employee.lastName}`.trim() 
+          fullName: employee.fullName ||
+            (employee.firstName && employee.lastName
+              ? `${employee.firstName} ${employee.lastName}`.trim()
               : ""),
           emailAddress: employee.email || "",
           mobileNumber: employee.phoneNumber || employee.mobileNumber || "",
           role: employee.role || "",
           department: employee.department?.departmentName || employee.department?.name || "",
           designation: employee.designation?.name || "",
-          reportingTo: employee.reportingTo?.fullName || 
-            (employee.reportingTo?.firstName && employee.reportingTo?.lastName 
-              ? `${employee.reportingTo.firstName} ${employee.reportingTo.lastName}`.trim() 
+          reportingTo: employee.reportingTo?.fullName ||
+            (employee.reportingTo?.firstName && employee.reportingTo?.lastName
+              ? `${employee.reportingTo.firstName} ${employee.reportingTo.lastName}`.trim()
               : employee.reportingTo?.name || ""),
           teamPosition: employee.teamPosition || "",
           shift: employee.shiftType || employee.shift || "",
@@ -205,7 +173,6 @@ export default function EmployeeProfileForm() {
           bloodGroup: employee.bloodGroup || "",
           uan: employee.UAN || "",
           pan: employee.PAN || "",
-          aadhaarNumber: employee.aadharNumber || "",
           passportNumber: employee.passportNumber || "",
           drivingLicenseNumber: employee.drivingLicenseNumber || "",
           workExperience: (employee.experience || []).map((exp: any) => ({
@@ -213,25 +180,15 @@ export default function EmployeeProfileForm() {
             jobTitle: exp.jobTitle || "",
             fromDate: exp.fromDate ? exp.fromDate.split("T")[0] : "",
             toDate: exp.toDate ? exp.toDate.split("T")[0] : "",
-            currentlyWorkHere: !exp.toDate,
             jobDescription: exp.jobDescription || "",
           })),
-          presentAddress: {
+          address: {
             addressLine1: employee.presentAddressLine1 || "",
             addressLine2: employee.presentAddressLine2 || "",
             city: employee.presentCity || "",
             state: employee.presentState || "",
             country: employee.presentCountry || "",
             pinCode: employee.presentPinCode || "",
-          },
-          sameAsPresentAddress: false,
-          permanentAddress: {
-            addressLine1: employee.permanentAddressLine1 || "",
-            addressLine2: employee.permanentAddressLine2 || "",
-            city: employee.permanentCity || "",
-            state: employee.permanentState || "",
-            country: employee.permanentCountry || "",
-            pinCode: employee.permanentPinCode || "",
           },
           emergencyContact: {
             contactName: employee.emergencyContactName || "",
@@ -273,21 +230,10 @@ export default function EmployeeProfileForm() {
   ) => {
     const { name, value } = e.target
 
-    if (section === "presentAddress") {
+    if (section === "address") {
       setFormData((prev) => ({
         ...prev,
-        presentAddress: { ...prev.presentAddress, [field || name]: value },
-      }))
-      if (formData.sameAsPresentAddress) {
-        setFormData((prev) => ({
-          ...prev,
-          permanentAddress: { ...prev.permanentAddress, [field || name]: value },
-        }))
-      }
-    } else if (section === "permanentAddress") {
-      setFormData((prev) => ({
-        ...prev,
-        permanentAddress: { ...prev.permanentAddress, [field || name]: value },
+        address: { ...prev.address, [field || name]: value },
       }))
     } else if (section === "emergencyContact") {
       setFormData((prev) => ({
@@ -295,9 +241,42 @@ export default function EmployeeProfileForm() {
         emergencyContact: { ...prev.emergencyContact, [field || name]: value },
       }))
     } else {
+      // Input Validation Logic
+      let finalValue = value;
+
+      // Numeric only validation
+      if (name === 'uan' || name === 'mobileNumber' || name === 'pinCode') {
+        finalValue = value.replace(/[^0-9]/g, '');
+        if (name === 'uan') finalValue = finalValue.slice(0, 12);
+        if (name === 'pinCode') finalValue = finalValue.slice(0, 6);
+        if (name === 'mobileNumber') finalValue = finalValue.slice(0, 15);
+      }
+
+      // Strict Alphanumeric validation for PAN (5 letters, 4 numbers, 1 letter)
+      if (name === 'pan') {
+        const uppercaseValue = value.toUpperCase();
+        let validatedValue = '';
+        for (let i = 0; i < Math.min(uppercaseValue.length, 10); i++) {
+          const char = uppercaseValue[i];
+          if (i < 5 || i === 9) {
+            // Must be a letter
+            if (/[A-Z]/.test(char)) validatedValue += char;
+          } else if (i >= 5 && i <= 8) {
+            // Must be a digit
+            if (/[0-9]/.test(char)) validatedValue += char;
+          }
+        }
+        finalValue = validatedValue;
+      }
+
+      // General Alphanumeric validation for Passport/License
+      if (name === 'passportNumber' || name === 'drivingLicenseNumber') {
+        finalValue = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      }
+
       setFormData((prev) => ({
         ...prev,
-        [name]: value,
+        [name]: finalValue,
       }))
     }
   }
@@ -319,45 +298,61 @@ export default function EmployeeProfileForm() {
     }
   }
 
-  const handleAddWorkExperience = () => {
-    if (currentExperience.companyName && currentExperience.jobTitle && currentExperience.fromDate) {
-      setFormData((prev) => ({
-        ...prev,
-        workExperience: [...prev.workExperience, currentExperience],
-      }))
-      setCurrentExperience({
-        companyName: "",
-        jobTitle: "",
-        fromDate: "",
-        toDate: "",
-        currentlyWorkHere: false,
-        jobDescription: "",
-      })
-    }
+  const handleAddWorkExperienceEntry = () => {
+    setFormData(prev => ({
+      ...prev,
+      workExperience: [
+        ...prev.workExperience,
+        { companyName: "", jobTitle: "", fromDate: "", toDate: "", currentlyWorkHere: false, jobDescription: "" }
+      ]
+    }))
   }
 
-  const handleAddEducation = () => {
-    if (currentEducation.instituteName && currentEducation.degree) {
-      setFormData((prev) => ({
-        ...prev,
-        education: [...prev.education, currentEducation],
-      }))
-      setCurrentEducation({
-        instituteName: "",
-        degree: "",
-        fieldOfStudy: "",
-        startYear: "",
-        endYear: "",
-      })
-    }
+  const handleRemoveWorkExperienceEntry = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      workExperience: prev.workExperience.filter((_, i) => i !== index)
+    }))
+  }
+
+  const handleWorkExperienceEntryChange = (index: number, field: string, value: any) => {
+    setFormData(prev => {
+      const newExp = [...prev.workExperience]
+      newExp[index] = { ...newExp[index], [field]: value }
+      if (field === "currentlyWorkHere" && value === true) {
+        newExp[index].toDate = ""
+      }
+      return { ...prev, workExperience: newExp }
+    })
+  }
+
+  const handleAddEducationEntry = () => {
+    setFormData(prev => ({
+      ...prev,
+      education: [
+        ...prev.education,
+        { instituteName: "", degree: "", fieldOfStudy: "", startYear: "", endYear: "" }
+      ]
+    }))
+  }
+
+  const handleRemoveEducationEntry = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      education: prev.education.filter((_, i) => i !== index)
+    }))
+  }
+
+  const handleEducationEntryChange = (index: number, field: string, value: any) => {
+    setFormData(prev => {
+      const newEdu = [...prev.education]
+      newEdu[index] = { ...newEdu[index], [field]: value }
+      return { ...prev, education: newEdu }
+    })
   }
 
   const handleSameAsPresent = (checked: boolean) => {
-    setFormData((prev) => ({
-      ...prev,
-      sameAsPresentAddress: checked,
-      permanentAddress: checked ? { ...prev.presentAddress } : prev.permanentAddress,
-    }))
+    // This function is no longer needed but kept for potential future use or to avoid errors if referenced
   }
 
   const handleSave = async () => {
@@ -381,8 +376,7 @@ export default function EmployeeProfileForm() {
         if (
           key === 'workExperience' ||
           key === 'education' ||
-          key === 'presentAddress' ||
-          key === 'permanentAddress' ||
+          key === 'address' ||
           key === 'emergencyContact'
         ) {
           // Send complex objects as JSON strings
@@ -419,20 +413,20 @@ export default function EmployeeProfileForm() {
       })
       const refreshedEmployee = refreshResponse.data?.data || refreshResponse.data
 
-      // Update form data with refreshed employee info (showing names instead of UUIDs)
+      // Update form data with refreshed employee info
       setFormData(prev => ({
         ...prev,
-        fullName: refreshedEmployee.fullName || 
-          (refreshedEmployee.firstName && refreshedEmployee.lastName 
-            ? `${refreshedEmployee.firstName} ${refreshedEmployee.lastName}`.trim() 
+        fullName: refreshedEmployee.fullName ||
+          (refreshedEmployee.firstName && refreshedEmployee.lastName
+            ? `${refreshedEmployee.firstName} ${refreshedEmployee.lastName}`.trim()
             : prev.fullName),
         emailAddress: refreshedEmployee.email || prev.emailAddress,
         mobileNumber: refreshedEmployee.phoneNumber || refreshedEmployee.mobileNumber || prev.mobileNumber,
         department: refreshedEmployee.department?.departmentName || refreshedEmployee.department?.name || prev.department,
         designation: refreshedEmployee.designation?.name || prev.designation,
-        reportingTo: refreshedEmployee.reportingTo?.fullName || 
-          (refreshedEmployee.reportingTo?.firstName && refreshedEmployee.reportingTo?.lastName 
-            ? `${refreshedEmployee.reportingTo.firstName} ${refreshedEmployee.reportingTo.lastName}`.trim() 
+        reportingTo: refreshedEmployee.reportingTo?.fullName ||
+          (refreshedEmployee.reportingTo?.firstName && refreshedEmployee.reportingTo?.lastName
+            ? `${refreshedEmployee.reportingTo.firstName} ${refreshedEmployee.reportingTo.lastName}`.trim()
             : refreshedEmployee.reportingTo?.name || prev.reportingTo),
         location: refreshedEmployee.location?.name || prev.location,
         role: refreshedEmployee.role || prev.role,
@@ -467,26 +461,40 @@ export default function EmployeeProfileForm() {
   const maritalStatuses = ["Select Marital Status", "Single", "Married", "Divorced", "Widowed"]
   const bloodGroups = ["Select Blood Group", "A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"]
 
+  if (showPasswordChange) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <ChangePassword onBack={() => setShowPasswordChange(false)} />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <button className="flex items-center text-blue-600 hover:text-blue-700 mb-4">
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            
+
           </button>
           <div className="flex justify-between items-start mb-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Complete Your Profile</h1>
               <p className="text-gray-600">Please complete these steps to finish your employee profile setup.</p>
             </div>
-            {!isEditing && (
-              <Button onClick={() => setIsEditing(true)} variant="outline" className="flex items-center gap-2">
-                <Edit className="w-4 h-4" />
-                Edit
+            <div className="flex gap-3">
+              <Button onClick={() => setShowPasswordChange(true)} variant="outline" className="flex items-center gap-2">
+                Change Password
               </Button>
-            )}
+              {!isEditing && (
+                <Button onClick={() => setIsEditing(true)} variant="outline" className="flex items-center gap-2">
+                  <Edit className="w-4 h-4" />
+                  Edit
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -777,9 +785,9 @@ export default function EmployeeProfileForm() {
                 value={formData.uan}
                 onChange={handleInputChange}
                 disabled={!isEditing}
-                placeholder="Enter UAN"
+                placeholder="e.g. 123456789012"
               />
-              <p className="text-xs text-gray-500 mt-1">12-digit UAN for EPF</p>
+              <p className="text-xs text-gray-500 mt-1">12-digit UAN</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -790,26 +798,13 @@ export default function EmployeeProfileForm() {
                 value={formData.pan}
                 onChange={handleInputChange}
                 disabled={!isEditing}
-                placeholder="Enter PAN"
+                placeholder="e.g. ABCDE1234F"
               />
-              <p className="text-xs text-gray-500 mt-1">10-character alphanumeric PAN</p>
+              <p className="text-xs text-gray-500 mt-1">10-character alphanumeric</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Aadhaar Number <span className="text-red-500">*</span>
-              </label>
-              <Input
-                name="aadhaarNumber"
-                value={formData.aadhaarNumber}
-                onChange={handleInputChange}
-                disabled={!isEditing}
-                placeholder="Enter Aadhaar Number"
-              />
-              <p className="text-xs text-gray-500 mt-1">12-digit Aadhaar number</p>
-            </div>
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Passport Number</label>
               <Input
@@ -817,131 +812,238 @@ export default function EmployeeProfileForm() {
                 value={formData.passportNumber}
                 onChange={handleInputChange}
                 disabled={!isEditing}
-                placeholder="Enter Passport Number (Optional)"
+                placeholder="e.g. A1234567"
               />
-              <p className="text-xs text-gray-500 mt-1">Optional - if available</p>
+              <p className="text-xs text-gray-500 mt-1">Alphanumeric (Optional)</p>
             </div>
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Driving License Number</label>
-            <Input
-              name="drivingLicenseNumber"
-              value={formData.drivingLicenseNumber}
-              onChange={handleInputChange}
-              disabled={!isEditing}
-              placeholder="Enter Driving License (Optional)"
-            />
-            <p className="text-xs text-gray-500 mt-1">Optional - if available</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Driving License Number</label>
+              <Input
+                name="drivingLicenseNumber"
+                value={formData.drivingLicenseNumber}
+                onChange={handleInputChange}
+                disabled={!isEditing}
+                placeholder="e.g. DL1420110012345"
+              />
+              <p className="text-xs text-gray-500 mt-1">Alphanumeric (Optional)</p>
+            </div>
           </div>
         </Card>
 
-        {/* Work Experience Section */}
+        {/* Work Experience */}
         <Card className="mb-6 p-6">
-          <h2 className="text-xl font-bold mb-4 text-gray-900">Work Experience</h2>
-
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <h3 className="font-semibold text-gray-900 mb-4">Add Work Experience</h3>
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Company Name <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="Enter company name"
-                  value={currentExperience.companyName}
-                  onChange={(e) => setCurrentExperience({ ...currentExperience, companyName: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Job Title <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="Enter job title"
-                  value={currentExperience.jobTitle}
-                  onChange={(e) => setCurrentExperience({ ...currentExperience, jobTitle: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  From Date <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  type="date"
-                  value={currentExperience.fromDate}
-                  onChange={(e) => setCurrentExperience({ ...currentExperience, fromDate: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  To Date <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  type="date"
-                  value={currentExperience.toDate}
-                  onChange={(e) => setCurrentExperience({ ...currentExperience, toDate: e.target.value })}
-                  disabled={!isEditing || currentExperience.currentlyWorkHere}
-                />
-              </div>
-            </div>
-
-            <div className="mb-4 flex items-center gap-2">
-              <Checkbox
-                id="currentlyWorkHere"
-                checked={currentExperience.currentlyWorkHere}
-                onCheckedChange={(checked: boolean) =>
-                  setCurrentExperience({ ...currentExperience, currentlyWorkHere: checked as boolean })
-                }
-                disabled={!isEditing}
-              />
-              <label htmlFor="currentlyWorkHere" className="text-sm font-medium text-gray-700 cursor-pointer">
-                I currently work here
-              </label>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Job Description</label>
-              <textarea
-                placeholder="Brief description of your role and responsibilities"
-                value={currentExperience.jobDescription}
-                onChange={(e) => setCurrentExperience({ ...currentExperience, jobDescription: e.target.value })}
-                disabled={!isEditing}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows={4}
-              />
-            </div>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-gray-900">Work Experience</h2>
+            {isEditing && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAddWorkExperienceEntry}
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Experience
+              </Button>
+            )}
           </div>
+          <div className="space-y-6">
+            {formData.workExperience.map((exp, idx) => (
+              <div key={idx} className="p-6 bg-white rounded-xl relative border border-gray-100 shadow-sm space-y-4">
+                <div className="flex justify-between items-center border-b border-gray-50 pb-3 mb-4">
+                  <h3 className="font-semibold text-gray-800">Add Work Experience</h3>
+                  {isEditing && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveWorkExperienceEntry(idx)}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pr-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Company Name <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="Enter company name"
+                      value={exp.companyName}
+                      onChange={(e) => handleWorkExperienceEntryChange(idx, "companyName", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Job Title <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="Enter job title"
+                      value={exp.jobTitle}
+                      onChange={(e) => handleWorkExperienceEntryChange(idx, "jobTitle", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      From Date <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="date"
+                      placeholder="mm/dd/yyyy"
+                      value={exp.fromDate}
+                      onChange={(e) => handleWorkExperienceEntryChange(idx, "fromDate", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      To Date <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="date"
+                      placeholder="mm/dd/yyyy"
+                      value={exp.toDate}
+                      onChange={(e) => handleWorkExperienceEntryChange(idx, "toDate", e.target.value)}
+                      disabled={!isEditing || exp.currentlyWorkHere}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id={`curr-${idx}`}
+                        checked={exp.currentlyWorkHere}
+                        onCheckedChange={(v) => handleWorkExperienceEntryChange(idx, "currentlyWorkHere", !!v)}
+                        disabled={!isEditing}
+                      />
+                      <label htmlFor={`curr-${idx}`} className="text-sm font-medium text-gray-700 cursor-pointer">
+                        I currently work here
+                      </label>
+                    </div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Job Description</label>
+                    <textarea
+                      placeholder="Brief description of your role and responsibilities"
+                      value={exp.jobDescription}
+                      onChange={(e) => handleWorkExperienceEntryChange(idx, "jobDescription", e.target.value)}
+                      disabled={!isEditing}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm min-h-[100px]"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
 
-          {formData.workExperience.map((exp, idx) => (
-            <div key={idx} className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
-              <p className="font-semibold text-gray-900">{exp.jobTitle}</p>
-              <p className="text-sm text-gray-600">{exp.companyName}</p>
-            </div>
-          ))}
+        {/* Education */}
+        <Card className="mb-6 p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-gray-900">Education</h2>
+            {isEditing && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAddEducationEntry}
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Education
+              </Button>
+            )}
+          </div>
+          <div className="space-y-6">
+            {formData.education.map((edu, idx) => (
+              <div key={idx} className="p-6 bg-white rounded-xl relative border border-gray-100 shadow-sm space-y-4">
+                <div className="flex justify-between items-center border-b border-gray-50 pb-3 mb-4">
+                  <h3 className="font-semibold text-gray-800">Add Education</h3>
+                  {isEditing && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveEducationEntry(idx)}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pr-2">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Institute Name <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="Enter institute/university name"
+                      value={edu.instituteName}
+                      onChange={(e) => handleEducationEntryChange(idx, "instituteName", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Degree <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="e.g., B.Tech, M.Sc, MBA"
+                      value={edu.degree}
+                      onChange={(e) => handleEducationEntryChange(idx, "degree", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Field of Study <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="e.g., Computer Science, Business"
+                      value={edu.fieldOfStudy}
+                      onChange={(e) => handleEducationEntryChange(idx, "fieldOfStudy", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Start Year <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="e.g., 2018"
+                      value={edu.startYear}
+                      onChange={(e) => handleEducationEntryChange(idx, "startYear", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      End Year <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="e.g., 2022"
+                      value={edu.endYear}
+                      onChange={(e) => handleEducationEntryChange(idx, "endYear", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </Card>
 
         {/* Contact Information Section */}
         <Card className="mb-6 p-6">
           <h2 className="text-xl font-bold mb-4 text-gray-900">Contact Information</h2>
 
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Present Address</h3>
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Address Line 1 <span className="text-red-500">*</span>
             </label>
             <Input
-              value={formData.presentAddress.addressLine1}
-              onChange={(e) => handleInputChange(e, "presentAddress", "addressLine1")}
+              value={formData.address.addressLine1}
+              onChange={(e) => handleInputChange(e, "address", "addressLine1")}
               disabled={!isEditing}
               placeholder="Enter address line 1"
             />
@@ -950,8 +1052,8 @@ export default function EmployeeProfileForm() {
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 2</label>
             <Input
-              value={formData.presentAddress.addressLine2}
-              onChange={(e) => handleInputChange(e, "presentAddress", "addressLine2")}
+              value={formData.address.addressLine2}
+              onChange={(e) => handleInputChange(e, "address", "addressLine2")}
               disabled={!isEditing}
               placeholder="Enter address line 2"
             />
@@ -963,8 +1065,8 @@ export default function EmployeeProfileForm() {
                 City <span className="text-red-500">*</span>
               </label>
               <Input
-                value={formData.presentAddress.city}
-                onChange={(e) => handleInputChange(e, "presentAddress", "city")}
+                value={formData.address.city}
+                onChange={(e) => handleInputChange(e, "address", "city")}
                 disabled={!isEditing}
                 placeholder="Enter city"
               />
@@ -974,14 +1076,11 @@ export default function EmployeeProfileForm() {
                 State <span className="text-red-500">*</span>
               </label>
               <Select
-                value={formData.presentAddress.state}
+                value={formData.address.state}
                 onValueChange={(value) => {
                   setFormData((prev) => ({
                     ...prev,
-                    presentAddress: { ...prev.presentAddress, state: value },
-                    permanentAddress: formData.sameAsPresentAddress
-                      ? { ...prev.permanentAddress, state: value }
-                      : prev.permanentAddress,
+                    address: { ...prev.address, state: value },
                   }))
                 }}
                 disabled={!isEditing}
@@ -1006,14 +1105,11 @@ export default function EmployeeProfileForm() {
                 Country <span className="text-red-500">*</span>
               </label>
               <Select
-                value={formData.presentAddress.country}
+                value={formData.address.country}
                 onValueChange={(value) => {
                   setFormData((prev) => ({
                     ...prev,
-                    presentAddress: { ...prev.presentAddress, country: value },
-                    permanentAddress: formData.sameAsPresentAddress
-                      ? { ...prev.permanentAddress, country: value }
-                      : prev.permanentAddress,
+                    address: { ...prev.address, country: value },
                   }))
                 }}
                 disabled={!isEditing}
@@ -1035,126 +1131,13 @@ export default function EmployeeProfileForm() {
                 PIN Code <span className="text-red-500">*</span>
               </label>
               <Input
-                value={formData.presentAddress.pinCode}
-                onChange={(e) => handleInputChange(e, "presentAddress", "pinCode")}
+                value={formData.address.pinCode}
+                onChange={(e) => handleInputChange(e, "address", "pinCode")}
                 disabled={!isEditing}
                 placeholder="Enter PIN code"
               />
             </div>
           </div>
-
-          <div className="flex items-center gap-2 mb-6">
-            <Checkbox
-              checked={formData.sameAsPresentAddress}
-              onCheckedChange={handleSameAsPresent}
-              disabled={!isEditing}
-            />
-            <label className="text-sm text-gray-700">Same as Present Address</label>
-          </div>
-
-          {!formData.sameAsPresentAddress && (
-            <>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Permanent Address</h3>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Address Line 1 <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  value={formData.permanentAddress.addressLine1}
-                  onChange={(e) => handleInputChange(e, "permanentAddress", "addressLine1")}
-                  disabled={!isEditing}
-                  placeholder="Enter address line 1"
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 2</label>
-                <Input
-                  value={formData.permanentAddress.addressLine2}
-                  onChange={(e) => handleInputChange(e, "permanentAddress", "addressLine2")}
-                  disabled={!isEditing}
-                  placeholder="Enter address line 2"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    City <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    value={formData.permanentAddress.city}
-                    onChange={(e) => handleInputChange(e, "permanentAddress", "city")}
-                    disabled={!isEditing}
-                    placeholder="Enter city"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    State <span className="text-red-500">*</span>
-                  </label>
-                  <Select
-                    value={formData.permanentAddress.state}
-                    onValueChange={(value) =>
-                      setFormData((prev) => ({ ...prev, permanentAddress: { ...prev.permanentAddress, state: value } }))
-                    }
-                    disabled={!isEditing}
-                  >
-                    <SelectTrigger disabled={!isEditing}>
-                      <SelectValue placeholder="Select State" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {states.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Country <span className="text-red-500">*</span>
-                  </label>
-                  <Select
-                    value={formData.permanentAddress.country}
-                    onValueChange={(value) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        permanentAddress: { ...prev.permanentAddress, country: value },
-                      }))
-                    }
-                    disabled={!isEditing}
-                  >
-                    <SelectTrigger disabled={!isEditing}>
-                      <SelectValue placeholder="Select Country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {countries.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    PIN Code <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    value={formData.permanentAddress.pinCode}
-                    onChange={(e) => handleInputChange(e, "permanentAddress", "pinCode")}
-                    disabled={!isEditing}
-                    placeholder="Enter PIN code"
-                  />
-                </div>
-              </div>
-            </>
-          )}
 
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Emergency Contact</h3>
           <div className="grid grid-cols-3 gap-4">
@@ -1194,101 +1177,15 @@ export default function EmployeeProfileForm() {
           </div>
         </Card>
 
-        {/* Education Section */}
-        <Card className="mb-6 p-6">
-          <h2 className="text-xl font-bold mb-4 text-gray-900">Education</h2>
-
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <h3 className="font-semibold text-gray-900 mb-4">Add Education</h3>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Institute Name <span className="text-red-500">*</span>
-              </label>
-              <Input
-                placeholder="Enter institute/university name"
-                value={currentEducation.instituteName}
-                onChange={(e) => setCurrentEducation({ ...currentEducation, instituteName: e.target.value })}
-                disabled={!isEditing}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Degree <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="e.g., B.Tech, M.Sc, MBA"
-                  value={currentEducation.degree}
-                  onChange={(e) => setCurrentEducation({ ...currentEducation, degree: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Field of Study <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="e.g., Computer Science, Business"
-                  value={currentEducation.fieldOfStudy}
-                  onChange={(e) => setCurrentEducation({ ...currentEducation, fieldOfStudy: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Start Year <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="e.g., 2018"
-                  value={currentEducation.startYear}
-                  onChange={(e) => setCurrentEducation({ ...currentEducation, startYear: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  End Year <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="e.g., 2022"
-                  value={currentEducation.endYear}
-                  onChange={(e) => setCurrentEducation({ ...currentEducation, endYear: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-            </div>
-          </div>
-
-          {formData.education.map((edu, idx) => (
-            <div key={idx} className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
-              <p className="font-semibold text-gray-900">
-                {edu.degree} in {edu.fieldOfStudy}
-              </p>
-              <p className="text-sm text-gray-600">{edu.instituteName}</p>
-              <p className="text-xs text-gray-500">
-                {edu.startYear} - {edu.endYear}
-              </p>
-            </div>
-          ))}
-        </Card>
-
-        {/* Save and Cancel buttons after Education section */}
-        {isEditing && (
-          <div className="flex gap-3 justify-end mt-8">
-            <Button variant="outline" onClick={() => setIsEditing(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700">
-              Save
-            </Button>
-          </div>
-        )}
+        <div className="flex justify-center mb-8">
+          <Button
+            onClick={handleSave}
+            disabled={!isEditing}
+            className="w-full sm:w-auto px-12 py-6 text-lg bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg"
+          >
+            Save Profile
+          </Button>
+        </div>
       </div>
     </div>
   )
