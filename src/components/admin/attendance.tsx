@@ -38,7 +38,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import axios from 'axios';
-import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId, getCookie } from '@/lib/auth';
 import attendanceService from '@/lib/attendanceService';
 import employeeService from '@/lib/employeeService';
 
@@ -59,10 +59,10 @@ interface PersonalAttendanceRecord {
   status?: string;
 }
 
-type ViewMode = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'all';
+type ViewMode = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 const AttendanceTracker: React.FC = () => {
-  const [viewMode, setViewMode] = useState<ViewMode>('monthly');
+  const [viewMode, setViewMode] = useState<ViewMode>('daily');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -126,7 +126,109 @@ const AttendanceTracker: React.FC = () => {
         endDateStr = format(end, 'yyyy-MM-dd');
 
         // 1. Fetch Admin's Personal History
-        if (viewMode !== 'all') {
+        let adminRealTimeRecord: any = null;
+
+        if (viewMode === 'daily') {
+          if (isSameDay(currentDate, new Date())) {
+            // Always try to get status first for today
+            const statusRes = await attendanceService.getStatus(orgId);
+
+            // Default "Absent" record for today
+            let currentStatusRecord: PersonalAttendanceRecord = {
+              date: format(currentDate, 'yyyy-MM-dd'),
+              checkInTime: undefined,
+              checkOutTime: undefined,
+              totalHours: undefined,
+              status: 'Absent'
+            };
+
+            if (statusRes && !statusRes.error) {
+              const rawData = statusRes.data as any;
+              if (rawData) {
+                currentStatusRecord = {
+                  date: rawData.date ? (typeof rawData.date === 'string' && rawData.date.includes('T') ? format(new Date(rawData.date), 'yyyy-MM-dd') : rawData.date) : format(currentDate, 'yyyy-MM-dd'),
+                  checkInTime: rawData.checkInTime || rawData.checkIn,
+                  checkOutTime: rawData.checkOutTime || rawData.checkOut,
+                  totalHours: rawData.totalHours || rawData.hoursWorked,
+                  status: rawData.status || (rawData.checkInTime || rawData.checkIn ? 'Present' : 'Absent')
+                };
+              }
+            } else {
+              // Fallback to history if getStatus fails entirely
+              const adminHistoryRes = await attendanceService.getMyHistory(orgId, startDateStr, endDateStr);
+              if (adminHistoryRes && !adminHistoryRes.error) {
+                const rawData = adminHistoryRes as any;
+                const records = rawData.attendance || (rawData.data && rawData.data.attendance) || (Array.isArray(rawData.data) ? rawData.data : (Array.isArray(rawData) ? rawData : []));
+                if (records && records.length > 0) {
+                  const r = records[0];
+                  currentStatusRecord = {
+                    date: r.date,
+                    checkInTime: r.checkInTime,
+                    checkOutTime: r.checkOutTime,
+                    totalHours: r.totalHours,
+                    status: r.status
+                  };
+                }
+              }
+            }
+
+            // Set the Admin Record for "My Attendance History"
+            setAdminRecords([currentStatusRecord]);
+
+            // Capture for injection
+            adminRealTimeRecord = currentStatusRecord;
+          } else {
+            // For past days in daily view: use getDailyAttendance to ensure consistency with team view
+            const dailyRes = await attendanceService.getDailyAttendance(orgId, startDateStr);
+            let foundRecord: any = null;
+
+            if (dailyRes && !dailyRes.error) {
+              const rawDaily = dailyRes as any;
+              const data = Array.isArray(rawDaily) ? rawDaily :
+                (rawDaily.data && Array.isArray(rawDaily.data) ? rawDaily.data :
+                  (rawDaily.data && Array.isArray(rawDaily.data.attendance) ? rawDaily.data.attendance : []));
+
+              const myId = getCookie('hrms_user_id');
+              if (myId) {
+                foundRecord = data.find((r: any) =>
+                  r.employeeId === myId ||
+                  (r.employee && (r.employee.id === myId || r.employee._id === myId))
+                );
+              }
+            }
+
+            if (foundRecord) {
+              setAdminRecords([{
+                date: startDateStr,
+                checkInTime: foundRecord.checkInTime || foundRecord.checkIn,
+                checkOutTime: foundRecord.checkOutTime || foundRecord.checkOut,
+                totalHours: foundRecord.totalHours || foundRecord.hoursWorked,
+                status: foundRecord.status || (foundRecord.checkInTime ? 'Present' : 'Absent')
+              }]);
+            } else {
+              // Fallback: if not found in daily list, try getMyHistory or default to Absent
+              const adminHistoryRes = await attendanceService.getMyHistory(orgId, startDateStr, endDateStr);
+              let historyRecord = null;
+              if (adminHistoryRes && !adminHistoryRes.error) {
+                const rawData = adminHistoryRes as any;
+                const records = rawData.attendance || (rawData.data && rawData.data.attendance) || (Array.isArray(rawData.data) ? rawData.data : (Array.isArray(rawData) ? rawData : []));
+                if (records && records.length > 0) historyRecord = records[0];
+              }
+
+              if (historyRecord) {
+                setAdminRecords([{
+                  date: historyRecord.date,
+                  checkInTime: historyRecord.checkInTime,
+                  checkOutTime: historyRecord.checkOutTime,
+                  totalHours: historyRecord.totalHours,
+                  status: historyRecord.status
+                }]);
+              } else {
+                setAdminRecords([{ date: startDateStr, status: 'Absent' }]);
+              }
+            }
+          }
+        } else {
           const adminHistoryRes = await attendanceService.getMyHistory(orgId, startDateStr, endDateStr);
           if (adminHistoryRes && !adminHistoryRes.error) {
             const rawData = adminHistoryRes as any;
@@ -135,43 +237,13 @@ const AttendanceTracker: React.FC = () => {
               (Array.isArray(rawData.data) ? rawData.data : (Array.isArray(rawData) ? rawData : []));
             setAdminRecords(records);
           }
-        } else {
-          setAdminRecords([]); // Clear admin records if in 'all' view
         }
 
         // 2. Fetch All Employees Attendance
         let employeeRecords: AttendanceRecord[] = [];
         const qParam = selectedEmployee !== 'all' ? selectedEmployee : searchQuery;
 
-        if (viewMode === 'all') {
-          const allRes = await attendanceService.getAllAttendance(orgId);
-          if (allRes && !allRes.error) {
-            const rawAll = allRes as any;
-            const data = (rawAll.data && Array.isArray(rawAll.data)) ? rawAll.data :
-              (Array.isArray(rawAll) ? rawAll : []);
-
-            employeeRecords = data.map((r: any) => {
-              const rawStatus = r.status?.toLowerCase();
-              let status = r.checkInTime ? 'Present' : 'Absent';
-
-              if (rawStatus === 'holiday') status = 'Holiday';
-              else if (rawStatus === 'leave') status = 'Leave';
-              else if (rawStatus === 'weekend') status = 'Weekend';
-              else if (rawStatus === 'present' || r.checkInTime) status = 'Present';
-              else if (rawStatus === 'late') status = 'Late';
-              else if (rawStatus === 'absent') status = 'Absent';
-
-              return {
-                employeeName: r.employeeName || (r.employee && (r.employee.fullName || r.employee.name)) || 'Unknown',
-                date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : '-',
-                checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
-                checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : '-',
-                hoursWorked: r.totalHours ? `${r.totalHours}h` : '-',
-                status: status
-              };
-            });
-          }
-        } else if (viewMode === 'daily' && !qParam) {
+        if (viewMode === 'daily' && !qParam) {
           const dailyRes = await attendanceService.getDailyAttendance(orgId, startDateStr);
           if (dailyRes && !dailyRes.error) {
             const rawDaily = dailyRes as any;
@@ -199,6 +271,26 @@ const AttendanceTracker: React.FC = () => {
                 status: status
               };
             });
+
+            // Inject Admin Real-Time Data if available and not already present (or update it)
+            if (adminRealTimeRecord) {
+              const myId = getCookie('hrms_user_id');
+              if (myId) {
+                const myName = employees.find(e => e.id === myId)?.fullName || 'Me';
+                const adminEntry: AttendanceRecord = {
+                  employeeName: myName,
+                  date: startDateStr,
+                  checkIn: adminRealTimeRecord.checkInTime ? format(new Date(adminRealTimeRecord.checkInTime), 'hh:mm a') : (adminRealTimeRecord.checkIn ? format(new Date(adminRealTimeRecord.checkIn), 'hh:mm a') : '-'),
+                  checkOut: adminRealTimeRecord.checkOutTime ? format(new Date(adminRealTimeRecord.checkOutTime), 'hh:mm a') : (adminRealTimeRecord.checkOut ? format(new Date(adminRealTimeRecord.checkOut), 'hh:mm a') : '-'),
+                  hoursWorked: adminRealTimeRecord.totalHours ? `${adminRealTimeRecord.totalHours}h` : (adminRealTimeRecord.hoursWorked ? `${adminRealTimeRecord.hoursWorked}h` : '-'),
+                  status: adminRealTimeRecord.status || 'Present'
+                };
+
+                // Filter out existing "Me" or same ID entry if needed, but for now just filter by name if distinct
+                employeeRecords = employeeRecords.filter(r => r.employeeName !== myName);
+                employeeRecords.unshift(adminEntry);
+              }
+            }
           }
         } else {
           // For weekly/monthly/yearly or if there's a search query, use search
@@ -297,7 +389,6 @@ const AttendanceTracker: React.FC = () => {
       case 'weekly': setCurrentDate(subWeeks(currentDate, 1)); break;
       case 'monthly': setCurrentDate(subMonths(currentDate, 1)); break;
       case 'yearly': setCurrentDate(subYears(currentDate, 1)); break;
-      case 'all': break;
     }
   };
 
@@ -307,7 +398,6 @@ const AttendanceTracker: React.FC = () => {
       case 'weekly': setCurrentDate(addWeeks(currentDate, 1)); break;
       case 'monthly': setCurrentDate(addMonths(currentDate, 1)); break;
       case 'yearly': setCurrentDate(addYears(currentDate, 1)); break;
-      case 'all': break;
     }
   };
 
@@ -322,8 +412,6 @@ const AttendanceTracker: React.FC = () => {
         return format(currentDate, 'MMMM yyyy');
       case 'yearly':
         return format(currentDate, 'yyyy');
-      case 'all':
-        return 'All Records';
     }
   };
 
@@ -351,7 +439,7 @@ const AttendanceTracker: React.FC = () => {
     const rows = adminRecords.map(r => {
       const recordDate = r.date ? (typeof r.date === 'string' && r.date.includes('-') ? r.date : format(new Date(r.date), 'yyyy-MM-dd')) : '-';
       return [
-        recordDate,
+        `\t${recordDate}`,
         r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
         r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : '-',
         r.totalHours ? `${r.totalHours}h` : '-'
@@ -366,7 +454,7 @@ const AttendanceTracker: React.FC = () => {
     const headers = ['Employee', 'Date', 'Check In', 'Check Out', 'Status'];
     const rows = allEmployeesRecords.map(r => [
       r.employeeName || 'Unknown',
-      r.date,
+      `\t${r.date}`,
       r.checkIn,
       r.checkOut,
       r.status
@@ -391,7 +479,7 @@ const AttendanceTracker: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex p-1 bg-gray-100 rounded-lg w-fit overflow-x-auto">
-              {(['daily', 'weekly', 'monthly', 'yearly', 'all'] as ViewMode[]).map((mode) => (
+              {(['daily', 'weekly', 'monthly', 'yearly'] as ViewMode[]).map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setViewMode(mode)}
@@ -488,7 +576,7 @@ const AttendanceTracker: React.FC = () => {
                   </tr>
                 ) : adminRecords.length > 0 ? (
                   adminRecords.map((record, idx) => {
-                    const recordDate = record.date ? (typeof record.date === 'string' && record.date.includes('-') ? record.date : format(new Date(record.date), 'yyyy-MM-dd')) : '-';
+                    const recordDate = record.date ? (typeof record.date === 'string' && record.date.includes('T') ? format(new Date(record.date), 'yyyy-MM-dd') : record.date) : '-';
                     return (
                       <tr key={idx} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 md:px-6 md:py-4 text-sm font-medium text-gray-900 whitespace-nowrap">
