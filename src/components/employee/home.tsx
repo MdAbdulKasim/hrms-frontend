@@ -111,8 +111,8 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
   };
 
   // Get display name
-  const displayName = currentUser?.fullName || 
-    (currentUser?.firstName && currentUser?.lastName 
+  const displayName = currentUser?.fullName ||
+    (currentUser?.firstName && currentUser?.lastName
       ? `${currentUser.firstName} ${currentUser.lastName}`.trim()
       : currentUser?.firstName || '');
 
@@ -154,14 +154,14 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
           </div>
         )}
       </div>
-      
+
       {/* Fixed: Show actual name or skeleton loader */}
       {displayName ? (
         <h2 className="text-gray-800 font-medium text-sm break-all">{displayName}</h2>
       ) : (
         <div className="h-5 w-32 bg-gray-200 rounded animate-pulse"></div>
       )}
-      
+
       <p className="text-gray-500 text-xs mt-1">{currentUser?.designation || 'N/A'}</p>
       <p className={`text-xs font-medium mt-3 ${isCheckedIn ? 'text-green-500' : 'text-red-500'}`}>
         {isCheckedIn ? 'Checked In' : 'Yet to check-in'}
@@ -216,8 +216,8 @@ const ReporteesCard = ({ onEmployeeClick, reportees }: { onEmployeeClick: (emplo
 
 const ActivitiesSection = ({ currentUser }: { currentUser: CurrentUser | null }) => {
   // Get display name
-  const displayName = currentUser?.fullName || 
-    (currentUser?.firstName && currentUser?.lastName 
+  const displayName = currentUser?.fullName ||
+    (currentUser?.firstName && currentUser?.lastName
       ? `${currentUser.firstName} ${currentUser.lastName}`.trim()
       : currentUser?.firstName || '');
 
@@ -288,9 +288,9 @@ export default function Dashboard() {
         const currentUserRes = await axios.get(endpoint, {
           headers: { Authorization: `Bearer ${authToken}` }
         });
-        
+
         console.log('API Response:', currentUserRes.data);
-        
+
         const userData = currentUserRes.data.data || currentUserRes.data;
 
         // Handle name extraction - try multiple field combinations
@@ -322,18 +322,25 @@ export default function Dashboard() {
           profileImage: userData.profileImage
         });
 
-        // Fetch reportees
-        const reporteesRes = await axios.get(`${apiUrl}/org/${authOrgId}/employees`, {
-          headers: { Authorization: `Bearer ${authToken}` }
-        });
-        const reporteesData = reporteesRes.data.data || reporteesRes.data;
-        setReportees(reporteesData.slice(0, 5).map((emp: any) => ({
-          id: emp.id || emp._id,
-          name: emp.fullName || emp.full_name || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.email || 'Unknown',
-          roleId: emp.employeeId || emp.id,
-          status: 'Yet to check-in',
-          employeeId: emp.id || emp._id
-        })));
+        // Fetch reportees - wrap in try-catch since employees may not have access to this endpoint
+        try {
+          // Try to fetch reportees - this may fail with 403 for regular employees
+          const reporteesRes = await axios.get(`${apiUrl}/org/${authOrgId}/employees/${authEmployeeId}/reportees`, {
+            headers: { Authorization: `Bearer ${authToken}` }
+          });
+          const reporteesData = reporteesRes.data.data || reporteesRes.data || [];
+          setReportees(reporteesData.slice(0, 5).map((emp: any) => ({
+            id: emp.id || emp._id,
+            name: emp.fullName || emp.full_name || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.email || 'Unknown',
+            roleId: emp.employeeId || emp.id,
+            status: 'Yet to check-in',
+            employeeId: emp.id || emp._id
+          })));
+        } catch (reporteesError) {
+          // If reportees endpoint doesn't exist or returns 403/404, just set empty array
+          console.log('Reportees not available for this employee (this is normal for non-managers)');
+          setReportees([]);
+        }
 
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
