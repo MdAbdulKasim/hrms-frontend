@@ -193,18 +193,23 @@ const LeaveTracker = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       const types = Array.isArray(response.data) ? response.data : (response.data.data || []);
-      const transformedTypes: LeaveType[] = types.map((type: any) => ({
-        id: type.code || type.id,
-        code: type.code,
-        name: type.name || 'Unknown',
-        total: type.defaultDays || 0,
-        available: (type.defaultDays || 0) - (type.usedDays || 0),
-        booked: type.usedDays || 0,
-        icon: iconMap[type.code] || <Calendar className="w-5 h-5" />,
-        color: colorMap[type.code]?.color || 'text-gray-600',
-        bgColor: colorMap[type.code]?.bgColor || 'bg-gray-100',
-        defaultDays: type.defaultDays || 0,
-      }));
+      const transformedTypes: LeaveType[] = types.map((type: any) => {
+        const usedDays = type.usedDays || 0;
+        const pendingDays = type.pendingDays || 0;
+        const totalDays = type.defaultDays || 0;
+        return {
+          id: type.code || type.id,
+          code: type.code,
+          name: type.name || 'Unknown',
+          total: totalDays,
+          available: totalDays - usedDays - pendingDays, // Subtract both used and pending
+          booked: usedDays + pendingDays, // Show both approved and pending as booked
+          icon: iconMap[type.code] || <Calendar className="w-5 h-5" />,
+          color: colorMap[type.code]?.color || 'text-gray-600',
+          bgColor: colorMap[type.code]?.bgColor || 'bg-gray-100',
+          defaultDays: totalDays,
+        };
+      });
       setLeaveTypes(transformedTypes);
       setLeaveConfigs(types.map((type: any) => ({ code: type.code, defaultDays: type.defaultDays || 0 })));
     } catch (error) {
@@ -377,6 +382,7 @@ const LeaveTracker = () => {
       );
 
       if (response.status === 210 || response.status === 201) {
+        await fetchLeaveTypes(); // Refresh leave types to update available/booked counts
         await fetchAllLeaves();
         await fetchPendingLeaves();
         setIsDialogOpen(false);
@@ -413,6 +419,7 @@ const LeaveTracker = () => {
       );
 
       if (response.status === 200) {
+        await fetchLeaveTypes(); // Refresh leave types to update available/booked counts
         await fetchAllLeaves();
         await fetchPendingLeaves();
         setIsApproveDialogOpen(false);

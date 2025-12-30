@@ -97,12 +97,15 @@ const LeaveTracker = () => {
         // Transform API data to component format
         const transformedTypes: LeaveType[] = types.map((type: any) => {
           const code = type.code || type.id;
+          const usedDays = type.usedDays || 0;
+          const pendingDays = type.pendingDays || 0;
+          const totalDays = type.defaultDays || 0;
           return {
             id: code,
             name: type.name || 'Unknown',
-            total: type.defaultDays || 0,
-            available: (type.defaultDays || 0) - (type.usedDays || 0),
-            booked: type.usedDays || 0,
+            total: totalDays,
+            available: totalDays - usedDays - pendingDays, // Subtract both used and pending
+            booked: usedDays + pendingDays, // Show both approved and pending as booked
             icon: iconMap[code] || <Calendar className="w-5 h-5" />,
             color: colorMap[code]?.color || 'text-gray-600',
             bgColor: colorMap[code]?.bgColor || 'bg-gray-100',
@@ -190,6 +193,48 @@ const LeaveTracker = () => {
       );
 
       if (response.status === 210 || response.status === 201) {
+        // Refresh leave types to update available/booked counts
+        const typesResponse = await axios.get(`${apiUrl}/org/${organizationId}/leaves/types`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const types = Array.isArray(typesResponse.data) ? typesResponse.data : (typesResponse.data.data || []);
+
+        const iconMap: { [key: string]: React.ReactNode } = {
+          'CL': <Coffee className="w-5 h-5" />,
+          'EL': <Gift className="w-5 h-5" />,
+          'LWP': <Clock className="w-5 h-5" />,
+          'PL': <Users className="w-5 h-5" />,
+          'SBL': <Heart className="w-5 h-5" />,
+          'SL': <AlertCircle className="w-5 h-5" />,
+        };
+
+        const colorMap: { [key: string]: { color: string; bgColor: string } } = {
+          'CL': { color: 'text-blue-600', bgColor: 'bg-blue-100' },
+          'EL': { color: 'text-green-600', bgColor: 'bg-green-100' },
+          'LWP': { color: 'text-gray-600', bgColor: 'bg-gray-100' },
+          'PL': { color: 'text-purple-600', bgColor: 'bg-purple-100' },
+          'SBL': { color: 'text-pink-600', bgColor: 'bg-pink-100' },
+          'SL': { color: 'text-red-600', bgColor: 'bg-red-100' },
+        };
+
+        const transformedTypes: LeaveType[] = types.map((type: any) => {
+          const code = type.code || type.id;
+          const usedDays = type.usedDays || 0;
+          const pendingDays = type.pendingDays || 0;
+          const totalDays = type.defaultDays || 0;
+          return {
+            id: code,
+            name: type.name || 'Unknown',
+            total: totalDays,
+            available: totalDays - usedDays - pendingDays, // Subtract both used and pending
+            booked: usedDays + pendingDays, // Show both approved and pending as booked
+            icon: iconMap[code] || <Calendar className="w-5 h-5" />,
+            color: colorMap[code]?.color || 'text-gray-600',
+            bgColor: colorMap[code]?.bgColor || 'bg-gray-100',
+          };
+        });
+        setLeaveTypes(transformedTypes);
+
         // Refresh leave history
         const historyResponse = await axios.get(`${apiUrl}/org/${organizationId}/leaves/my-history`, {
           headers: { Authorization: `Bearer ${token}` },
