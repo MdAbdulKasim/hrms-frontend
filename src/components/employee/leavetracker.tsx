@@ -19,7 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import axios from 'axios';
-import { getApiUrl, getAuthToken } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 
 
 interface LeaveType {
@@ -56,21 +56,24 @@ const LeaveTracker = () => {
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [leaveHistory, setLeaveHistory] = useState<LeaveHistory[]>([]);
 
+  const organizationId = getOrgId();
+
   // Fetch leave types and history from API
   useEffect(() => {
     const fetchLeaveData = async () => {
+      if (!organizationId) return;
       try {
         setLoading(true);
         const apiUrl = getApiUrl();
         const token = getAuthToken();
 
         // Fetch leave types
-        const typesResponse = await axios.get(`${apiUrl}/leave-requests/types`, {
+        const typesResponse = await axios.get(`${apiUrl}/org/${organizationId}/leaves/types`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-        const types = typesResponse.data || typesResponse.data.data || [];
+        const types = Array.isArray(typesResponse.data) ? typesResponse.data : (typesResponse.data.data || []);
 
         // Icon mapping for leave types
         const iconMap: { [key: string]: React.ReactNode } = {
@@ -92,43 +95,54 @@ const LeaveTracker = () => {
         };
 
         // Transform API data to component format
-        const transformedTypes: LeaveType[] = types.map((type: any) => ({
-          id: type.code || type.id,
-          name: type.name || 'Unknown',
-          total: type.defaultDays || 0,
-          available: (type.defaultDays || 0) - (type.usedDays || 0),
-          booked: type.usedDays || 0,
-          icon: iconMap[type.code] || <Calendar className="w-5 h-5" />,
-          color: colorMap[type.code]?.color || 'text-gray-600',
-          bgColor: colorMap[type.code]?.bgColor || 'bg-gray-100',
-        }));
+        const transformedTypes: LeaveType[] = types.map((type: any) => {
+          const code = type.code || type.id;
+          return {
+            id: code,
+            name: type.name || 'Unknown',
+            total: type.defaultDays || 0,
+            available: (type.defaultDays || 0) - (type.usedDays || 0),
+            booked: type.usedDays || 0,
+            icon: iconMap[code] || <Calendar className="w-5 h-5" />,
+            color: colorMap[code]?.color || 'text-gray-600',
+            bgColor: colorMap[code]?.bgColor || 'bg-gray-100',
+          };
+        });
         setLeaveTypes(transformedTypes);
 
         // Fetch employee's leave history
-        const historyResponse = await axios.get(`${apiUrl}/leave-requests/my-history`, {
+        const historyResponse = await axios.get(`${apiUrl}/org/${organizationId}/leaves/my-history`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-        const requests = historyResponse.data || historyResponse.data.data || [];
+        const requests = Array.isArray(historyResponse.data) ? historyResponse.data : (historyResponse.data.data || []);
 
         // Transform API data to component format
-        const transformedHistory: LeaveHistory[] = requests.map((request: any) => ({
-          type: request.leaveTypeCode || request.leaveType || 'Unknown',
-          from: new Date(request.startDate).toLocaleDateString('en-US', {
-            month: 'short',
-            day: '2-digit',
-            year: 'numeric'
-          }),
-          to: new Date(request.endDate).toLocaleDateString('en-US', {
-            month: 'short',
-            day: '2-digit',
-            year: 'numeric'
-          }),
-          days: request.days || 1,
-          reason: request.reason || 'No reason provided',
-          status: request.status?.charAt(0).toUpperCase() + request.status?.slice(1) || 'Pending'
-        }));
+        const transformedHistory: LeaveHistory[] = requests.map((request: any) => {
+          const status = request.status?.toLowerCase() || 'pending';
+          const statusCapitalized = status.charAt(0).toUpperCase() + status.slice(1);
+          let statusFormatted: 'Approved' | 'Pending' | 'Rejected' = 'Pending';
+          if (statusCapitalized === 'Approved') statusFormatted = 'Approved';
+          else if (statusCapitalized === 'Rejected') statusFormatted = 'Rejected';
+          
+          return {
+            type: request.leaveTypeCode || request.leaveType || 'Unknown',
+            from: new Date(request.startDate).toLocaleDateString('en-US', {
+              month: 'short',
+              day: '2-digit',
+              year: 'numeric'
+            }),
+            to: new Date(request.endDate).toLocaleDateString('en-US', {
+              month: 'short',
+              day: '2-digit',
+              year: 'numeric'
+            }),
+            days: request.days || 1,
+            reason: request.reason || 'No reason provided',
+            status: statusFormatted
+          };
+        });
         setLeaveHistory(transformedHistory);
       } catch (error) {
         console.error('Error fetching leave data:', error);
@@ -140,7 +154,7 @@ const LeaveTracker = () => {
     };
 
     fetchLeaveData();
-  }, []);
+  }, [organizationId]);
 
   const handleCancel = () => {
     setIsDialogOpen(false);
@@ -151,6 +165,10 @@ const LeaveTracker = () => {
   };
 
   const handleSubmit = async () => {
+    if (!organizationId) {
+      alert('Organization ID not found. Please login again.');
+      return;
+    }
     try {
       setLoading(true);
       const apiUrl = getApiUrl();
@@ -158,7 +176,7 @@ const LeaveTracker = () => {
 
       // Call API to apply for leave
       const response = await axios.post(
-        `${apiUrl}/leave-requests/apply`,
+        `${apiUrl}/org/${organizationId}/leaves/apply`,
         {
           leaveTypeCode: selectedLeaveType,
           startDate: fromDate,
@@ -173,26 +191,34 @@ const LeaveTracker = () => {
 
       if (response.status === 210 || response.status === 201) {
         // Refresh leave history
-        const historyResponse = await axios.get(`${apiUrl}/leave-requests/my-history`, {
+        const historyResponse = await axios.get(`${apiUrl}/org/${organizationId}/leaves/my-history`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const requests = historyResponse.data || historyResponse.data.data || [];
-        const transformedHistory: LeaveHistory[] = requests.map((request: any) => ({
-          type: request.leaveTypeCode || request.leaveType || 'Unknown',
-          from: new Date(request.startDate).toLocaleDateString('en-US', {
-            month: 'short',
-            day: '2-digit',
-            year: 'numeric'
-          }),
-          to: new Date(request.endDate).toLocaleDateString('en-US', {
-            month: 'short',
-            day: '2-digit',
-            year: 'numeric'
-          }),
-          days: request.days || 1,
-          reason: request.reason || 'No reason provided',
-          status: request.status?.charAt(0).toUpperCase() + request.status?.slice(1) || 'Pending'
-        }));
+        const requests = Array.isArray(historyResponse.data) ? historyResponse.data : (historyResponse.data.data || []);
+        const transformedHistory: LeaveHistory[] = requests.map((request: any) => {
+          const status = request.status?.toLowerCase() || 'pending';
+          const statusCapitalized = status.charAt(0).toUpperCase() + status.slice(1);
+          let statusFormatted: 'Approved' | 'Pending' | 'Rejected' = 'Pending';
+          if (statusCapitalized === 'Approved') statusFormatted = 'Approved';
+          else if (statusCapitalized === 'Rejected') statusFormatted = 'Rejected';
+          
+          return {
+            type: request.leaveTypeCode || request.leaveType || 'Unknown',
+            from: new Date(request.startDate).toLocaleDateString('en-US', {
+              month: 'short',
+              day: '2-digit',
+              year: 'numeric'
+            }),
+            to: new Date(request.endDate).toLocaleDateString('en-US', {
+              month: 'short',
+              day: '2-digit',
+              year: 'numeric'
+            }),
+            days: request.days || 1,
+            reason: request.reason || 'No reason provided',
+            status: statusFormatted
+          };
+        });
         setLeaveHistory(transformedHistory);
       }
 
@@ -201,9 +227,9 @@ const LeaveTracker = () => {
       setFromDate('');
       setToDate('');
       setReason('');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error applying for leave:', error);
-      alert('Failed to apply for leave. Please try again.');
+      alert(error.response?.data?.error || 'Failed to apply for leave. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -332,12 +358,11 @@ const LeaveTracker = () => {
                   <SelectValue placeholder="Select leave type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="casual">Casual Leave (8 available)</SelectItem>
-                  <SelectItem value="earned">Earned Leave (15 available)</SelectItem>
-                  <SelectItem value="lwp">Leave Without Pay (0 available)</SelectItem>
-                  <SelectItem value="paternity">Paternity Leave (5 available)</SelectItem>
-                  <SelectItem value="sabbatical">Sabbatical (30 available)</SelectItem>
-                  <SelectItem value="sick">Sick Leave (10 available)</SelectItem>
+                  {leaveTypes.map(type => (
+                    <SelectItem key={type.id} value={type.id}>
+                      {type.name} ({type.available} available)
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -407,6 +432,7 @@ const LeaveTracker = () => {
               type="button"
               onClick={handleSubmit}
               className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+              disabled={loading}
             >
               Submit Request
             </Button>

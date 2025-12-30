@@ -172,24 +172,31 @@ export default function EmployeeProfileForm() {
           return
         }
 
-        // Fetch employee data using the correct endpoint with employee ID
+        // Fetch employee data using the /:id endpoint
         const response = await axios.get(`${apiUrl}/org/${orgId}/employees/${employeeId}`, {
           headers: { Authorization: `Bearer ${token}` },
         })
 
-        const employee = response.data
+        const employee = response.data?.data || response.data
 
         // Map API response fields to form data interface
+        // Ensure we show names instead of UUIDs
         setFormData({
-          fullName: employee.fullName || "",
+          fullName: employee.fullName || 
+            (employee.firstName && employee.lastName 
+              ? `${employee.firstName} ${employee.lastName}`.trim() 
+              : ""),
           emailAddress: employee.email || "",
-          mobileNumber: employee.phoneNumber || "",
+          mobileNumber: employee.phoneNumber || employee.mobileNumber || "",
           role: employee.role || "",
           department: employee.department?.name || "",
           designation: employee.designation?.name || "",
-          reportingTo: employee.reportingTo?.fullName || "",
+          reportingTo: employee.reportingTo?.fullName || 
+            (employee.reportingTo?.firstName && employee.reportingTo?.lastName 
+              ? `${employee.reportingTo.firstName} ${employee.reportingTo.lastName}`.trim() 
+              : employee.reportingTo?.name || ""),
           teamPosition: employee.teamPosition || "",
-          shift: employee.shiftType || "",
+          shift: employee.shiftType || employee.shift || "",
           location: employee.location?.name || "",
           timeZone: employee.timeZone || "",
           dateOfBirth: employee.dateOfBirth ? employee.dateOfBirth.split("T")[0] : "",
@@ -395,8 +402,7 @@ export default function EmployeeProfileForm() {
         formDataToSend.append('profilePic', selectedProfilePicFile)
       }
 
-      // Send profile update to API using the correct endpoint with employee ID
-      // Change to FormData and allow multipart/form-data
+      // Send profile update to API using the /:id endpoint
       const response = await axios.put(`${apiUrl}/org/${orgId}/employees/${employeeId}`, formDataToSend, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -407,9 +413,51 @@ export default function EmployeeProfileForm() {
       console.log("Profile saved successfully:", response.data)
       setIsEditing(false)
 
-    } catch (error) {
+      // Refresh the employee data after successful update
+      const refreshResponse = await axios.get(`${apiUrl}/org/${orgId}/employees/${employeeId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const refreshedEmployee = refreshResponse.data?.data || refreshResponse.data
+
+      // Update form data with refreshed employee info (showing names instead of UUIDs)
+      setFormData(prev => ({
+        ...prev,
+        fullName: refreshedEmployee.fullName || 
+          (refreshedEmployee.firstName && refreshedEmployee.lastName 
+            ? `${refreshedEmployee.firstName} ${refreshedEmployee.lastName}`.trim() 
+            : prev.fullName),
+        emailAddress: refreshedEmployee.email || prev.emailAddress,
+        mobileNumber: refreshedEmployee.phoneNumber || refreshedEmployee.mobileNumber || prev.mobileNumber,
+        department: refreshedEmployee.department?.name || prev.department,
+        designation: refreshedEmployee.designation?.name || prev.designation,
+        reportingTo: refreshedEmployee.reportingTo?.fullName || 
+          (refreshedEmployee.reportingTo?.firstName && refreshedEmployee.reportingTo?.lastName 
+            ? `${refreshedEmployee.reportingTo.firstName} ${refreshedEmployee.reportingTo.lastName}`.trim() 
+            : refreshedEmployee.reportingTo?.name || prev.reportingTo),
+        location: refreshedEmployee.location?.name || prev.location,
+        role: refreshedEmployee.role || prev.role,
+        shift: refreshedEmployee.shiftType || refreshedEmployee.shift || prev.shift,
+      }))
+
+      // Refresh profile picture if it was updated
+      if (selectedProfilePicFile) {
+        try {
+          const picResponse = await axios.get(`${apiUrl}/org/${orgId}/employees/${employeeId}/profile-pic`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (picResponse.data.success && picResponse.data.imageUrl) {
+            setProfilePicUrl(picResponse.data.imageUrl)
+          }
+        } catch (picError) {
+          console.error("Failed to refresh profile picture:", picError)
+        }
+        setSelectedProfilePicFile(null)
+      }
+
+      alert("Profile updated successfully!")
+    } catch (error: any) {
       console.error("Failed to save profile:", error)
-      alert("Failed to save profile. Please try again.")
+      alert(error.response?.data?.error || "Failed to save profile. Please try again.")
     }
   }
 
