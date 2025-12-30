@@ -55,10 +55,10 @@ interface PersonalAttendanceRecord {
   status?: string;
 }
 
-type ViewMode = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'all';
+type ViewMode = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 const AttendanceTracker: React.FC = () => {
-  const [viewMode, setViewMode] = useState<ViewMode>('monthly');
+  const [viewMode, setViewMode] = useState<ViewMode>('daily');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -88,26 +88,7 @@ const AttendanceTracker: React.FC = () => {
         const orgId = getOrgId();
         if (!orgId) return;
 
-        if (viewMode === 'all') {
-          const res = await attendanceService.getAllAttendance(orgId);
-          if (res && !res.error) {
-            const rawData = res as any;
-            const records = rawData.attendance ||
-              (rawData.data && rawData.data.attendance) ||
-              (Array.isArray(rawData.data) ? rawData.data : (Array.isArray(rawData) ? rawData : []));
 
-            const transformedData: AttendanceRecord[] = records.map((r: any) => ({
-              date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : '-',
-              checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
-              checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : '-',
-              hoursWorked: r.totalHours ? `${r.totalHours}h` : '-',
-              status: r.status || (r.checkInTime ? 'Present' : 'Absent')
-            }));
-
-            setAllAttendanceData(transformedData);
-          }
-          return; // Skip date range fetching
-        }
 
         let startDateStr = '';
         let endDateStr = '';
@@ -247,7 +228,6 @@ const AttendanceTracker: React.FC = () => {
       case 'weekly': setCurrentDate(subWeeks(currentDate, 1)); break;
       case 'monthly': setCurrentDate(subMonths(currentDate, 1)); break;
       case 'yearly': setCurrentDate(subYears(currentDate, 1)); break;
-      case 'all': break;
     }
   };
 
@@ -257,7 +237,6 @@ const AttendanceTracker: React.FC = () => {
       case 'weekly': setCurrentDate(addWeeks(currentDate, 1)); break;
       case 'monthly': setCurrentDate(addMonths(currentDate, 1)); break;
       case 'yearly': setCurrentDate(addYears(currentDate, 1)); break;
-      case 'all': break;
     }
   };
 
@@ -272,8 +251,6 @@ const AttendanceTracker: React.FC = () => {
         return format(currentDate, 'MMMM yyyy');
       case 'yearly':
         return format(currentDate, 'yyyy');
-      case 'all':
-        return 'All Records';
     }
   };
 
@@ -324,7 +301,7 @@ const AttendanceTracker: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex flex-wrap p-1 bg-gray-100 rounded-lg w-fit">
-              {(['daily', 'weekly', 'monthly', 'yearly', 'all'] as ViewMode[]).map((mode) => (
+              {(['daily', 'weekly', 'monthly', 'yearly'] as ViewMode[]).map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setViewMode(mode)}
