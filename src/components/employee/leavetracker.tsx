@@ -112,12 +112,21 @@ const LeaveTracker = () => {
         // Transform API data to component format
         const transformedTypes: LeaveType[] = types.map((type: any) => {
           const code = type.code || type.id;
+          // Ensure all values are numbers, handle null/undefined/NaN cases
+          const usedDays = Number(type.usedDays) || 0;
+          const pendingDays = Number(type.pendingDays) || 0;
+          const totalDays = Number(type.defaultDays) || 0;
+          
+          // Calculate available days, ensuring it's never negative or NaN
+          const booked = usedDays + pendingDays;
+          const available = Math.max(0, totalDays - booked);
+          
           return {
             id: code,
             name: type.name || 'Unknown',
-            total: type.defaultDays || 0,
-            available: (type.defaultDays || 0) - (type.usedDays || 0),
-            booked: type.usedDays || 0,
+            total: totalDays,
+            available: isNaN(available) ? 0 : available,
+            booked: isNaN(booked) ? 0 : booked,
             icon: iconMap[code] || <Calendar className="w-5 h-5" />,
             color: colorMap[code]?.color || 'text-gray-600',
             bgColor: colorMap[code]?.bgColor || 'bg-gray-100',
@@ -205,6 +214,54 @@ const LeaveTracker = () => {
       );
 
       if (response.status === 210 || response.status === 201) {
+        // Refresh leave types to update available/booked counts
+        const typesResponse = await axios.get(`${apiUrl}/org/${organizationId}/leaves/types`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const types = Array.isArray(typesResponse.data) ? typesResponse.data : (typesResponse.data.data || []);
+
+        const iconMap: { [key: string]: React.ReactNode } = {
+          'CL': <Coffee className="w-5 h-5" />,
+          'EL': <Gift className="w-5 h-5" />,
+          'LWP': <Clock className="w-5 h-5" />,
+          'PL': <Users className="w-5 h-5" />,
+          'SBL': <Heart className="w-5 h-5" />,
+          'SL': <AlertCircle className="w-5 h-5" />,
+        };
+
+        const colorMap: { [key: string]: { color: string; bgColor: string } } = {
+          'CL': { color: 'text-blue-600', bgColor: 'bg-blue-100' },
+          'EL': { color: 'text-green-600', bgColor: 'bg-green-100' },
+          'LWP': { color: 'text-gray-600', bgColor: 'bg-gray-100' },
+          'PL': { color: 'text-purple-600', bgColor: 'bg-purple-100' },
+          'SBL': { color: 'text-pink-600', bgColor: 'bg-pink-100' },
+          'SL': { color: 'text-red-600', bgColor: 'bg-red-100' },
+        };
+
+        const transformedTypes: LeaveType[] = types.map((type: any) => {
+          const code = type.code || type.id;
+          // Ensure all values are numbers, handle null/undefined/NaN cases
+          const usedDays = Number(type.usedDays) || 0;
+          const pendingDays = Number(type.pendingDays) || 0;
+          const totalDays = Number(type.defaultDays) || 0;
+          
+          // Calculate available days, ensuring it's never negative or NaN
+          const booked = usedDays + pendingDays;
+          const available = Math.max(0, totalDays - booked);
+          
+          return {
+            id: code,
+            name: type.name || 'Unknown',
+            total: totalDays,
+            available: isNaN(available) ? 0 : available,
+            booked: isNaN(booked) ? 0 : booked,
+            icon: iconMap[code] || <Calendar className="w-5 h-5" />,
+            color: colorMap[code]?.color || 'text-gray-600',
+            bgColor: colorMap[code]?.bgColor || 'bg-gray-100',
+          };
+        });
+        setLeaveTypes(transformedTypes);
+
         // Refresh leave history
         const historyResponse = await axios.get(`${apiUrl}/org/${organizationId}/leaves/my-history`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -270,25 +327,25 @@ const LeaveTracker = () => {
         </div>
 
         {/* Leave Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
           {leaveTypes.map((leave) => (
-            <div key={leave.id} className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div key={leave.id} className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-200 w-full">
               <div className="flex items-center gap-3 mb-4">
-                <div className={`${leave.bgColor} ${leave.color} p-3 rounded-lg`}>
+                <div className={`${leave.bgColor} ${leave.color} p-2 sm:p-3 rounded-lg flex-shrink-0`}>
                   {leave.icon}
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">{leave.name}</h3>
-                  <p className="text-sm text-gray-600">Total: {leave.total} days</p>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{leave.name}</h3>
+                  <p className="text-xs sm:text-sm text-gray-600">Total: {leave.total} days</p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-green-50 rounded-lg p-3 sm:p-4 text-center">
-                  <div className="text-2xl sm:text-3xl font-bold text-green-600">{leave.available}</div>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                <div className="bg-green-50 rounded-lg p-2 sm:p-3 md:p-4 text-center min-w-0">
+                  <div className="text-xl sm:text-2xl md:text-3xl font-bold text-green-600 break-words">{leave.available}</div>
                   <div className="text-xs sm:text-sm text-gray-600 mt-1">Available</div>
                 </div>
-                <div className="bg-orange-50 rounded-lg p-3 sm:p-4 text-center">
-                  <div className="text-2xl sm:text-3xl font-bold text-orange-600">{leave.booked}</div>
+                <div className="bg-orange-50 rounded-lg p-2 sm:p-3 md:p-4 text-center min-w-0">
+                  <div className="text-xl sm:text-2xl md:text-3xl font-bold text-orange-600 break-words">{leave.booked}</div>
                   <div className="text-xs sm:text-sm text-gray-600 mt-1">Booked</div>
                 </div>
               </div>

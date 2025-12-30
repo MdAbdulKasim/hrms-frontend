@@ -54,103 +54,116 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
   useEffect(() => {
     const fetchEmployeeData = async () => {
       try {
-        const token = getAuthToken();
-        const orgId = getOrgId();
-        const apiUrl = getApiUrl();
+        const token = getAuthToken()
+        const orgId = getOrgId()
+        const employeeId = propEmployeeId || getEmployeeId()
+        const apiUrl = getApiUrl()
 
-        if (!token || !currentEmployeeId || !orgId) return;
+        if (!token || !orgId || !employeeId) {
+          console.error("Authentication, organization ID, or employee ID missing")
+          return
+        }
 
-        // Fetch employee details
-        const empRes = await axios.get(`${apiUrl}/org/${orgId}/employees/${currentEmployeeId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const empData = empRes.data.data || empRes.data;
-        setEmployee({
-          id: empData.id || empData._id,
-          employeeId: empData.employeeId || empData.id,
-          firstName: empData.firstName || '',
-          lastName: empData.lastName || '',
-          nickName: empData.nickName || '',
-          email: empData.email || '',
-          department: empData.department?.name || empData.department || '',
-          designation: empData.designation?.name || empData.designation || '',
-          zohoRole: empData.role || '',
-          employmentType: empData.employmentType || '',
-          employeeStatus: empData.status || 'Active',
-          sourceOfHire: empData.sourceOfHire || '',
-          dateOfJoining: empData.dateOfJoining || '',
-          currentExperience: empData.currentExperience || '',
-          totalExperience: empData.totalExperience || '',
-          reportingManager: empData.reportingManager || '',
-          workPhone: empData.workPhone || '',
-          personalMobile: empData.personalMobile || '',
-          extension: empData.extension || '',
-          seatingLocation: empData.seatingLocation || '',
-          shift: empData.shift || '',
-          shiftTiming: empData.shiftTiming || '',
-          presentAddress: empData.presentAddress || '',
-          dateOfBirth: empData.dateOfBirth || '',
-          age: empData.age || '',
-          gender: empData.gender || '',
-          maritalStatus: empData.maritalStatus || '',
-          profileImage: empData.profileImage || '/api/placeholder/120/120',
-          checkInStatus: 'Yet to check-in' // Default
-        });
+        const response = await axios.get(`${apiUrl}/org/${orgId}/employees/${employeeId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
 
-        // Fetch education (if available)
-        setEducation([]); // Placeholder
+        const employee = response.data?.data || response.data
 
-        // Fetch peers (team members)
-        const peersRes = await axios.get(`${apiUrl}/org/${orgId}/employees`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const peersData = peersRes.data.data || peersRes.data;
-        setPeers((Array.isArray(peersData) ? peersData : []).slice(0, 5).map((p: any) => ({
-          id: p.id || p._id,
-          employeeId: p.employeeId || p.id,
-          name: p.fullName || `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.email,
-          designation: p.designation?.name || p.designation || '',
-          department: p.department?.name || p.department || '',
-          checkInStatus: 'Yet to check-in'
-        })));
+        setFormData({
+          fullName: employee.fullName || (employee.firstName && employee.lastName ? `${employee.firstName} ${employee.lastName}`.trim() : ""),
+          emailAddress: employee.email || "",
+          mobileNumber: employee.phoneNumber || employee.mobileNumber || "",
+          role: employee.role || "",
+          department: employee.department?.departmentName || employee.department?.name || "",
+          designation: employee.designation?.name || "",
+          reportingTo: employee.reportingTo?.fullName || (employee.reportingTo?.firstName && employee.reportingTo?.lastName ? `${employee.reportingTo.firstName} ${employee.reportingTo.lastName}`.trim() : employee.reportingTo?.name || ""),
+          teamPosition: employee.teamPosition || "",
+          shift: employee.shiftType || employee.shift || "",
+          location: employee.location?.name || "",
+          timeZone: employee.timeZone || "",
+          dateOfBirth: employee.dateOfBirth ? employee.dateOfBirth.split("T")[0] : "",
+          gender: employee.gender || "",
+          maritalStatus: employee.maritalStatus || "",
+          bloodGroup: employee.bloodGroup || "",
+          uan: employee.UAN || "",
+          pan: employee.PAN || "",
+          aadhaarNumber: employee.aadharNumber || "",
+          passportNumber: employee.passportNumber || "",
+          drivingLicenseNumber: employee.drivingLicenseNumber || "",
+          workExperience: (employee.experience || []).map((exp: any) => ({
+            companyName: exp.companyName || "",
+            jobTitle: exp.jobTitle || "",
+            fromDate: exp.fromDate ? exp.fromDate.split("T")[0] : "",
+            toDate: exp.toDate ? exp.toDate.split("T")[0] : "",
+            currentlyWorkHere: !exp.toDate,
+            jobDescription: exp.jobDescription || "",
+          })),
+          presentAddress: {
+            addressLine1: employee.presentAddressLine1 || "",
+            addressLine2: employee.presentAddressLine2 || "",
+            city: employee.presentCity || "",
+            state: employee.presentState || "",
+            country: employee.presentCountry || "",
+            pinCode: employee.presentPinCode || "",
+          },
+          sameAsPresentAddress: false,
+          permanentAddress: {
+            addressLine1: employee.permanentAddressLine1 || "",
+            addressLine2: employee.permanentAddressLine2 || "",
+            city: employee.permanentCity || "",
+            state: employee.permanentState || "",
+            country: employee.permanentCountry || "",
+            pinCode: employee.permanentPinCode || "",
+          },
+          emergencyContact: {
+            contactName: employee.emergencyContactName || "",
+            relation: employee.emergencyContactRelation || "",
+            contactNumber: employee.emergencyContactNumber || "",
+          },
+          education: (employee.education || []).map((edu: any) => ({
+            instituteName: edu.instituteName || "",
+            degree: edu.degree || "",
+            fieldOfStudy: edu.specialization || "",
+            startYear: edu.startYear || "",
+            endYear: edu.dateOfCompletion ? new Date(edu.dateOfCompletion).getFullYear().toString() : "",
+          })),
+        })
 
-        // Fetch leave balances
-        setLeaveBalances([
-          { type: 'Casual Leave', available: 12, booked: 0 },
-          { type: 'Earned Leave', available: 12, booked: 0 },
-          { type: 'Leave Without Pay', available: 0, booked: 0 },
-          { type: 'Paternity Leave', available: 0, booked: 0 },
-          { type: 'Sabbatical', available: 0, booked: 0 },
-        ]);
-
-        // Fetch attendance records
-        setAttendanceRecords([]);
-
+        try {
+          const picResponse = await axios.get(`${apiUrl}/org/${orgId}/employees/${employeeId}/profile-pic`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (picResponse.data.success && picResponse.data.imageUrl) {
+            setProfilePicUrl(picResponse.data.imageUrl)
+          }
+        } catch (error) {
+          console.error("Failed to fetch profile picture:", error)
+        }
       } catch (error) {
-        console.error('Error fetching employee data:', error);
-        setEmployee(null);
-        setEducation([]);
-        setPeers([]);
-        setLeaveBalances([]);
-        setAttendanceRecords([]);
-      } finally {
-        setLoading(false);
+        console.error("Failed to fetch employee data:", error)
       }
-    };
+    }
 
-    fetchEmployeeData();
-  }, [currentEmployeeId]);
+    fetchEmployeeData()
+  }, [propEmployeeId])
 
-  // Handle clicking on another employee
-  const handleEmployeeClick = (employeeId: string) => {
-    setCurrentEmployeeId(employeeId);
-    setActiveTab('profile'); // Reset to profile tab when viewing a new employee
-  };
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, section?: string, field?: string) => {
+    const { name, value } = e.target
 
-  // Handle back button click
-  const handleBackClick = () => {
-    if (onBack) {
-      onBack();
+    if (section === "presentAddress") {
+      setFormData((prev) => {
+        const updated = { ...prev.presentAddress, [field || name]: value };
+        return {
+          ...prev,
+          presentAddress: updated,
+          permanentAddress: prev.sameAsPresentAddress ? updated : prev.permanentAddress
+        }
+      })
+    } else if (section === "permanentAddress") {
+      setFormData((prev) => ({ ...prev, permanentAddress: { ...prev.permanentAddress, [field || name]: value } }))
+    } else if (section === "emergencyContact") {
+      setFormData((prev) => ({ ...prev, emergencyContact: { ...prev.emergencyContact, [field || name]: value } }))
     } else {
       // Fallback: use browser back if no onBack prop provided
       window.history.back();
@@ -190,13 +203,19 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
       return;
     }
 
-    setSaving(true);
-    try {
-      let result;
-      if (profilePicFile) {
-        result = await employeeService.updateWithProfilePic(orgId, employee.id, editFormData, profilePicFile);
-      } else {
-        result = await employeeService.update(orgId, employee.id, editFormData);
+      // PAN validation
+      if (name === 'pan') {
+        const uppercaseValue = value.toUpperCase();
+        let validatedValue = '';
+        for (let i = 0; i < Math.min(uppercaseValue.length, 10); i++) {
+          const char = uppercaseValue[i];
+          if (i < 5 || i === 9) {
+            if (/[A-Z]/.test(char)) validatedValue += char;
+          } else if (i >= 5 && i <= 8) {
+            if (/[0-9]/.test(char)) validatedValue += char;
+          }
+        }
+        finalValue = validatedValue;
       }
 
       if (result.error) {
@@ -303,15 +322,85 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
       default:
         return null;
     }
-  };
-
-  if (loading) {
-    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>;
   }
 
-  if (!employee) {
-    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Employee not found</div>;
+  const handleAddWorkExperienceEntry = () => {
+    setFormData(prev => ({
+      ...prev,
+      workExperience: [...prev.workExperience, { companyName: "", jobTitle: "", fromDate: "", toDate: "", currentlyWorkHere: false, jobDescription: "" }]
+    }))
   }
+
+  const handleRemoveWorkExperienceEntry = (index: number) => {
+    setFormData(prev => ({ ...prev, workExperience: prev.workExperience.filter((_, i) => i !== index) }))
+  }
+
+  const handleWorkExperienceEntryChange = (index: number, field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      workExperience: prev.workExperience.map((exp, i) => i === index ? { ...exp, [field]: value } : exp)
+    }))
+  }
+
+  const handleAddEducationEntry = () => {
+    setFormData(prev => ({
+      ...prev,
+      education: [...prev.education, { instituteName: "", degree: "", fieldOfStudy: "", startYear: "", endYear: "" }]
+    }))
+  }
+
+  const handleRemoveEducationEntry = (index: number) => {
+    setFormData(prev => ({ ...prev, education: prev.education.filter((_, i) => i !== index) }))
+  }
+
+  const handleEducationEntryChange = (index: number, field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      education: prev.education.map((edu, i) => i === index ? { ...edu, [field]: value } : edu)
+    }))
+  }
+
+  const handleSave = async () => {
+    try {
+      const token = getAuthToken()
+      const orgId = getOrgId()
+      const employeeId = propEmployeeId || getEmployeeId()
+      const apiUrl = getApiUrl()
+
+      if (!token || !orgId || !employeeId) return
+
+      const formDataToSend = new FormData()
+      const readOnlyFields = ['department', 'designation', 'location', 'reportingTo', 'role']
+
+      Object.keys(formData).forEach(key => {
+        if (readOnlyFields.includes(key) && !propEmployeeId) return
+        const value = formData[key as keyof FormData]
+        if (['workExperience', 'education', 'presentAddress', 'permanentAddress', 'emergencyContact'].includes(key)) {
+          formDataToSend.append(key, JSON.stringify(value))
+        } else {
+          formDataToSend.append(key, String(value ?? ''))
+        }
+      })
+
+      if (selectedProfilePicFile) formDataToSend.append('profilePic', selectedProfilePicFile)
+
+      await axios.put(`${apiUrl}/org/${orgId}/employees/${employeeId}`, formDataToSend, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+      })
+
+      setIsEditing(false)
+      alert("Profile updated successfully!")
+    } catch (error: any) {
+      console.error("Failed to save profile:", error)
+      alert(error.response?.data?.error || "Failed to save profile.")
+    }
+  }
+
+  const handleBackClick = () => { if (onBack) onBack(); else router.back(); }
+
+  const genders = ["Male", "Female", "Other"]
+  const maritalStatuses = ["Single", "Married", "Divorced", "Widowed"]
+  const bloodGroups = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"]
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -326,417 +415,410 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
         </button>
       </div>
 
-      {/* Edit Employee Modal */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
-            <div className="sticky top-0 bg-white flex items-center justify-between p-6 border-b">
-              <h2 className="text-xl font-bold text-gray-900">Edit Employee Details</h2>
-              <button
-                onClick={() => setIsEditModalOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-600" />
-              </button>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Employee Profile</h1>
+            <p className="text-gray-600">View and manage employee profile information.</p>
+          </div>
+          <div className="flex gap-3">
+            <Button onClick={() => router.push("/employee/change-password")} variant="outline">Change Password</Button>
+            {!isEditing ? (
+              <Button onClick={() => setIsEditing(true)}><Edit className="w-4 h-4 mr-2" />Edit</Button>
+            ) : (
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
+                <Button onClick={handleSave}>Save Changes</Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Profile Picture */}
+        <Card className="mb-6 p-6">
+          <h2 className="text-xl font-bold mb-4">Profile Picture</h2>
+          <div className="flex items-center gap-6">
+            <div className="w-32 h-32 rounded-full border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
+              {profilePicUrl ? <img src={profilePicUrl} className="w-full h-full object-cover" /> : <User className="w-12 h-12 text-gray-400" />}
             </div>
-
-            {/* Modal Body */}
-            <div className="p-6 space-y-6">
-              {/* Profile Picture */}
+            {isEditing && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Profile Picture</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setProfilePicFile(e.target.files?.[0] || null)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" id="profile-pic" />
+                <label htmlFor="profile-pic" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm cursor-pointer hover:bg-gray-50">
+                  <Upload className="w-4 h-4 mr-2" /> Upload New
+                </label>
               </div>
+            )}
+          </div>
+        </Card>
 
-              {/* Basic Info Section */}
-              <div className="border-b pb-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Basic Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                    <input
-                      type="text"
-                      value={editFormData.fullName || ''}
-                      onChange={(e) => handleEditFormChange('fullName', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input
-                      type="email"
-                      value={editFormData.email || ''}
-                      onChange={(e) => handleEditFormChange('email', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                    <input
-                      type="tel"
-                      value={editFormData.phoneNumber || ''}
-                      onChange={(e) => handleEditFormChange('phoneNumber', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Blood Group</label>
-                    <input
-                      type="text"
-                      value={editFormData.bloodGroup || ''}
-                      onChange={(e) => handleEditFormChange('bloodGroup', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="e.g., O+, A-, B+"
-                    />
-                  </div>
+        {/* Personal Details */}
+        <Card className="mb-6 p-6">
+          <h2 className="text-xl font-bold mb-4">Personal Details</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Full Name</label>
+              <Input name="fullName" value={formData.fullName} onChange={handleInputChange} disabled={!isEditing} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Email</label>
+              <Input name="emailAddress" value={formData.emailAddress} onChange={handleInputChange} disabled={!isEditing} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Mobile Number</label>
+              <Input name="mobileNumber" value={formData.mobileNumber} onChange={handleInputChange} disabled={!isEditing} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Date of Birth</label>
+              <Input type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleInputChange} disabled={!isEditing} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Gender</label>
+              <Select value={formData.gender} onValueChange={(v) => handleSelectChange(v, "gender")} disabled={!isEditing}>
+                <SelectTrigger><SelectValue placeholder="Select Gender" /></SelectTrigger>
+                <SelectContent>{genders.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Marital Status</label>
+              <Select value={formData.maritalStatus} onValueChange={(v) => handleSelectChange(v, "maritalStatus")} disabled={!isEditing}>
+                <SelectTrigger><SelectValue placeholder="Select Marital Status" /></SelectTrigger>
+                <SelectContent>{maritalStatuses.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Blood Group</label>
+              <Select value={formData.bloodGroup} onValueChange={(v) => handleSelectChange(v, "bloodGroup")} disabled={!isEditing}>
+                <SelectTrigger><SelectValue placeholder="Select Blood Group" /></SelectTrigger>
+                <SelectContent>{bloodGroups.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+        </Card>
+
+        {/* Employment Information (Admin only fields generally, but editable if propEmployeeId) */}
+        <Card className="mb-6 p-6">
+          <h2 className="text-xl font-bold mb-4">Employment Information</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Role</label>
+              <Input name="role" value={formData.role} onChange={handleInputChange} disabled={!isEditing || !propEmployeeId} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Department</label>
+              <Input name="department" value={formData.department} onChange={handleInputChange} disabled={!isEditing || !propEmployeeId} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Designation</label>
+              <Input name="designation" value={formData.designation} onChange={handleInputChange} disabled={!isEditing || !propEmployeeId} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Location</label>
+              <Input name="location" value={formData.location} onChange={handleInputChange} disabled={!isEditing || !propEmployeeId} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Reporting To</label>
+              <Input name="reportingTo" value={formData.reportingTo} onChange={handleInputChange} disabled={!isEditing || !propEmployeeId} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Shift</label>
+              <Input name="shift" value={formData.shift} onChange={handleInputChange} disabled={!isEditing || !propEmployeeId} />
+            </div>
+          </div>
+        </Card>
+
+        {/* Identity Information */}
+        <Card className="mb-6 p-6">
+          <h2 className="text-xl font-bold mb-4">Identity Information</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">UAN</label>
+              <Input name="uan" value={formData.uan} onChange={handleInputChange} disabled={!isEditing} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">PAN</label>
+              <Input name="pan" value={formData.pan} onChange={handleInputChange} disabled={!isEditing} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Aadhaar</label>
+              <Input name="aadhaarNumber" value={formData.aadhaarNumber} onChange={handleInputChange} disabled={!isEditing} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Passport</label>
+              <Input name="passportNumber" value={formData.passportNumber} onChange={handleInputChange} disabled={!isEditing} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Driving License</label>
+              <Input name="drivingLicenseNumber" value={formData.drivingLicenseNumber} onChange={handleInputChange} disabled={!isEditing} />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="mb-6 p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-gray-900">Work Experience</h2>
+            {isEditing && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAddWorkExperienceEntry}
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Experience
+              </Button>
+            )}
+          </div>
+          <div className="space-y-6">
+            {formData.workExperience.map((exp, idx) => (
+              <div key={idx} className="p-6 bg-white rounded-xl relative border border-gray-100 shadow-sm space-y-4">
+                <div className="flex justify-between items-center border-b border-gray-50 pb-3 mb-4">
+                  <h3 className="font-semibold text-gray-800">Add Work Experience</h3>
+                  {isEditing && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveWorkExperienceEntry(idx)}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Remove
+                    </button>
+                  )}
                 </div>
-              </div>
-
-              {/* Personal Info Section */}
-              <div className="border-b pb-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Personal Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pr-2">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-                    <input
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Company Name <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="Enter company name"
+                      value={exp.companyName}
+                      onChange={(e) => handleWorkExperienceEntryChange(idx, "companyName", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Job Title <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="Enter job title"
+                      value={exp.jobTitle}
+                      onChange={(e) => handleWorkExperienceEntryChange(idx, "jobTitle", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      From Date <span className="text-red-500">*</span>
+                    </label>
+                    <Input
                       type="date"
-                      value={editFormData.dateOfBirth || ''}
-                      onChange={(e) => handleEditFormChange('dateOfBirth', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="mm/dd/yyyy"
+                      value={exp.fromDate}
+                      onChange={(e) => handleWorkExperienceEntryChange(idx, "fromDate", e.target.value)}
+                      disabled={!isEditing}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                    <select
-                      value={editFormData.gender || ''}
-                      onChange={(e) => handleEditFormChange('gender', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Gender</option>
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Marital Status</label>
-                    <select
-                      value={editFormData.maritalStatus || ''}
-                      onChange={(e) => handleEditFormChange('maritalStatus', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Status</option>
-                      <option value="single">Single</option>
-                      <option value="married">Married</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Present Address Section */}
-              <div className="border-b pb-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Present Address</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1</label>
-                    <input
-                      type="text"
-                      value={editFormData.presentAddressLine1 || ''}
-                      onChange={(e) => handleEditFormChange('presentAddressLine1', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2</label>
-                    <input
-                      type="text"
-                      value={editFormData.presentAddressLine2 || ''}
-                      onChange={(e) => handleEditFormChange('presentAddressLine2', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                    <input
-                      type="text"
-                      value={editFormData.presentCity || ''}
-                      onChange={(e) => handleEditFormChange('presentCity', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
-                    <input
-                      type="text"
-                      value={editFormData.presentState || ''}
-                      onChange={(e) => handleEditFormChange('presentState', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                    <input
-                      type="text"
-                      value={editFormData.presentCountry || ''}
-                      onChange={(e) => handleEditFormChange('presentCountry', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">PIN Code</label>
-                    <input
-                      type="text"
-                      value={editFormData.presentPinCode || ''}
-                      onChange={(e) => handleEditFormChange('presentPinCode', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Permanent Address Section */}
-              <div className="border-b pb-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Permanent Address</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1</label>
-                    <input
-                      type="text"
-                      value={editFormData.permanentAddressLine1 || ''}
-                      onChange={(e) => handleEditFormChange('permanentAddressLine1', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2</label>
-                    <input
-                      type="text"
-                      value={editFormData.permanentAddressLine2 || ''}
-                      onChange={(e) => handleEditFormChange('permanentAddressLine2', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                    <input
-                      type="text"
-                      value={editFormData.permanentCity || ''}
-                      onChange={(e) => handleEditFormChange('permanentCity', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
-                    <input
-                      type="text"
-                      value={editFormData.permanentState || ''}
-                      onChange={(e) => handleEditFormChange('permanentState', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                    <input
-                      type="text"
-                      value={editFormData.permanentCountry || ''}
-                      onChange={(e) => handleEditFormChange('permanentCountry', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">PIN Code</label>
-                    <input
-                      type="text"
-                      value={editFormData.permanentPinCode || ''}
-                      onChange={(e) => handleEditFormChange('permanentPinCode', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Emergency Contact Section */}
-              <div className="border-b pb-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Emergency Contact</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Contact Name</label>
-                    <input
-                      type="text"
-                      value={editFormData.emergencyContactName || ''}
-                      onChange={(e) => handleEditFormChange('emergencyContactName', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Relation</label>
-                    <input
-                      type="text"
-                      value={editFormData.emergencyContactRelation || ''}
-                      onChange={(e) => handleEditFormChange('emergencyContactRelation', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="e.g., Spouse, Parent, Sibling"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
-                    <input
-                      type="tel"
-                      value={editFormData.emergencyContactNumber || ''}
-                      onChange={(e) => handleEditFormChange('emergencyContactNumber', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Work Info Section */}
-              <div className="border-b pb-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Work Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Employment Type</label>
-                    <select
-                      value={editFormData.empType || ''}
-                      onChange={(e) => handleEditFormChange('empType', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Type</option>
-                      <option value="permanent">Permanent</option>
-                      <option value="temporary">Temporary</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Shift Type</label>
-                    <select
-                      value={editFormData.shiftType || ''}
-                      onChange={(e) => handleEditFormChange('shiftType', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Shift</option>
-                      <option value="morning">Morning</option>
-                      <option value="evening">Evening</option>
-                      <option value="night">Night</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Joining</label>
-                    <input
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      To Date <span className="text-red-500">*</span>
+                    </label>
+                    <Input
                       type="date"
-                      value={editFormData.dateOfJoining || ''}
-                      onChange={(e) => handleEditFormChange('dateOfJoining', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="mm/dd/yyyy"
+                      value={exp.toDate}
+                      onChange={(e) => handleWorkExperienceEntryChange(idx, "toDate", e.target.value)}
+                      disabled={!isEditing || exp.currentlyWorkHere}
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Time Zone</label>
-                    <input
-                      type="text"
-                      value={editFormData.timeZone || ''}
-                      onChange={(e) => handleEditFormChange('timeZone', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="e.g., Asia/Kolkata"
-                    />
+                  <div className="md:col-span-2">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id={`curr-${idx}`}
+                        checked={exp.currentlyWorkHere}
+                        onCheckedChange={(v) => handleWorkExperienceEntryChange(idx, "currentlyWorkHere", !!v)}
+                        disabled={!isEditing}
+                      />
+                      <label htmlFor={`curr-${idx}`} className="text-sm font-medium text-gray-700 cursor-pointer">
+                        I currently work here
+                      </label>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Team Position</label>
-                    <select
-                      value={editFormData.teamPosition || ''}
-                      onChange={(e) => handleEditFormChange('teamPosition', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Position</option>
-                      <option value="lead">Lead</option>
-                      <option value="member">Member</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <input
-                      type="text"
-                      value={editFormData.status || ''}
-                      onChange={(e) => handleEditFormChange('status', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="e.g., Active, On Leave"
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Job Description</label>
+                    <textarea
+                      placeholder="Brief description of your role and responsibilities"
+                      value={exp.jobDescription}
+                      onChange={(e) => handleWorkExperienceEntryChange(idx, "jobDescription", e.target.value)}
+                      disabled={!isEditing}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm min-h-[100px]"
+                      rows={3}
                     />
                   </div>
                 </div>
               </div>
+            ))}
+          </div>
+        </Card>
 
-              {/* Identity Documents Section */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Identity Documents</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">UAN</label>
-                    <input
-                      type="text"
-                      value={editFormData.UAN || ''}
-                      onChange={(e) => handleEditFormChange('UAN', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        <Card className="mb-6 p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-gray-900">Education</h2>
+            {isEditing && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAddEducationEntry}
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Education
+              </Button>
+            )}
+          </div>
+          <div className="space-y-6">
+            {formData.education.map((edu, idx) => (
+              <div key={idx} className="p-6 bg-white rounded-xl relative border border-gray-100 shadow-sm space-y-4">
+                <div className="flex justify-between items-center border-b border-gray-50 pb-3 mb-4">
+                  <h3 className="font-semibold text-gray-800">Add Education</h3>
+                  {isEditing && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveEducationEntry(idx)}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pr-2">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Institute Name <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="Enter institute/university name"
+                      value={edu.instituteName}
+                      onChange={(e) => handleEducationEntryChange(idx, "instituteName", e.target.value)}
+                      disabled={!isEditing}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">PAN</label>
-                    <input
-                      type="text"
-                      value={editFormData.PAN || ''}
-                      onChange={(e) => handleEditFormChange('PAN', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Degree <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="e.g., B.Tech, M.Sc, MBA"
+                      value={edu.degree}
+                      onChange={(e) => handleEducationEntryChange(idx, "degree", e.target.value)}
+                      disabled={!isEditing}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Aadhaar Number</label>
-                    <input
-                      type="text"
-                      value={editFormData.aadharNumber || ''}
-                      onChange={(e) => handleEditFormChange('aadharNumber', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Field of Study <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="e.g., Computer Science, Business"
+                      value={edu.fieldOfStudy}
+                      onChange={(e) => handleEducationEntryChange(idx, "fieldOfStudy", e.target.value)}
+                      disabled={!isEditing}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Passport Number</label>
-                    <input
-                      type="text"
-                      value={editFormData.passportNumber || ''}
-                      onChange={(e) => handleEditFormChange('passportNumber', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Start Year <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="e.g., 2018"
+                      value={edu.startYear}
+                      onChange={(e) => handleEducationEntryChange(idx, "startYear", e.target.value)}
+                      disabled={!isEditing}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Driving License Number</label>
-                    <input
-                      type="text"
-                      value={editFormData.drivingLicenseNumber || ''}
-                      onChange={(e) => handleEditFormChange('drivingLicenseNumber', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      End Year <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="e.g., 2022"
+                      value={edu.endYear}
+                      onChange={(e) => handleEducationEntryChange(idx, "endYear", e.target.value)}
+                      disabled={!isEditing}
                     />
                   </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Contact Information */}
+        <Card className="mb-6 p-6">
+          <h2 className="text-xl font-bold mb-4">Contact Information</h2>
+          <div className="space-y-6">
+            <div>
+              <h3 className="font-semibold mb-2">Present Address</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium mb-1">Address Line 1</label>
+                  <Input value={formData.presentAddress.addressLine1} onChange={(e) => handleInputChange(e, "presentAddress", "addressLine1")} disabled={!isEditing} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">City</label>
+                  <Input value={formData.presentAddress.city} onChange={(e) => handleInputChange(e, "presentAddress", "city")} disabled={!isEditing} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">PIN Code</label>
+                  <Input value={formData.presentAddress.pinCode} onChange={(e) => handleInputChange(e, "presentAddress", "pinCode")} disabled={!isEditing} />
                 </div>
               </div>
             </div>
 
-            {/* Modal Footer */}
-            <div className="sticky bottom-0 bg-white flex items-center justify-end gap-3 p-6 border-t">
-              <button
-                onClick={() => setIsEditModalOpen(false)}
-                className="px-6 py-2.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 rounded-lg transition-colors font-medium"
-                disabled={saving}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveEmployee}
-                disabled={saving}
-                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
+            <div className="flex items-center gap-2">
+              <Checkbox id="same" checked={formData.sameAsPresentAddress} onCheckedChange={(v) => {
+                setFormData(prev => ({ ...prev, sameAsPresentAddress: !!v, permanentAddress: v ? { ...prev.presentAddress } : prev.permanentAddress }))
+              }} disabled={!isEditing} />
+              <label htmlFor="same" className="text-sm cursor-pointer">Permanent Address same as Present</label>
+            </div>
+
+            {!formData.sameAsPresentAddress && (
+              <div>
+                <h3 className="font-semibold mb-2">Permanent Address</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium mb-1">Address Line 1</label>
+                    <Input value={formData.permanentAddress.addressLine1} onChange={(e) => handleInputChange(e, "permanentAddress", "addressLine1")} disabled={!isEditing} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">City</label>
+                    <Input value={formData.permanentAddress.city} onChange={(e) => handleInputChange(e, "permanentAddress", "city")} disabled={!isEditing} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">PIN Code</label>
+                    <Input value={formData.permanentAddress.pinCode} onChange={(e) => handleInputChange(e, "permanentAddress", "pinCode")} disabled={!isEditing} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <h3 className="font-semibold mb-2">Emergency Contact</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Name</label>
+                  <Input value={formData.emergencyContact.contactName} onChange={(e) => handleInputChange(e, "emergencyContact", "contactName")} disabled={!isEditing} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Relation</label>
+                  <Input value={formData.emergencyContact.relation} onChange={(e) => handleInputChange(e, "emergencyContact", "relation")} disabled={!isEditing} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Number</label>
+                  <Input value={formData.emergencyContact.contactNumber} onChange={(e) => handleInputChange(e, "emergencyContact", "contactNumber")} disabled={!isEditing} />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -778,5 +860,5 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
         variant="destructive"
       />
     </div>
-  );
+  )
 }

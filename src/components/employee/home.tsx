@@ -345,18 +345,25 @@ export default function Dashboard() {
           profileImage: userData.profileImage
         });
 
-        // Fetch reportees
-        const reporteesRes = await axios.get(`${apiUrl}/org/${authOrgId}/employees`, {
-          headers: { Authorization: `Bearer ${authToken}` }
-        });
-        const reporteesData = reporteesRes.data.data || reporteesRes.data;
-        setReportees(reporteesData.slice(0, 5).map((emp: any) => ({
-          id: emp.id || emp._id,
-          name: emp.fullName || emp.full_name || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.email || 'Unknown',
-          roleId: emp.employeeId || emp.id,
-          status: 'Yet to check-in',
-          employeeId: emp.id || emp._id
-        })));
+        // Fetch reportees - wrap in try-catch since employees may not have access to this endpoint
+        try {
+          // Try to fetch reportees - this may fail with 403 for regular employees
+          const reporteesRes = await axios.get(`${apiUrl}/org/${authOrgId}/employees/${authEmployeeId}/reportees`, {
+            headers: { Authorization: `Bearer ${authToken}` }
+          });
+          const reporteesData = reporteesRes.data.data || reporteesRes.data || [];
+          setReportees(reporteesData.slice(0, 5).map((emp: any) => ({
+            id: emp.id || emp._id,
+            name: emp.fullName || emp.full_name || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.email || 'Unknown',
+            roleId: emp.employeeId || emp.id,
+            status: 'Yet to check-in',
+            employeeId: emp.id || emp._id
+          })));
+        } catch (reporteesError) {
+          // If reportees endpoint doesn't exist or returns 403/404, just set empty array
+          console.log('Reportees not available for this employee (this is normal for non-managers)');
+          setReportees([]);
+        }
 
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
