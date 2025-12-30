@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card } from "@/components/ui/card"
-import { ChevronLeft, Edit, Upload, User } from "lucide-react"
+import { ChevronLeft, Edit, Upload, User, Plus, Trash2 } from "lucide-react"
 import { getApiUrl, getAuthToken, getOrgId, getEmployeeId } from "@/lib/auth"
+import { useRouter } from "next/navigation"
 
 interface FormData {
   // Personal Details
@@ -129,6 +130,7 @@ const initialFormData: FormData = {
 }
 
 export default function EmployeeProfileForm() {
+  const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState<FormData>(initialFormData)
   const [currentExperience, setCurrentExperience] = useState({
@@ -184,18 +186,18 @@ export default function EmployeeProfileForm() {
         // Map API response fields to form data interface
         // Ensure we show names instead of UUIDs
         setFormData({
-          fullName: employee.fullName || 
-            (employee.firstName && employee.lastName 
-              ? `${employee.firstName} ${employee.lastName}`.trim() 
+          fullName: employee.fullName ||
+            (employee.firstName && employee.lastName
+              ? `${employee.firstName} ${employee.lastName}`.trim()
               : ""),
           emailAddress: employee.email || "",
           mobileNumber: employee.phoneNumber || employee.mobileNumber || "",
           role: employee.role || "",
           department: employee.department?.departmentName || employee.department?.name || "",
           designation: employee.designation?.name || "",
-          reportingTo: employee.reportingTo?.fullName || 
-            (employee.reportingTo?.firstName && employee.reportingTo?.lastName 
-              ? `${employee.reportingTo.firstName} ${employee.reportingTo.lastName}`.trim() 
+          reportingTo: employee.reportingTo?.fullName ||
+            (employee.reportingTo?.firstName && employee.reportingTo?.lastName
+              ? `${employee.reportingTo.firstName} ${employee.reportingTo.lastName}`.trim()
               : employee.reportingTo?.name || ""),
           teamPosition: employee.teamPosition || "",
           shift: employee.shiftType || employee.shift || "",
@@ -315,9 +317,43 @@ export default function EmployeeProfileForm() {
         emergencyContact: { ...prev.emergencyContact, [field || name]: value },
       }))
     } else {
+      // Input Validation Logic
+      let finalValue = value;
+
+      // Numeric only validation
+      if (name === 'uan' || name === 'mobileNumber' || name === 'pinCode' || name === 'phoneNumber' || name === 'aadhaarNumber') {
+        finalValue = value.replace(/[^0-9]/g, '');
+        if (name === 'uan') finalValue = finalValue.slice(0, 12);
+        if (name === 'pinCode') finalValue = finalValue.slice(0, 6);
+        if (name === 'mobileNumber' || name === 'phoneNumber') finalValue = finalValue.slice(0, 15);
+        if (name === 'aadhaarNumber') finalValue = finalValue.slice(0, 12);
+      }
+
+      // Strict Alphanumeric validation for PAN (5 letters, 4 numbers, 1 letter)
+      if (name === 'pan') {
+        const uppercaseValue = value.toUpperCase();
+        let validatedValue = '';
+        for (let i = 0; i < Math.min(uppercaseValue.length, 10); i++) {
+          const char = uppercaseValue[i];
+          if (i < 5 || i === 9) {
+            // Must be a letter
+            if (/[A-Z]/.test(char)) validatedValue += char;
+          } else if (i >= 5 && i <= 8) {
+            // Must be a digit
+            if (/[0-9]/.test(char)) validatedValue += char;
+          }
+        }
+        finalValue = validatedValue;
+      }
+
+      // General Alphanumeric validation for Passport/License
+      if (name === 'passportNumber' || name === 'drivingLicenseNumber') {
+        finalValue = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      }
+
       setFormData((prev) => ({
         ...prev,
-        [name]: value,
+        [name]: finalValue,
       }))
     }
   }
@@ -339,37 +375,69 @@ export default function EmployeeProfileForm() {
     }
   }
 
-  const handleAddWorkExperience = () => {
-    if (currentExperience.companyName && currentExperience.jobTitle && currentExperience.fromDate) {
-      setFormData((prev) => ({
-        ...prev,
-        workExperience: [...prev.workExperience, currentExperience],
-      }))
-      setCurrentExperience({
-        companyName: "",
-        jobTitle: "",
-        fromDate: "",
-        toDate: "",
-        currentlyWorkHere: false,
-        jobDescription: "",
-      })
-    }
+  const handleAddWorkExperienceEntry = () => {
+    setFormData((prev) => ({
+      ...prev,
+      workExperience: [
+        ...prev.workExperience,
+        {
+          companyName: "",
+          jobTitle: "",
+          fromDate: "",
+          toDate: "",
+          currentlyWorkHere: false,
+          jobDescription: "",
+        },
+      ],
+    }))
   }
 
-  const handleAddEducation = () => {
-    if (currentEducation.instituteName && currentEducation.degree) {
-      setFormData((prev) => ({
-        ...prev,
-        education: [...prev.education, currentEducation],
-      }))
-      setCurrentEducation({
-        instituteName: "",
-        degree: "",
-        fieldOfStudy: "",
-        startYear: "",
-        endYear: "",
-      })
-    }
+  const handleRemoveWorkExperienceEntry = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      workExperience: prev.workExperience.filter((_, i) => i !== index),
+    }))
+  }
+
+  const handleWorkExperienceEntryChange = (index: number, field: string, value: any) => {
+    setFormData((prev) => ({
+      ...prev,
+      workExperience: prev.workExperience.map((exp, i) =>
+        i === index ? { ...exp, [field]: value } : exp
+      ),
+    }))
+  }
+
+  const handleAddEducationEntry = () => {
+    setFormData((prev) => ({
+      ...prev,
+      education: [
+        ...prev.education,
+        {
+          instituteName: "",
+          degree: "",
+          fieldOfStudy: "",
+          startYear: "",
+          endYear: "",
+        },
+      ],
+    }))
+  }
+
+  const handleRemoveEducationEntry = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      education: prev.education.filter((_, i) => i !== index),
+    }))
+  }
+
+  const handleEducationEntryChange = (index: number, field: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      education: prev.education.map((edu, i) =>
+        i === index ? { ...edu, [field]: value } : edu
+      ),
+    }))
   }
 
   const handleSameAsPresent = (checked: boolean) => {
@@ -440,27 +508,27 @@ export default function EmployeeProfileForm() {
 
       console.log("Profile saved successfully:", response.data)
       setIsEditing(false)
-      
+
       // Refresh the employee data after successful update
       const refreshResponse = await axios.get(`${apiUrl}/org/${orgId}/employees/${employeeId}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       const refreshedEmployee = refreshResponse.data?.data || refreshResponse.data
-      
+
       // Update form data with refreshed employee info
       setFormData(prev => ({
         ...prev,
-        fullName: refreshedEmployee.fullName || 
-          (refreshedEmployee.firstName && refreshedEmployee.lastName 
-            ? `${refreshedEmployee.firstName} ${refreshedEmployee.lastName}`.trim() 
+        fullName: refreshedEmployee.fullName ||
+          (refreshedEmployee.firstName && refreshedEmployee.lastName
+            ? `${refreshedEmployee.firstName} ${refreshedEmployee.lastName}`.trim()
             : prev.fullName),
         emailAddress: refreshedEmployee.email || prev.emailAddress,
         mobileNumber: refreshedEmployee.phoneNumber || refreshedEmployee.mobileNumber || prev.mobileNumber,
         department: refreshedEmployee.department?.departmentName || refreshedEmployee.department?.name || prev.department,
         designation: refreshedEmployee.designation?.name || prev.designation,
-        reportingTo: refreshedEmployee.reportingTo?.fullName || 
-          (refreshedEmployee.reportingTo?.firstName && refreshedEmployee.reportingTo?.lastName 
-            ? `${refreshedEmployee.reportingTo.firstName} ${refreshedEmployee.reportingTo.lastName}`.trim() 
+        reportingTo: refreshedEmployee.reportingTo?.fullName ||
+          (refreshedEmployee.reportingTo?.firstName && refreshedEmployee.reportingTo?.lastName
+            ? `${refreshedEmployee.reportingTo.firstName} ${refreshedEmployee.reportingTo.lastName}`.trim()
             : refreshedEmployee.reportingTo?.name || prev.reportingTo),
         location: refreshedEmployee.location?.name || prev.location,
         role: refreshedEmployee.role || prev.role,
@@ -546,19 +614,24 @@ export default function EmployeeProfileForm() {
         <div className="mb-8">
           <button className="flex items-center text-blue-600 hover:text-blue-700 mb-4">
             <ChevronLeft className="w-4 h-4 mr-1" />
-            
+
           </button>
           <div className="flex justify-between items-start mb-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Complete Your Profile</h1>
               <p className="text-gray-600">Please complete these steps to finish your employee profile setup.</p>
             </div>
-            {!isEditing && (
-              <Button onClick={() => setIsEditing(true)} variant="outline" className="flex items-center gap-2">
-                <Edit className="w-4 h-4" />
-                Edit
+            <div className="flex gap-3">
+              <Button onClick={() => router.push("/employee/change-password")} variant="outline" className="flex items-center gap-2">
+                Change Password
               </Button>
-            )}
+              {!isEditing && (
+                <Button onClick={() => setIsEditing(true)} variant="outline" className="flex items-center gap-2">
+                  <Edit className="w-4 h-4" />
+                  Edit
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -919,98 +992,125 @@ export default function EmployeeProfileForm() {
           </div>
         </Card>
 
-        {/* Work Experience Section */}
         <Card className="mb-6 p-6">
-          <h2 className="text-xl font-bold mb-4 text-gray-900">Work Experience</h2>
-
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <h3 className="font-semibold text-gray-900 mb-4">Add Work Experience</h3>
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Company Name <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="Enter company name"
-                  value={currentExperience.companyName}
-                  onChange={(e) => setCurrentExperience({ ...currentExperience, companyName: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Job Title <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="Enter job title"
-                  value={currentExperience.jobTitle}
-                  onChange={(e) => setCurrentExperience({ ...currentExperience, jobTitle: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  From Date <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  type="date"
-                  value={currentExperience.fromDate}
-                  onChange={(e) => setCurrentExperience({ ...currentExperience, fromDate: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  To Date <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  type="date"
-                  value={currentExperience.toDate}
-                  onChange={(e) => setCurrentExperience({ ...currentExperience, toDate: e.target.value })}
-                  disabled={!isEditing || currentExperience.currentlyWorkHere}
-                />
-              </div>
-            </div>
-
-            <div className="mb-4 flex items-center gap-2">
-              <Checkbox
-                id="currentlyWorkHere"
-                checked={currentExperience.currentlyWorkHere}
-                onCheckedChange={(checked: boolean) =>
-                  setCurrentExperience({ ...currentExperience, currentlyWorkHere: checked as boolean })
-                }
-                disabled={!isEditing}
-              />
-              <label htmlFor="currentlyWorkHere" className="text-sm font-medium text-gray-700 cursor-pointer">
-                I currently work here
-              </label>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Job Description</label>
-              <textarea
-                placeholder="Brief description of your role and responsibilities"
-                value={currentExperience.jobDescription}
-                onChange={(e) => setCurrentExperience({ ...currentExperience, jobDescription: e.target.value })}
-                disabled={!isEditing}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows={4}
-              />
-            </div>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-gray-900">Work Experience</h2>
+            {isEditing && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAddWorkExperienceEntry}
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Experience
+              </Button>
+            )}
           </div>
 
-          {formData.workExperience.map((exp, idx) => (
-            <div key={idx} className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
-              <p className="font-semibold text-gray-900">{exp.jobTitle}</p>
-              <p className="text-sm text-gray-600">{exp.companyName}</p>
-            </div>
-          ))}
+          <div className="space-y-6">
+            {formData.workExperience.map((exp, index) => (
+              <div key={index} className="p-6 bg-white rounded-xl relative border border-gray-100 shadow-sm space-y-4">
+                <div className="flex justify-between items-center border-b border-gray-50 pb-3 mb-4">
+                  <h3 className="font-semibold text-gray-800">Add Work Experience</h3>
+                  {isEditing && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveWorkExperienceEntry(index)}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Remove
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pr-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Company Name <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="Enter company name"
+                      value={exp.companyName}
+                      onChange={(e) => handleWorkExperienceEntryChange(index, "companyName", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Job Title <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="Enter job title"
+                      value={exp.jobTitle}
+                      onChange={(e) => handleWorkExperienceEntryChange(index, "jobTitle", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      From Date <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="date"
+                      placeholder="mm/dd/yyyy"
+                      value={exp.fromDate}
+                      onChange={(e) => handleWorkExperienceEntryChange(index, "fromDate", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      To Date <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="date"
+                      placeholder="mm/dd/yyyy"
+                      value={exp.toDate}
+                      onChange={(e) => handleWorkExperienceEntryChange(index, "toDate", e.target.value)}
+                      disabled={!isEditing || exp.currentlyWorkHere}
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id={`currentlyWorkHere-${index}`}
+                        checked={exp.currentlyWorkHere}
+                        onCheckedChange={(checked) => handleWorkExperienceEntryChange(index, "currentlyWorkHere", checked as boolean)}
+                        disabled={!isEditing}
+                      />
+                      <label htmlFor={`currentlyWorkHere-${index}`} className="text-sm font-medium text-gray-700 cursor-pointer">
+                        I currently work here
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Job Description</label>
+                    <textarea
+                      placeholder="Brief description of your role and responsibilities"
+                      value={exp.jobDescription}
+                      onChange={(e) => handleWorkExperienceEntryChange(index, "jobDescription", e.target.value)}
+                      disabled={!isEditing}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm min-h-[100px]"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {formData.workExperience.length === 0 && (
+              <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 text-sm">
+                No work experience history added.
+              </div>
+            )}
+          </div>
         </Card>
 
         {/* Contact Information Section */}
@@ -1277,88 +1377,108 @@ export default function EmployeeProfileForm() {
           </div>
         </Card>
 
-        {/* Education Section */}
         <Card className="mb-6 p-6">
-          <h2 className="text-xl font-bold mb-4 text-gray-900">Education</h2>
-
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <h3 className="font-semibold text-gray-900 mb-4">Add Education</h3>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Institute Name <span className="text-red-500">*</span>
-              </label>
-              <Input
-                placeholder="Enter institute/university name"
-                value={currentEducation.instituteName}
-                onChange={(e) => setCurrentEducation({ ...currentEducation, instituteName: e.target.value })}
-                disabled={!isEditing}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Degree <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="e.g., B.Tech, M.Sc, MBA"
-                  value={currentEducation.degree}
-                  onChange={(e) => setCurrentEducation({ ...currentEducation, degree: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Field of Study <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="e.g., Computer Science, Business"
-                  value={currentEducation.fieldOfStudy}
-                  onChange={(e) => setCurrentEducation({ ...currentEducation, fieldOfStudy: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Start Year <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="e.g., 2018"
-                  value={currentEducation.startYear}
-                  onChange={(e) => setCurrentEducation({ ...currentEducation, startYear: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  End Year <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="e.g., 2022"
-                  value={currentEducation.endYear}
-                  onChange={(e) => setCurrentEducation({ ...currentEducation, endYear: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-            </div>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-gray-900">Education</h2>
+            {isEditing && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAddEducationEntry}
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Education
+              </Button>
+            )}
           </div>
 
-          {formData.education.map((edu, idx) => (
-            <div key={idx} className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
-              <p className="font-semibold text-gray-900">
-                {edu.degree} in {edu.fieldOfStudy}
-              </p>
-              <p className="text-sm text-gray-600">{edu.instituteName}</p>
-              <p className="text-xs text-gray-500">
-                {edu.startYear} - {edu.endYear}
-              </p>
-            </div>
-          ))}
+          <div className="space-y-6">
+            {formData.education.map((edu, index) => (
+              <div key={index} className="p-6 bg-white rounded-xl relative border border-gray-100 shadow-sm space-y-4">
+                <div className="flex justify-between items-center border-b border-gray-50 pb-3 mb-4">
+                  <h3 className="font-semibold text-gray-800">Add Education</h3>
+                  {isEditing && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveEducationEntry(index)}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Remove
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pr-2">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Institute Name <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="Enter institute/university name"
+                      value={edu.instituteName}
+                      onChange={(e) => handleEducationEntryChange(index, "instituteName", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Degree <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="e.g., B.Tech, M.Sc, MBA"
+                      value={edu.degree}
+                      onChange={(e) => handleEducationEntryChange(index, "degree", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Field of Study <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="e.g., Computer Science, Business"
+                      value={edu.fieldOfStudy}
+                      onChange={(e) => handleEducationEntryChange(index, "fieldOfStudy", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Start Year <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="e.g., 2018"
+                      value={edu.startYear}
+                      onChange={(e) => handleEducationEntryChange(index, "startYear", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      End Year <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="e.g., 2022"
+                      value={edu.endYear}
+                      onChange={(e) => handleEducationEntryChange(index, "endYear", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {formData.education.length === 0 && (
+              <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 text-sm">
+                No education history added.
+              </div>
+            )}
+          </div>
         </Card>
 
         {/* Save and Cancel buttons after Education section */}

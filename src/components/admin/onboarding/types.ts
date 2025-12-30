@@ -13,6 +13,28 @@ export interface Employee {
     fullName?: string;
 }
 
+export interface AccommodationAllowance {
+    type: string; // 'food' | 'travel' | 'house'
+    percentage: string;
+}
+
+export interface Education {
+    instituteName: string;
+    degree: string;
+    fieldOfStudy: string;
+    startYear: string;
+    endYear: string;
+}
+
+export interface WorkExperience {
+    companyName: string;
+    jobTitle: string;
+    fromDate: string;
+    toDate: string;
+    currentlyWorking: boolean;
+    jobDescription: string;
+}
+
 export interface CandidateForm {
     fullName: string;
     email: string;
@@ -26,6 +48,13 @@ export interface CandidateForm {
     shiftType: string;
     timeZone: string;
     empType: string;
+    siteId?: string;
+    buildingId?: string;
+    // Compensation & Benefits
+    basicSalary: string;
+    accommodationAllowances: AccommodationAllowance[];
+    insuranceType: string;
+    insurancePercentage: string;
     // Keep internal UI helper fields if needed
     mobileNumber?: string;
     employeeType?: string;

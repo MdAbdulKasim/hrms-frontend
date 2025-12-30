@@ -49,7 +49,13 @@ const EmployeeOnboardingSystem: React.FC = () => {
     shiftType: '',
     timeZone: 'Asia/Kolkata',
     empType: 'permanent',
-    employeeStatus: 'Active'
+    employeeStatus: 'Active',
+    siteId: '',
+    buildingId: '',
+    basicSalary: '',
+    accommodationAllowances: [],
+    insuranceType: '',
+    insurancePercentage: ''
   });
 
   useEffect(() => {
@@ -191,7 +197,13 @@ const EmployeeOnboardingSystem: React.FC = () => {
         dateOfJoining: candidateForm.dateOfJoining,
         shiftType: candidateForm.shiftType,
         timeZone: candidateForm.timeZone,
-        empType: candidateForm.empType
+        empType: candidateForm.empType,
+        siteId: candidateForm.siteId,
+        buildingId: candidateForm.buildingId,
+        basicSalary: candidateForm.basicSalary,
+        accommodationAllowances: candidateForm.accommodationAllowances,
+        insuranceType: candidateForm.insuranceType,
+        insurancePercentage: candidateForm.insurancePercentage
       };
 
       console.log("ONBOARDING DEBUG:", {
@@ -232,7 +244,13 @@ const EmployeeOnboardingSystem: React.FC = () => {
           shiftType: '',
           timeZone: 'Asia/Kolkata',
           empType: 'permanent',
-          employeeStatus: 'Active'
+          employeeStatus: 'Active',
+          siteId: '',
+          buildingId: '',
+          basicSalary: '',
+          accommodationAllowances: [],
+          insuranceType: '',
+          insurancePercentage: ''
         });
         setCurrentView('list');
       }
@@ -283,7 +301,13 @@ const EmployeeOnboardingSystem: React.FC = () => {
         shiftType: emp.shiftType || emp.shift?.id || emp.shift?._id || emp.shift || 'morning',
         timeZone: emp.timeZone || 'Asia/Kolkata',
         empType: emp.empType || 'permanent',
-        employeeStatus: emp.employeeStatus || emp.status || 'Active'
+        employeeStatus: emp.employeeStatus || emp.status || 'Active',
+        siteId: emp.siteId || '',
+        buildingId: emp.buildingId || '',
+        basicSalary: emp.basicSalary || '',
+        accommodationAllowances: emp.accommodationAllowances || [],
+        insuranceType: emp.insuranceType || '',
+        insurancePercentage: emp.insurancePercentage || ''
       });
       setEditingEmployeeId(id);
       setCurrentView('addCandidate');
@@ -319,7 +343,13 @@ const EmployeeOnboardingSystem: React.FC = () => {
         dateOfJoining: candidateForm.dateOfJoining,
         shiftType: candidateForm.shiftType,
         timeZone: candidateForm.timeZone,
-        empType: candidateForm.empType
+        empType: candidateForm.empType,
+        siteId: candidateForm.siteId,
+        buildingId: candidateForm.buildingId,
+        basicSalary: candidateForm.basicSalary,
+        accommodationAllowances: candidateForm.accommodationAllowances,
+        insuranceType: candidateForm.insuranceType,
+        insurancePercentage: candidateForm.insurancePercentage
       };
 
       await axios.patch(
@@ -348,7 +378,13 @@ const EmployeeOnboardingSystem: React.FC = () => {
         shiftType: '',
         timeZone: 'Asia/Kolkata',
         empType: 'permanent',
-        employeeStatus: 'Active'
+        employeeStatus: 'Active',
+        siteId: '',
+        buildingId: '',
+        basicSalary: '',
+        accommodationAllowances: [],
+        insuranceType: '',
+        insurancePercentage: ''
       });
       setEditingEmployeeId(null);
       setCurrentView('list');
@@ -405,7 +441,13 @@ const EmployeeOnboardingSystem: React.FC = () => {
         shiftType: emp.shiftType || emp.shift?.id || emp.shift?._id || emp.shift || 'morning',
         timeZone: emp.timeZone || 'Asia/Kolkata',
         empType: emp.empType || 'permanent',
-        employeeStatus: emp.employeeStatus || emp.status || 'Active'
+        employeeStatus: emp.employeeStatus || emp.status || 'Active',
+        siteId: emp.siteId || '',
+        buildingId: emp.buildingId || '',
+        basicSalary: emp.basicSalary || '',
+        accommodationAllowances: emp.accommodationAllowances || [],
+        insuranceType: emp.insuranceType || '',
+        insurancePercentage: emp.insurancePercentage || ''
       };
       setSelectedCandidate(form);
       setCurrentView('viewCandidate');
