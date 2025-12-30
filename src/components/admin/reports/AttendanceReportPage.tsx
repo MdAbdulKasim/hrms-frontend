@@ -6,12 +6,13 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useRouter } from "next/navigation";
 import { getOrgId } from '@/lib/auth';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 import attendanceService from '@/lib/attendanceService';
 
 export default function AttendanceReportPage() {
   const organizationId = getOrgId();
   const router = useRouter();
-  
+
   const [loading, setLoading] = useState(false);
   const [attendanceData, setAttendanceData] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -25,9 +26,18 @@ export default function AttendanceReportPage() {
   // Selection states
   const [selectedRecords, setSelectedRecords] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
-  
+
   // Export dropdown state
   const [showExportDropdown, setShowExportDropdown] = useState(false);
+
+  // Alert State
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   // Fetch data using the existing attendanceService
   const fetchData = async () => {
@@ -35,10 +45,10 @@ export default function AttendanceReportPage() {
       setError("Organization ID not found. Please log in again.");
       return;
     }
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
       const result = await attendanceService.searchAttendance(
         organizationId,
@@ -71,7 +81,7 @@ export default function AttendanceReportPage() {
         // Extract data from response - handle multiple possible structures
         let data: any[] = [];
         const responseData: any = result.data || result;
-        
+
         if (Array.isArray(responseData)) {
           data = responseData;
         } else if (responseData && typeof responseData === 'object') {
@@ -89,7 +99,7 @@ export default function AttendanceReportPage() {
             data = [responseData];
           }
         }
-        
+
         console.log('Extracted data:', data);
         console.log('Data length:', data.length);
         setAttendanceData(data);
@@ -220,12 +230,12 @@ export default function AttendanceReportPage() {
   };
 
   const handleExportExcel = () => {
-    const dataToExport = selectedRecords.size === 0 
-      ? attendanceData 
+    const dataToExport = selectedRecords.size === 0
+      ? attendanceData
       : Array.from(selectedRecords).map(index => attendanceData[index]);
 
     if (dataToExport.length === 0) {
-      alert("No records to export");
+      showAlert("Info", "No records to export", "info");
       setShowExportDropdown(false);
       return;
     }
@@ -262,7 +272,7 @@ export default function AttendanceReportPage() {
     a.click();
     window.URL.revokeObjectURL(url);
 
-    alert(`Exported ${dataToExport.length} records to Excel (CSV format).`);
+    showAlert("Success", `Exported ${dataToExport.length} records to Excel (CSV format).`, "success");
     setShowExportDropdown(false);
   };
 
@@ -404,7 +414,7 @@ export default function AttendanceReportPage() {
                   <Download className="w-4 h-4" />
                   Export
                 </button>
-                
+
                 {showExportDropdown && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
                     <button
@@ -430,8 +440,8 @@ export default function AttendanceReportPage() {
 
         {/* Click outside to close dropdown */}
         {showExportDropdown && (
-          <div 
-            className="fixed inset-0 z-0" 
+          <div
+            className="fixed inset-0 z-0"
             onClick={() => setShowExportDropdown(false)}
           />
         )}
@@ -498,11 +508,10 @@ export default function AttendanceReportPage() {
                   </tr>
                 ) : (
                   attendanceData.map((record, index) => (
-                    <tr 
-                      key={record.id || index} 
-                      className={`hover:bg-gray-50 transition-colors ${
-                        selectedRecords.has(index) ? 'bg-blue-50' : ''
-                      }`}
+                    <tr
+                      key={record.id || index}
+                      className={`hover:bg-gray-50 transition-colors ${selectedRecords.has(index) ? 'bg-blue-50' : ''
+                        }`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <input
@@ -551,6 +560,14 @@ export default function AttendanceReportPage() {
           </div>
         )}
       </div>
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </div>
   );
 }

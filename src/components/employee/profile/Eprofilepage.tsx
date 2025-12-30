@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Card } from "@/components/ui/card"
 import { ChevronLeft, Edit, Upload, User } from "lucide-react"
 import { getApiUrl, getAuthToken, getOrgId, getEmployeeId } from "@/lib/auth"
+import { CustomAlertDialog } from "@/components/ui/custom-dialogs"
 
 interface FormData {
   // Personal Details
@@ -129,6 +130,22 @@ const initialFormData: FormData = {
 }
 
 export default function EmployeeProfileForm() {
+  const [alertState, setAlertState] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    variant: 'info'
+  });
+
+  const showAlert = (title: string, description: string, variant: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setAlertState({ open: true, title, description, variant });
+  };
+
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState<FormData>(initialFormData)
   const [currentExperience, setCurrentExperience] = useState({
@@ -184,18 +201,18 @@ export default function EmployeeProfileForm() {
         // Map API response fields to form data interface
         // Ensure we show names instead of UUIDs
         setFormData({
-          fullName: employee.fullName || 
-            (employee.firstName && employee.lastName 
-              ? `${employee.firstName} ${employee.lastName}`.trim() 
+          fullName: employee.fullName ||
+            (employee.firstName && employee.lastName
+              ? `${employee.firstName} ${employee.lastName}`.trim()
               : ""),
           emailAddress: employee.email || "",
           mobileNumber: employee.phoneNumber || employee.mobileNumber || "",
           role: employee.role || "",
           department: employee.department?.departmentName || employee.department?.name || "",
           designation: employee.designation?.name || "",
-          reportingTo: employee.reportingTo?.fullName || 
-            (employee.reportingTo?.firstName && employee.reportingTo?.lastName 
-              ? `${employee.reportingTo.firstName} ${employee.reportingTo.lastName}`.trim() 
+          reportingTo: employee.reportingTo?.fullName ||
+            (employee.reportingTo?.firstName && employee.reportingTo?.lastName
+              ? `${employee.reportingTo.firstName} ${employee.reportingTo.lastName}`.trim()
               : employee.reportingTo?.name || ""),
           teamPosition: employee.teamPosition || "",
           shift: employee.shiftType || employee.shift || "",
@@ -274,11 +291,11 @@ export default function EmployeeProfileForm() {
           url: error.config?.url
         })
         if (error.response?.status === 404) {
-          alert("Employee profile not found. Please contact your administrator.")
+          showAlert("Error", "Employee profile not found. Please contact your administrator.", "error")
         } else if (error.response?.status === 403) {
-          alert("You don't have permission to access this profile.")
+          showAlert("Permission Denied", "You don't have permission to access this profile.", "error")
         } else {
-          alert("Failed to load profile. Please try again.")
+          showAlert("Error", "Failed to load profile. Please try again.", "error")
         }
       }
     }
@@ -440,27 +457,27 @@ export default function EmployeeProfileForm() {
 
       console.log("Profile saved successfully:", response.data)
       setIsEditing(false)
-      
+
       // Refresh the employee data after successful update
       const refreshResponse = await axios.get(`${apiUrl}/org/${orgId}/employees/${employeeId}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       const refreshedEmployee = refreshResponse.data?.data || refreshResponse.data
-      
+
       // Update form data with refreshed employee info
       setFormData(prev => ({
         ...prev,
-        fullName: refreshedEmployee.fullName || 
-          (refreshedEmployee.firstName && refreshedEmployee.lastName 
-            ? `${refreshedEmployee.firstName} ${refreshedEmployee.lastName}`.trim() 
+        fullName: refreshedEmployee.fullName ||
+          (refreshedEmployee.firstName && refreshedEmployee.lastName
+            ? `${refreshedEmployee.firstName} ${refreshedEmployee.lastName}`.trim()
             : prev.fullName),
         emailAddress: refreshedEmployee.email || prev.emailAddress,
         mobileNumber: refreshedEmployee.phoneNumber || refreshedEmployee.mobileNumber || prev.mobileNumber,
         department: refreshedEmployee.department?.departmentName || refreshedEmployee.department?.name || prev.department,
         designation: refreshedEmployee.designation?.name || prev.designation,
-        reportingTo: refreshedEmployee.reportingTo?.fullName || 
-          (refreshedEmployee.reportingTo?.firstName && refreshedEmployee.reportingTo?.lastName 
-            ? `${refreshedEmployee.reportingTo.firstName} ${refreshedEmployee.reportingTo.lastName}`.trim() 
+        reportingTo: refreshedEmployee.reportingTo?.fullName ||
+          (refreshedEmployee.reportingTo?.firstName && refreshedEmployee.reportingTo?.lastName
+            ? `${refreshedEmployee.reportingTo.firstName} ${refreshedEmployee.reportingTo.lastName}`.trim()
             : refreshedEmployee.reportingTo?.name || prev.reportingTo),
         location: refreshedEmployee.location?.name || prev.location,
         role: refreshedEmployee.role || prev.role,
@@ -484,10 +501,10 @@ export default function EmployeeProfileForm() {
         setSelectedProfilePicFile(null)
       }
 
-      alert("Profile updated successfully!")
+      showAlert("Success", "Profile updated successfully!", "success")
     } catch (error: any) {
       console.error("Failed to save profile:", error)
-      alert(error.response?.data?.error || "Failed to save profile. Please try again.")
+      showAlert("Error", error.response?.data?.error || "Failed to save profile. Please try again.", "error")
     }
   }
 
@@ -1373,6 +1390,13 @@ export default function EmployeeProfileForm() {
           </div>
         )}
       </div>
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </div>
   )
 }

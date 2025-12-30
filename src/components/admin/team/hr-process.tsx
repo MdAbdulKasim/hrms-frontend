@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
+import { CustomAlertDialog, ConfirmDialog } from '@/components/ui/custom-dialogs';
 
 // --- Types ---
 interface Resource {
@@ -78,6 +79,22 @@ export default function HRProcessPage() {
   });
 
   const [history, setHistory] = useState<ProcessRequest[]>([]);
+
+  // Dialog States
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+  const [confirmState, setConfirmState] = useState<{ open: boolean, title: string, description: string, onConfirm: () => void }>({
+    open: false, title: "", description: "", onConfirm: () => { }
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
+
+  const showConfirm = (title: string, description: string, onConfirm: () => void) => {
+    setConfirmState({ open: true, title, description, onConfirm });
+  };
 
   // Load history from localStorage on mount
   useEffect(() => {
@@ -270,11 +287,11 @@ export default function HRProcessPage() {
       setHistory([newEntry, ...history]);
       setSelectedIds([]);
       setForm({ departmentId: '', locationId: '', site: '', building: '', designationId: '', percent: '', amount: '', date: '', reason: '' });
-      alert("Process executed successfully!");
+      showAlert("Success", "Process executed successfully!", "success");
 
     } catch (err) {
       console.error("Process failed", err);
-      alert("Failed to execute process. Please try again.");
+      showAlert("Error", "Failed to execute process. Please try again.", "error");
     } finally {
       setIsProcessing(false);
     }
@@ -434,7 +451,7 @@ export default function HRProcessPage() {
                   {/* <p className="text-xs font-semibold text-blue-700">
                   Showing all available <span className="font-bold underline">{activeTab}</span> options from the database.
                 </p> */}
-                
+
 
                 {/* Tab: Department */}
                 {activeTab === 'Department' && (
@@ -657,10 +674,14 @@ export default function HRProcessPage() {
             {history.length > 0 && (
               <button
                 onClick={() => {
-                  if (confirm("Clear all process history?")) {
-                    setHistory([]);
-                    localStorage.removeItem('hr_process_history');
-                  }
+                  showConfirm(
+                    "Clear History",
+                    "Are you sure you want to clear all process history? This action cannot be undone.",
+                    () => {
+                      setHistory([]);
+                      localStorage.removeItem('hr_process_history');
+                    }
+                  );
                 }}
                 className="text-xs font-bold text-slate-400 hover:text-red-500 transition-colors uppercase tracking-widest flex items-center gap-2"
               >
@@ -721,6 +742,26 @@ export default function HRProcessPage() {
           </div>
         </div>
       </div>
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
+
+      <ConfirmDialog
+        open={confirmState.open}
+        onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
+        title={confirmState.title}
+        description={confirmState.description}
+        onConfirm={() => {
+          confirmState.onConfirm();
+          setConfirmState(prev => ({ ...prev, open: false }));
+        }}
+        variant="destructive"
+      />
     </div>
   );
 }

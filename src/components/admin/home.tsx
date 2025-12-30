@@ -11,6 +11,7 @@ import ProfilePage from '../profile/ProfilePage'; // Import ProfilePage from pro
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId, getCookie } from '@/lib/auth';
 import attendanceService from '@/lib/attendanceService';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 
 // --- Types ---
@@ -42,9 +43,10 @@ interface ProfileCardProps {
   orgId: string | null;
   currentEmployeeId: string | null;
   onCheckInStatusChange?: (isCheckedIn: boolean) => void;
+  showAlert: (title: string, description: string, variant?: "success" | "error" | "info" | "warning") => void;
 }
 
-const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInStatusChange }: ProfileCardProps) => {
+const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInStatusChange, showAlert }: ProfileCardProps) => {
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -68,7 +70,7 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
 
   const handleToggleCheckIn = async () => {
     if (!token || !orgId) {
-      alert('Authentication required');
+      showAlert('Authentication Error', 'Authentication required', "error");
       return;
     }
 
@@ -78,7 +80,7 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
         // Check out
         const response = await attendanceService.checkOut(orgId);
         if (response.error) {
-          alert('Failed to check out: ' + response.error);
+          showAlert('Check-out Failed', response.error, "error");
           return;
         }
         setIsCheckedIn(false);
@@ -88,7 +90,7 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
         // Check in
         const response = await attendanceService.checkIn(orgId);
         if (response.error) {
-          alert('Failed to check in: ' + response.error);
+          showAlert('Check-in Failed', response.error, "error");
           return;
         }
         setIsCheckedIn(true);
@@ -97,7 +99,7 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
       }
     } catch (error) {
       console.error('Error toggling check-in:', error);
-      alert('Error toggling check-in');
+      showAlert('Error', 'An unexpected error occurred while toggling check-in.', "error");
     } finally {
       setLoading(false);
     }
@@ -243,6 +245,15 @@ export default function Dashboard() {
   const [orgId, setOrgId] = useState<string | null>(null);
   const [currentEmployeeId, setCurrentEmployeeId] = useState<string | null>(null);
 
+  // Alert State
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -345,6 +356,7 @@ export default function Dashboard() {
               token={token}
               orgId={orgId}
               currentEmployeeId={currentEmployeeId}
+              showAlert={showAlert}
             />
           </div>
           <div className="md:col-span-2 lg:col-span-3">
@@ -352,6 +364,14 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </div>
   );
 }

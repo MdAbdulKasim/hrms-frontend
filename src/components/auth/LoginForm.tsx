@@ -313,10 +313,6 @@ export default function LoginForm() {
             </p>
           </div>
         </div>
-
-        <p className="text-center mt-8 text-xs text-gray-400 font-medium">
-          &copy; {new Date().getFullYear()} Antigravity HRMS. All rights reserved.
-        </p>
       </div>
     </div>
   );

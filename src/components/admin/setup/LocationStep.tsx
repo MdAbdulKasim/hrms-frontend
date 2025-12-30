@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import axios from 'axios';
 import { Location } from './types';
 import { getApiUrl, getAuthToken, getOrgId, setLocationId as saveLocationId } from '@/lib/auth';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 interface LocationsStepProps {
   locations: Location[];
@@ -23,6 +24,15 @@ export default function LocationsStep({
 }: LocationsStepProps) {
   const [showLocationForm, setShowLocationForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false); // Track API loading state
+
+  // Alert State
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   // State to track validation errors
   const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -74,7 +84,7 @@ export default function LocationsStep({
         const token = getAuthToken();
 
         if (!token) {
-          alert('Authentication token not found. Please log in.');
+          showAlert('Error', 'Authentication token not found. Please log in.', 'error');
           setIsLoading(false);
           return;
         }
@@ -88,7 +98,7 @@ export default function LocationsStep({
         console.log('- activeOrgId:', activeOrgId);
 
         if (!activeOrgId) {
-          alert('Organization ID is missing. Please try refreshing the page or going back to the Organization Details step to ensure it was saved correctly.');
+          showAlert('Error', 'Organization ID is missing. Please try refreshing the page or going back to the Organization Details step to ensure it was saved correctly.', 'error');
           setIsLoading(false);
           return;
         }
@@ -169,18 +179,18 @@ export default function LocationsStep({
           if (error.message === 'Network Error') {
             const activeOrgId = orgId || getOrgId();
             const apiUrl = `${getApiUrl()}/org/${activeOrgId}/locations`;
-            alert(`Network Error: Unable to connect to server at ${apiUrl}. Please ensure the backend is running and accessible.`);
+            showAlert('Network Error', `Unable to connect to server at ${apiUrl}. Please ensure the backend is running and accessible.`, 'error');
           } else if (error.response) {
             // Server responded with error
             const errorMsg = error.response.data?.message || error.response.data?.error || error.message;
-            alert(`Failed to save location: ${errorMsg}`);
+            showAlert('Error', `Failed to save location: ${errorMsg}`, 'error');
           } else {
             // Request was made but no response received
-            alert(`Failed to save location: ${error.message}`);
+            showAlert('Error', `Failed to save location: ${error.message}`, 'error');
           }
         } else {
           console.error('Unexpected error:', error);
-          alert('An unexpected error occurred while saving the location.');
+          showAlert('Error', 'An unexpected error occurred while saving the location.', 'error');
         }
       } finally {
         setIsLoading(false);
@@ -450,6 +460,13 @@ export default function LocationsStep({
           </div>
         </div>
       )}
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </div>
   );
 }

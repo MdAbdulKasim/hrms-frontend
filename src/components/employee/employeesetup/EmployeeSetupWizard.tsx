@@ -10,6 +10,7 @@ import EmployeeWorkExperienceStep from './EmployeeWorkExperienceStep';
 import EmployeeEducationStep from './EmployeeEducationStep';
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId, checkEmployeeSetupStatus, syncEmployeeSetupState, getCookie, setCookie } from '@/lib/auth';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 export default function EmployeeSetupWizard({
   initialStep = 1,
@@ -20,6 +21,21 @@ export default function EmployeeSetupWizard({
 }) {
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [expandedStep, setExpandedStep] = useState<number | null>(null);
+  const [alertState, setAlertState] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    variant: 'info'
+  });
+
+  const showAlert = (title: string, description: string, variant: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   const [steps, setSteps] = useState<SetupStep[]>([
     { id: 1, title: 'Personal Details', completed: false },
@@ -118,7 +134,7 @@ export default function EmployeeSetupWizard({
       const apiUrl = getApiUrl();
       const orgId = getOrgId();
       const employeeId = getCookie('hrms_user_id');
-      
+
       if (!employeeId || !orgId) return;
 
       try {
@@ -128,10 +144,10 @@ export default function EmployeeSetupWizard({
         });
 
         const employee = res.data.data || res.data.employee || res.data;
-        
+
         // Check if onboarding is completed
-        const isComplete = employee?.onboardingStatus === 'completed' || 
-                          (employee?.aadharNumber && employee?.PAN && employee?.bloodGroup);
+        const isComplete = employee?.onboardingStatus === 'completed' ||
+          (employee?.aadharNumber && employee?.PAN && employee?.bloodGroup);
 
         if (isComplete) {
           console.log("EmployeeSetupWizard: Profile already completed. Redirecting to Overview...");
@@ -292,7 +308,7 @@ export default function EmployeeSetupWizard({
 
     } catch (error) {
       console.error('Failed to save employee setup data:', error);
-      alert('Failed to complete setup. Please try again.');
+      showAlert('Error', 'Failed to complete setup. Please try again.', 'error');
     }
   };
 
@@ -372,10 +388,10 @@ export default function EmployeeSetupWizard({
               <div
                 key={step.id}
                 className={`flex items-center justify-between p-4 rounded-lg border-l-4 bg-white shadow-sm cursor-pointer transition-all ${step.completed
-                    ? 'border-green-500'
-                    : currentStep === step.id
-                      ? 'border-blue-600 ring-2 ring-blue-100'
-                      : 'border-blue-500'
+                  ? 'border-green-500'
+                  : currentStep === step.id
+                    ? 'border-blue-600 ring-2 ring-blue-100'
+                    : 'border-blue-500'
                   }`}
                 onClick={() => handleStepClick(step.id)}
               >
@@ -396,8 +412,8 @@ export default function EmployeeSetupWizard({
                 </div>
                 <button
                   className={`text-sm px-4 py-1.5 rounded ${step.completed
-                      ? 'text-blue-600 hover:text-blue-700'
-                      : 'text-blue-600 hover:text-blue-700'
+                    ? 'text-blue-600 hover:text-blue-700'
+                    : 'text-blue-600 hover:text-blue-700'
                     }`}
                 >
                   {step.completed ? 'View / Edit' : currentStep === step.id ? 'In Progress' : 'Complete Now'}
@@ -430,6 +446,13 @@ export default function EmployeeSetupWizard({
           </div>
         </div>
       </div>
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId, getLocationId } from '@/lib/auth';
 import statusService from '@/lib/statusService';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 /* ================= TYPES ================= */
 
@@ -48,6 +49,15 @@ export default function FeedsPage() {
   // const [statuses, setStatuses] = useState<any[]>([]);
   const [statusInput, setStatusInput] = useState('');
   const [statusCreating, setStatusCreating] = useState(false);
+
+  // Alert State
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   const tabs = [
     { key: "all", label: "All" },
@@ -136,24 +146,24 @@ export default function FeedsPage() {
   // Handle creating a new status
   const handleCreateStatus = async () => {
     if (!statusInput.trim()) return;
-    
+
     try {
       setStatusCreating(true);
       const orgId = getOrgId();
       if (!orgId) {
-        alert('Organization not found');
+        showAlert('Error', 'Organization not found', "error");
         return;
       }
 
       const locationId = getLocationId();
       if (!locationId) {
-        alert('Location not found');
+        showAlert('Error', 'Location not found', "error");
         return;
       }
 
       const response = await statusService.createStatus(orgId, locationId, { content: statusInput.trim() });
       if (response.error) {
-        alert(response.error);
+        showAlert('Error', response.error, "error");
         return;
       }
 
@@ -164,11 +174,12 @@ export default function FeedsPage() {
       // }
     } catch (error) {
       console.error('Error creating status:', error);
-      alert('Failed to create status');
+      showAlert('Error', 'Failed to create status', "error");
     } finally {
       setStatusCreating(false);
     }
   };
+
 
   return (
     // Changed p-6 to p-4 for mobile, md:p-6 for desktop
@@ -184,11 +195,10 @@ export default function FeedsPage() {
             key={tab.key}
             onClick={() => setActiveTab(tab.key as TabKey)}
             // Added flex-1 to make buttons grow evenly on mobile rows
-            className={`px-3 py-2 md:px-4 rounded-md text-sm font-medium transition flex-1 md:flex-none text-center whitespace-nowrap ${
-              activeTab === tab.key
-                ? "bg-white shadow text-blue-600"
-                : "text-gray-600 hover:bg-gray-200"
-            }`}
+            className={`px-3 py-2 md:px-4 rounded-md text-sm font-medium transition flex-1 md:flex-none text-center whitespace-nowrap ${activeTab === tab.key
+              ? "bg-white shadow text-blue-600"
+              : "text-gray-600 hover:bg-gray-200"
+              }`}
           >
             {tab.label}
           </button>
@@ -255,7 +265,7 @@ export default function FeedsPage() {
             {/* {activeTab === "status" && (
               <>
                 {/* Status Creation Form */}
-                {/* <div className="bg-white p-4 rounded-lg shadow mb-4">
+            {/* <div className="bg-white p-4 rounded-lg shadow mb-4">
                   <textarea
                     value={statusInput}
                     onChange={(e) => setStatusInput(e.target.value)}
@@ -287,7 +297,7 @@ export default function FeedsPage() {
                   <div className="text-center text-gray-500">No statuses available</div>
                 )}
               </>
-            )} */} 
+            )} */}
 
             {/* ================= ANNOUNCEMENTS ================= */}
             {activeTab === "announcements" && (
@@ -360,10 +370,10 @@ export default function FeedsPage() {
                     <HolidayRow
                       key={holiday.id}
                       title={holiday.holidayName || holiday.name || holiday.title}
-                      date={new Date(holiday.date).toLocaleDateString('en-US', { 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
+                      date={new Date(holiday.date).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
                       })}
                     />
                   ))
@@ -375,6 +385,14 @@ export default function FeedsPage() {
           </>
         )}
       </div>
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </div>
   );
 }

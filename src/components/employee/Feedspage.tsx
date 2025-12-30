@@ -11,6 +11,7 @@ import {
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId, getLocationId } from '@/lib/auth';
 import statusService from '@/lib/statusService';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 /* ================= TYPES ================= */
 
@@ -50,6 +51,21 @@ export default function FeedsPage() {
   const [statusCreating, setStatusCreating] = useState(false);
   const [expandedStatusId, setExpandedStatusId] = useState<string | null>(null);
   const [statusReplies, setStatusReplies] = useState<Record<string, any[]>>({});
+  const [alertState, setAlertState] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    variant: 'info'
+  });
+
+  const showAlert = (title: string, description: string, variant: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   const tabs = [
     { key: "all", label: "All" },
@@ -142,13 +158,13 @@ export default function FeedsPage() {
       setStatusCreating(true);
       const orgId = getOrgId();
       if (!orgId) {
-        alert('Organization not found');
+        showAlert('Error', 'Organization not found', 'error');
         return;
       }
 
       const locationId = getLocationId();
       if (!locationId) {
-        alert('Location not found');
+        showAlert('Error', 'Location not found', 'error');
         return;
       }
 
@@ -158,7 +174,7 @@ export default function FeedsPage() {
       });
 
       if (response.error) {
-        alert(response.error);
+        showAlert('Error', response.error, 'error');
         return;
       }
 
@@ -170,7 +186,7 @@ export default function FeedsPage() {
       }
     } catch (error) {
       console.error('Error creating status:', error);
-      alert('Failed to create status');
+      showAlert('Error', 'Failed to create status', 'error');
     } finally {
       setStatusCreating(false);
     }
@@ -208,11 +224,10 @@ export default function FeedsPage() {
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key as TabKey)}
-            className={`px-3 py-2 md:px-4 rounded-md text-sm font-medium transition flex-1 md:flex-none text-center whitespace-nowrap ${
-              activeTab === tab.key
-                ? "bg-white shadow text-blue-600"
-                : "text-gray-600 hover:bg-gray-200"
-            }`}
+            className={`px-3 py-2 md:px-4 rounded-md text-sm font-medium transition flex-1 md:flex-none text-center whitespace-nowrap ${activeTab === tab.key
+              ? "bg-white shadow text-blue-600"
+              : "text-gray-600 hover:bg-gray-200"
+              }`}
           >
             {tab.label}
           </button>
@@ -281,7 +296,7 @@ export default function FeedsPage() {
                     onChange={(e) => setStatusInput(e.target.value)}
                     className="w-full border rounded-lg p-3 h-24 focus:ring-2 focus:ring-blue-400"
                   />
-                  <button 
+                  <button
                     onClick={handleCreateStatus}
                     disabled={statusCreating || !statusInput.trim()}
                     className="mt-2 w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
@@ -311,7 +326,7 @@ export default function FeedsPage() {
                           >
                             {statusReplies[status.id] ? 'Hide' : 'Show'} Replies ({statusReplies[status.id]?.length || 0})
                           </button>
-                          
+
                           {expandedStatusId === status.id && statusReplies[status.id] && (
                             <div className="mt-3 space-y-2 border-t pt-3">
                               {statusReplies[status.id].map((reply) => (
@@ -416,10 +431,10 @@ export default function FeedsPage() {
                 ) : (
                   <div className="space-y-3">
                     {holidays.map((holiday, index) => (
-                      <HolidayRow 
-                        key={index} 
-                        title={holiday.holidayName || holiday.title} 
-                        date={holiday.date} 
+                      <HolidayRow
+                        key={index}
+                        title={holiday.holidayName || holiday.title}
+                        date={holiday.date}
                       />
                     ))}
                   </div>
@@ -429,6 +444,13 @@ export default function FeedsPage() {
           </>
         )}
       </div>
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </div>
   );
 }

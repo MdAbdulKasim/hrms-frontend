@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
-
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 interface LeaveType {
   id: string;
@@ -51,6 +51,21 @@ const LeaveTracker = () => {
 
   // Loading state for API calls
   const [loading, setLoading] = useState(false);
+  const [alertState, setAlertState] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    variant: 'info'
+  });
+
+  const showAlert = (title: string, description: string, variant: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   // Leave types and history from API
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
@@ -125,7 +140,7 @@ const LeaveTracker = () => {
           let statusFormatted: 'Approved' | 'Pending' | 'Rejected' = 'Pending';
           if (statusCapitalized === 'Approved') statusFormatted = 'Approved';
           else if (statusCapitalized === 'Rejected') statusFormatted = 'Rejected';
-          
+
           return {
             type: request.leaveTypeCode || request.leaveType || 'Unknown',
             from: new Date(request.startDate).toLocaleDateString('en-US', {
@@ -166,7 +181,7 @@ const LeaveTracker = () => {
 
   const handleSubmit = async () => {
     if (!organizationId) {
-      alert('Organization ID not found. Please login again.');
+      showAlert('Error', 'Organization ID not found. Please login again.', 'error');
       return;
     }
     try {
@@ -201,7 +216,7 @@ const LeaveTracker = () => {
           let statusFormatted: 'Approved' | 'Pending' | 'Rejected' = 'Pending';
           if (statusCapitalized === 'Approved') statusFormatted = 'Approved';
           else if (statusCapitalized === 'Rejected') statusFormatted = 'Rejected';
-          
+
           return {
             type: request.leaveTypeCode || request.leaveType || 'Unknown',
             from: new Date(request.startDate).toLocaleDateString('en-US', {
@@ -229,7 +244,7 @@ const LeaveTracker = () => {
       setReason('');
     } catch (error: any) {
       console.error('Error applying for leave:', error);
-      alert(error.response?.data?.error || 'Failed to apply for leave. Please try again.');
+      showAlert('Error', error.response?.data?.error || 'Failed to apply for leave. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -319,13 +334,12 @@ const LeaveTracker = () => {
                       <td className="py-4 px-4 text-gray-600 whitespace-nowrap max-w-[200px] truncate" title={leave.reason}>{leave.reason}</td>
                       <td className="py-4 px-4 whitespace-nowrap">
                         <span
-                          className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                            leave.status === 'Approved'
+                          className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${leave.status === 'Approved'
                               ? 'bg-green-100 text-green-700'
                               : leave.status === 'Pending'
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : 'bg-red-100 text-red-700'
-                          }`}
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-red-100 text-red-700'
+                            }`}
                         >
                           {leave.status}
                         </span>
@@ -346,7 +360,7 @@ const LeaveTracker = () => {
           <DialogHeader>
             <DialogTitle className="text-xl sm:text-2xl font-bold">Apply for Leave</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4 sm:space-y-6 py-4">
             {/* Leave Type Select */}
             <div className="space-y-2">
@@ -439,6 +453,13 @@ const LeaveTracker = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </div>
   );
 };

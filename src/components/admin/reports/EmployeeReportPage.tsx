@@ -6,6 +6,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 export interface EmployeeRecord {
   id: string;
@@ -31,6 +32,15 @@ export default function EmployeeReportPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Alert State
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   // Lookup maps
   const [departmentsMap, setDepartmentsMap] = useState<{ [key: string]: string }>({});
@@ -119,41 +129,41 @@ export default function EmployeeReportPage() {
       if (emp.department.title) return emp.department.title;
       if (emp.department.departmentName) return emp.department.departmentName;
     }
-    
+
     // Get the department ID (could be in multiple places)
-    const deptId = emp.departmentId || 
-                   (typeof emp.department === 'string' ? emp.department : null) ||
-                   (emp.department && (emp.department.id || emp.department._id));
-    
+    const deptId = emp.departmentId ||
+      (typeof emp.department === 'string' ? emp.department : null) ||
+      (emp.department && (emp.department.id || emp.department._id));
+
     // Look up in the map
     if (deptId && departmentsMap[String(deptId)]) {
       return departmentsMap[String(deptId)];
     }
-    
+
     // If we have an ID but no mapping, try to fetch it individually
     if (deptId && !departmentsMap[String(deptId)]) {
       fetchMissingDepartment(String(deptId));
       return 'Loading...';
     }
-    
+
     return '';
   };
 
   // Fetch a missing department by ID
   const fetchMissingDepartment = async (deptId: string) => {
     if (!organizationId || departmentsMap[deptId]) return;
-    
+
     try {
       const apiUrl = getApiUrl();
       const token = getAuthToken();
-      
+
       const response = await axios.get(`${apiUrl}/org/${organizationId}/departments/${deptId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      
+
       const dept = response.data.data || response.data;
       const name = dept.name || dept.title || dept.departmentName || 'Unknown';
-      
+
       setDepartmentsMap(prev => ({ ...prev, [deptId]: name }));
     } catch (error) {
       console.error(`Failed to fetch department ${deptId}:`, error);
@@ -169,17 +179,17 @@ export default function EmployeeReportPage() {
       if (emp.designation.title) return emp.designation.title;
       if (emp.designation.designationName) return emp.designation.designationName;
     }
-    
+
     // Get the designation ID
-    const desigId = emp.designationId || 
-                    (typeof emp.designation === 'string' ? emp.designation : null) ||
-                    (emp.designation && (emp.designation.id || emp.designation._id));
-    
+    const desigId = emp.designationId ||
+      (typeof emp.designation === 'string' ? emp.designation : null) ||
+      (emp.designation && (emp.designation.id || emp.designation._id));
+
     // Look up in the map
     if (desigId && designationsMap[String(desigId)]) {
       return designationsMap[String(desigId)];
     }
-    
+
     return '';
   };
 
@@ -191,17 +201,17 @@ export default function EmployeeReportPage() {
       if (emp.location.title) return emp.location.title;
       if (emp.location.locationName) return emp.location.locationName;
     }
-    
+
     // Get the location ID
-    const locId = emp.locationId || 
-                  (typeof emp.location === 'string' ? emp.location : null) ||
-                  (emp.location && (emp.location.id || emp.location._id));
-    
+    const locId = emp.locationId ||
+      (typeof emp.location === 'string' ? emp.location : null) ||
+      (emp.location && (emp.location.id || emp.location._id));
+
     // Look up in the map
     if (locId && locationsMap[String(locId)]) {
       return locationsMap[String(locId)];
     }
-    
+
     return '';
   };
 
@@ -219,7 +229,7 @@ export default function EmployeeReportPage() {
     try {
       const apiUrl = getApiUrl();
       const token = getAuthToken();
-      
+
       const response = await axios.get(`${apiUrl}/org/${organizationId}/employees`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -227,7 +237,7 @@ export default function EmployeeReportPage() {
       console.log('API Response:', response.data);
 
       let data = response.data;
-      
+
       if (data && typeof data === 'object' && 'data' in data) {
         data = data.data;
       }
@@ -235,7 +245,7 @@ export default function EmployeeReportPage() {
       const employees = Array.isArray(data) ? data : [];
 
       setEmployeeData(employees);
-      
+
       if (employees.length === 0) {
         console.warn('No employee records found');
       }
@@ -306,12 +316,12 @@ export default function EmployeeReportPage() {
     const phone = (emp.phoneNumber || '').toLowerCase();
     const dept = getDepartmentName(emp).toLowerCase();
     const desig = getDesignationName(emp).toLowerCase();
-    
-    const matchesSearch = fullName.includes(term) || 
-                         email.includes(term) || 
-                         phone.includes(term) ||
-                         dept.includes(term) ||
-                         desig.includes(term);
+
+    const matchesSearch = fullName.includes(term) ||
+      email.includes(term) ||
+      phone.includes(term) ||
+      dept.includes(term) ||
+      desig.includes(term);
 
     const matchesDepartment = !filterDepartment || dept.includes(filterDepartment.toLowerCase());
     const matchesDesignation = !filterDesignation || desig.includes(filterDesignation.toLowerCase());
@@ -321,12 +331,12 @@ export default function EmployeeReportPage() {
   });
 
   const handleExportPDF = () => {
-    const dataToExport = selectedRecords.size === 0 
-      ? filteredEmployees 
+    const dataToExport = selectedRecords.size === 0
+      ? filteredEmployees
       : Array.from(selectedRecords).map(index => filteredEmployees[index]);
 
     if (!dataToExport || dataToExport.length === 0) {
-      alert("No records to export");
+      showAlert("Info", "No records to export", "info");
       setShowExportDropdown(false);
       return;
     }
@@ -371,19 +381,19 @@ export default function EmployeeReportPage() {
       doc.save(`employee-report-${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (err) {
       console.error('Error generating PDF:', err);
-      alert("Failed to generate PDF");
+      showAlert("Error", "Failed to generate PDF", "error");
     } finally {
       setShowExportDropdown(false);
     }
   };
 
   const handleExportExcel = () => {
-    const dataToExport = selectedRecords.size === 0 
-      ? filteredEmployees 
+    const dataToExport = selectedRecords.size === 0
+      ? filteredEmployees
       : Array.from(selectedRecords).map(index => filteredEmployees[index]);
 
     if (dataToExport.length === 0) {
-      alert("No records to export");
+      showAlert("Info", "No records to export", "info");
       setShowExportDropdown(false);
       return;
     }
@@ -413,7 +423,7 @@ export default function EmployeeReportPage() {
     a.click();
     window.URL.revokeObjectURL(url);
 
-    alert(`Exported ${dataToExport.length} records to Excel (CSV format).`);
+    showAlert("Success", `Exported ${dataToExport.length} records to Excel (CSV format).`, "success");
     setShowExportDropdown(false);
   };
 
@@ -563,7 +573,7 @@ export default function EmployeeReportPage() {
                   <Download className="w-4 h-4" />
                   Export
                 </button>
-                
+
                 {showExportDropdown && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
                     <button
@@ -588,8 +598,8 @@ export default function EmployeeReportPage() {
         )}
 
         {showExportDropdown && (
-          <div 
-            className="fixed inset-0 z-0" 
+          <div
+            className="fixed inset-0 z-0"
             onClick={() => setShowExportDropdown(false)}
           />
         )}
@@ -654,11 +664,10 @@ export default function EmployeeReportPage() {
                   </tr>
                 ) : (
                   filteredEmployees.map((employee, index) => (
-                    <tr 
-                      key={employee.id || index} 
-                      className={`hover:bg-gray-50 transition-colors ${
-                        selectedRecords.has(index) ? 'bg-blue-50' : ''
-                      }`}
+                    <tr
+                      key={employee.id || index}
+                      className={`hover:bg-gray-50 transition-colors ${selectedRecords.has(index) ? 'bg-blue-50' : ''
+                        }`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <input
@@ -700,6 +709,14 @@ export default function EmployeeReportPage() {
           </div>
         )}
       </div>
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </div>
   );
 }

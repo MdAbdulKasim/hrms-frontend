@@ -5,6 +5,7 @@ import { Upload } from 'lucide-react';
 import axios from 'axios';
 import { OrganizationData } from './types';
 import { getApiUrl, getAuthToken, setOrgId, getOrgId, getCookie } from '@/lib/auth';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 interface OrganizationDetailsStepProps {
   onNext: (orgId: string) => void;
@@ -110,6 +111,15 @@ export default function OrganizationDetailsStep({
   const [errors, setErrors] = useState<Partial<OrganizationData>>({});
   const [isLoading, setIsLoading] = useState(false);
 
+  // Alert State
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
+
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -159,7 +169,7 @@ export default function OrganizationDetailsStep({
         const token = getAuthToken();
 
         if (!token) {
-          alert('Authentication token not found. Please log in again.');
+          showAlert('Error', 'Authentication token not found. Please log in again.', 'error');
           setIsLoading(false);
           return;
         }
@@ -167,7 +177,7 @@ export default function OrganizationDetailsStep({
         const orgIdToUse = existingOrgId || getOrgId();
 
         if (!orgIdToUse) {
-          alert('Organization ID not found. Please complete registration first.');
+          showAlert('Error', 'Organization ID not found. Please complete registration first.', 'error');
           setIsLoading(false);
           return;
         }
@@ -219,10 +229,10 @@ export default function OrganizationDetailsStep({
         if (axios.isAxiosError(error)) {
           console.error('Axios error:', error.response?.data || error.message);
           const errorMsg = error.response?.data?.message || error.message;
-          alert(`Failed to update organization: ${errorMsg}`);
+          showAlert('Error', `Failed to update organization: ${errorMsg}`, 'error');
         } else {
           console.error('Unexpected error:', error);
-          alert('An unexpected error occurred.');
+          showAlert('Error', 'An unexpected error occurred.', 'error');
         }
       } finally {
         setIsLoading(false);
@@ -396,6 +406,14 @@ export default function OrganizationDetailsStep({
           {isLoading ? 'Updating...' : 'Update & Continue'}
         </button>
       </div>
-    </div>
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
+    </div >
   );
 }

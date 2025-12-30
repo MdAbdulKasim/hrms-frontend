@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Megaphone, X } from 'lucide-react';
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId, getCookie } from '@/lib/auth';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 interface Announcement {
   id: string;
@@ -16,6 +17,15 @@ const AnnouncementsSection: React.FC = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+
+  // Alert State
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   useEffect(() => {
     setUserRole(getCookie('role'));
@@ -86,7 +96,7 @@ const AnnouncementsSection: React.FC = () => {
         const orgId = getOrgId();
 
         if (!orgId) {
-          alert('Organization not found');
+          showAlert("Error", "Organization not found", "error");
           return;
         }
 
@@ -134,7 +144,7 @@ const AnnouncementsSection: React.FC = () => {
         }
       } catch (error) {
         console.error('Error creating announcement:', error);
-        alert('Failed to create announcement. Please try again.');
+        showAlert("Error", "Failed to create announcement. Please try again.", "error");
       } finally {
         setLoading(false);
       }
@@ -281,6 +291,14 @@ const AnnouncementsSection: React.FC = () => {
           </div>
         </div>
       )}
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </>
   );
 };

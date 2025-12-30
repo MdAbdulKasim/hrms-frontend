@@ -13,6 +13,7 @@ import { Employee, Education, Peer, LeaveBalance, AttendanceRecord } from './typ
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 import employeeService, { EmployeeUpdateData } from '@/lib/employeeService';
+import { CustomAlertDialog, ConfirmDialog } from '@/components/ui/custom-dialogs';
 
 interface ProfilePageProps {
   employeeId?: string;
@@ -32,6 +33,22 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
   const [editFormData, setEditFormData] = useState<EmployeeUpdateData>({});
   const [saving, setSaving] = useState(false);
   const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
+
+  // Dialog States
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+  const [confirmState, setConfirmState] = useState<{ open: boolean, title: string, description: string, onConfirm: () => void }>({
+    open: false, title: "", description: "", onConfirm: () => { }
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
+
+  const showConfirm = (title: string, description: string, onConfirm: () => void) => {
+    setConfirmState({ open: true, title, description, onConfirm });
+  };
 
   // Load employee data based on currentEmployeeId
   useEffect(() => {
@@ -139,11 +156,11 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
       window.history.back();
     }
   };
- 
+
   // Handle edit employee - open modal with current data
   const handleEditEmployee = () => {
     if (!employee) return;
-    
+
     // Pre-populate form with existing employee data
     setEditFormData({
       fullName: `${employee.firstName || ''} ${employee.lastName || ''}`.trim(),
@@ -166,10 +183,10 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
   // Handle save employee updates
   const handleSaveEmployee = async () => {
     if (!employee) return;
-    
+
     const orgId = getOrgId();
     if (!orgId) {
-      alert('Organization not found');
+      showAlert("Error", "Organization not found", "error");
       return;
     }
 
@@ -183,9 +200,9 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
       }
 
       if (result.error) {
-        alert(`Failed to update: ${result.error}`);
+        showAlert("Error", `Failed to update: ${result.error}`, "error");
       } else {
-        alert('Employee updated successfully!');
+        showAlert("Success", "Employee updated successfully!", "success");
         setIsEditModalOpen(false);
         setProfilePicFile(null);
         // Refresh employee data
@@ -193,7 +210,7 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
       }
     } catch (error) {
       console.error('Error updating employee:', error);
-      alert('Failed to update employee');
+      showAlert("Error", "Failed to update employee", "error");
     } finally {
       setSaving(false);
     }
@@ -208,39 +225,36 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
   const handleDeleteEmployee = () => {
     if (!employee) return;
 
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${employee.firstName} ${employee.lastName}? This action cannot be undone.`
-    );
-    if (!confirmed) return;
-
-    const handleDelete = async () => {
-      const orgId = getOrgId();
-      if (!orgId) {
-        alert('Organization not found');
-        return;
-      }
-
-      try {
-        const result = await employeeService.delete(orgId, employee.id);
-
-        if (result.error) {
-          alert(`Failed to delete: ${result.error}`);
-        } else {
-          alert('Employee deleted successfully!');
-          // Go back after deletion
-          if (onBack) {
-            onBack();
-          } else {
-            window.history.back();
-          }
+    showConfirm(
+      "Delete Employee",
+      `Are you sure you want to delete ${employee.firstName} ${employee.lastName}? This action cannot be undone.`,
+      async () => {
+        const orgId = getOrgId();
+        if (!orgId) {
+          showAlert("Error", "Organization not found", "error");
+          return;
         }
-      } catch (error) {
-        console.error('Error deleting employee:', error);
-        alert('Failed to delete employee. Check console for details.');
-      }
-    };
 
-    handleDelete();
+        try {
+          const result = await employeeService.delete(orgId, employee.id);
+
+          if (result.error) {
+            showAlert("Error", `Failed to delete: ${result.error}`, "error");
+          } else {
+            showAlert("Success", "Employee deleted successfully!", "success");
+            // Go back after deletion
+            if (onBack) {
+              onBack();
+            } else {
+              window.history.back();
+            }
+          }
+        } catch (error) {
+          console.error('Error deleting employee:', error);
+          showAlert("Error", "Failed to delete employee. Check console for details.", "error");
+        }
+      }
+    );
   };
 
   const renderTabContent = () => {
@@ -303,7 +317,7 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
     <div className="min-h-screen bg-gray-50">
       {/* Back Button */}
       <div className="bg-white border-b px-6 py-4">
-        <button 
+        <button
           onClick={handleBackClick}
           className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
         >
@@ -729,8 +743,8 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
       )}
 
       {/* Profile Header */}
-      <ProfileHeader 
-        employee={employee} 
+      <ProfileHeader
+        employee={employee}
         onEmployeeClick={handleEmployeeClick}
         onEdit={handleEditEmployee}
         onDelete={handleDeleteEmployee}
@@ -743,6 +757,26 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
       <div className="bg-gray-50">
         {renderTabContent()}
       </div>
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
+
+      <ConfirmDialog
+        open={confirmState.open}
+        onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
+        title={confirmState.title}
+        description={confirmState.description}
+        onConfirm={() => {
+          confirmState.onConfirm();
+          setConfirmState(prev => ({ ...prev, open: false }));
+        }}
+        variant="destructive"
+      />
     </div>
   );
 }

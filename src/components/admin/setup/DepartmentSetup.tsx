@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { Department } from './types';
 import { getApiUrl, getAuthToken, getOrgId, getLocationId, setDepartmentId as saveDepartmentId } from '@/lib/auth';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 interface DepartmentsStepProps {
   departments: Department[];
@@ -25,6 +26,15 @@ export default function DepartmentsStep({
   const [showDepartmentForm, setShowDepartmentForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false); // Track loading state
 
+  // Alert State
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
+
   // 1. Added state to track input fields
   // 1. Added state to track input fields
   const [formData, setFormData] = useState({
@@ -36,7 +46,7 @@ export default function DepartmentsStep({
   const handleAddDepartment = async () => {
     // Validation: Check if important fields are completed
     if (!formData.departmentName.trim() || !formData.code.trim()) {
-      alert("Please complete the Department Name and Code fields.");
+      showAlert("Error", "Please complete the Department Name and Code fields.", "error");
       return;
     }
 
@@ -46,7 +56,7 @@ export default function DepartmentsStep({
       // Get token using auth utilities
       const token = getAuthToken();
       if (!token) {
-        alert('Authentication token not found. Please log in.');
+        showAlert('Error', 'Authentication token not found. Please log in.', 'error');
         setIsLoading(false);
         return;
       }
@@ -56,13 +66,13 @@ export default function DepartmentsStep({
       const activeLocationId = locationId || getLocationId();
 
       if (!activeOrgId) {
-        alert('Organization ID is missing. Cannot create department.');
+        showAlert('Error', 'Organization ID is missing. Cannot create department.', 'error');
         setIsLoading(false);
         return;
       }
 
       if (!activeLocationId) {
-        alert('Location ID is missing. Cannot create department. Please ensure a location is created first.');
+        showAlert('Error', 'Location ID is missing. Cannot create department. Please ensure a location is created first.', 'error');
         setIsLoading(false);
         return;
       }
@@ -121,13 +131,13 @@ export default function DepartmentsStep({
         if (error.message === 'Network Error') {
           const activeOrgId = orgId || getOrgId();
           const apiUrl = `${getApiUrl()}/org/${activeOrgId}/departments`;
-          alert(`Network Error: Unable to connect to server at ${apiUrl}. Please ensure the backend is running and accessible.`);
+          showAlert('Network Error', `Unable to connect to server at ${apiUrl}. Please ensure the backend is running and accessible.`, 'error');
         } else {
-          alert(`Failed to create department: ${error.response?.data?.message || error.message}`);
+          showAlert('Error', `Failed to create department: ${error.response?.data?.message || error.message}`, 'error');
         }
       } else {
         console.error('Unexpected error:', error);
-        alert('An unexpected error occurred.');
+        showAlert('Error', 'An unexpected error occurred.', 'error');
       }
     } finally {
       setIsLoading(false);
@@ -137,7 +147,7 @@ export default function DepartmentsStep({
   const handleNextStep = () => {
     // Validation: Ensure at least one department exists before continuing
     if (departments.length === 0) {
-      alert("Please add at least one department before continuing.");
+      showAlert("Warning", "Please add at least one department before continuing.", "warning");
       return;
     }
     onNext(departments[0]?.id);
@@ -241,6 +251,14 @@ export default function DepartmentsStep({
           Continue
         </button>
       </div>
-    </div>
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
+    </div >
   );
 }

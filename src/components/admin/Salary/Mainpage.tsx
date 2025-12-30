@@ -28,6 +28,7 @@ import {
 } from "lucide-react"
 import { getApiUrl, getAuthToken, getOrgId } from "@/lib/auth"
 import PayRunDialog from "./payrundialog"
+import { CustomAlertDialog } from "@/components/ui/custom-dialogs"
 
 /* ================= TYPES ================= */
 
@@ -52,6 +53,15 @@ export default function SalaryPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "Paid" | "Pending">("all")
   const [page, setPage] = useState(1)
   const [openPayRun, setOpenPayRun] = useState(false)
+
+  // Alert State
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   // Filters state
   const [departments, setDepartments] = useState<any[]>([])
@@ -144,7 +154,7 @@ export default function SalaryPage() {
     } catch (error: any) {
       console.error("Failed to fetch data", error)
       if (error.response?.status === 401) {
-        alert("Authentication failed. Please log in again.")
+        showAlert("Authentication Failed", "Authentication failed. Please log in again.", "error")
       }
     }
   }
@@ -470,6 +480,14 @@ export default function SalaryPage() {
         employees={selectedEmployees}
         onClose={() => setOpenPayRun(false)}
         onConfirm={handlePayConfirm}
+      />
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
       />
     </div>
   )
