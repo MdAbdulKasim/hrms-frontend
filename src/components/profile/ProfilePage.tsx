@@ -1,149 +1,56 @@
-"use client"
-
-import type React from "react"
-
-import { useState, useEffect } from "react"
-import axios from "axios"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Card } from "@/components/ui/card"
-import { Edit, Upload, User, ArrowLeft, Plus, Trash2 } from "lucide-react"
-import { getApiUrl, getAuthToken, getOrgId, getEmployeeId } from "@/lib/auth"
-import { useRouter } from "next/navigation"
-
-interface FormData {
-  // Personal Details
-  fullName: string
-  emailAddress: string
-  mobileNumber: string
-  role: string
-  department: string
-  designation: string
-  reportingTo: string
-  teamPosition: string
-  shift: string
-  location: string
-  timeZone: string
-  dateOfBirth: string
-  gender: string
-  maritalStatus: string
-  bloodGroup: string
-
-  // Identity Information
-  uan: string
-  pan: string
-  aadhaarNumber: string
-  passportNumber: string
-  drivingLicenseNumber: string
-
-  // Work Experience
-  workExperience: Array<{
-    companyName: string
-    jobTitle: string
-    fromDate: string
-    toDate: string
-    currentlyWorkHere: boolean
-    jobDescription: string
-  }>
-
-  // Contact Information
-  presentAddress: {
-    addressLine1: string
-    addressLine2: string
-    city: string
-    state: string
-    country: string
-    pinCode: string
-  }
-  sameAsPresentAddress: boolean
-  permanentAddress: {
-    addressLine1: string
-    addressLine2: string
-    city: string
-    state: string
-    country: string
-    pinCode: string
-  }
-  emergencyContact: {
-    contactName: string
-    relation: string
-    contactNumber: string
-  }
-
-  // Education
-  education: Array<{
-    instituteName: string
-    degree: string
-    fieldOfStudy: string
-    startYear: string
-    endYear: string
-  }>
-}
-
-const initialFormData: FormData = {
-  fullName: "",
-  emailAddress: "",
-  mobileNumber: "",
-  role: "",
-  department: "",
-  designation: "",
-  reportingTo: "",
-  teamPosition: "",
-  shift: "",
-  location: "",
-  timeZone: "",
-  dateOfBirth: "",
-  gender: "",
-  maritalStatus: "",
-  bloodGroup: "",
-  uan: "",
-  pan: "",
-  aadhaarNumber: "",
-  passportNumber: "",
-  drivingLicenseNumber: "",
-  workExperience: [],
-  presentAddress: {
-    addressLine1: "",
-    addressLine2: "",
-    city: "",
-    state: "",
-    country: "",
-    pinCode: "",
-  },
-  sameAsPresentAddress: false,
-  permanentAddress: {
-    addressLine1: "",
-    addressLine2: "",
-    city: "",
-    state: "",
-    country: "",
-    pinCode: "",
-  },
-  emergencyContact: {
-    contactName: "",
-    relation: "",
-    contactNumber: "",
-  },
-  education: [],
-}
+// pages/ProfilePage.tsx
+import { useState, useEffect } from 'react';
+import { ArrowLeft, X } from 'lucide-react';
+import ProfileHeader from './ProfileHeader';
+import ProfileTabs from './ProfileTabs';
+import ProfileTab from './tabs/ProfileTab';
+import PeersTab from './tabs/PeersTab';
+import LeaveTab from './tabs/LeaveTab';
+import AttendanceTab from './tabs/AttendanceTab';
+import DepartmentTab from './tabs/DepartmentTab';
+import TimeTrackingTab from './tabs/TimeTrackingTab';
+import { Employee, Education, Peer, LeaveBalance, AttendanceRecord } from './types';
+import axios from 'axios';
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
+import employeeService, { EmployeeUpdateData } from '@/lib/employeeService';
+import { CustomAlertDialog, ConfirmDialog } from '@/components/ui/custom-dialogs';
 
 interface ProfilePageProps {
   employeeId?: string;
   onBack?: () => void;
 }
 
-export default function ProfilePage({ employeeId: propEmployeeId, onBack }: ProfilePageProps) {
-  const router = useRouter()
-  const [isEditing, setIsEditing] = useState(false)
-  const [formData, setFormData] = useState<FormData>(initialFormData)
+export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: ProfilePageProps) {
+  const [activeTab, setActiveTab] = useState('profile');
+  const [currentEmployeeId, setCurrentEmployeeId] = useState(initialEmployeeId || 'S19');
+  const [employee, setEmployee] = useState<Employee | null>(null);
+  const [education, setEducation] = useState<Education[]>([]);
+  const [peers, setPeers] = useState<Peer[]>([]);
+  const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState<EmployeeUpdateData>({});
+  const [saving, setSaving] = useState(false);
+  const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
 
-  // Profile Picture State
-  const [selectedProfilePicFile, setSelectedProfilePicFile] = useState<File | null>(null)
-  const [profilePicUrl, setProfilePicUrl] = useState<string | null>(null)
+  // Dialog States
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+  const [confirmState, setConfirmState] = useState<{ open: boolean, title: string, description: string, onConfirm: () => void }>({
+    open: false, title: "", description: "", onConfirm: () => { }
+  });
 
-  // Fetch employee profile data
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
+
+  const showConfirm = (title: string, description: string, onConfirm: () => void) => {
+    setConfirmState({ open: true, title, description, onConfirm });
+  };
+
+  // Load employee data based on currentEmployeeId
   useEffect(() => {
     const fetchEmployeeData = async () => {
       try {
@@ -258,15 +165,43 @@ export default function ProfilePage({ employeeId: propEmployeeId, onBack }: Prof
     } else if (section === "emergencyContact") {
       setFormData((prev) => ({ ...prev, emergencyContact: { ...prev.emergencyContact, [field || name]: value } }))
     } else {
-      let finalValue = value;
-      // Numeric only validation
-      if (['uan', 'mobileNumber', 'pinCode', 'aadhaarNumber'].includes(name)) {
-        finalValue = value.replace(/[^0-9]/g, '');
-        if (name === 'uan') finalValue = finalValue.slice(0, 12);
-        if (name === 'pinCode') finalValue = finalValue.slice(0, 6);
-        if (name === 'mobileNumber') finalValue = finalValue.slice(0, 15);
-        if (name === 'aadhaarNumber') finalValue = finalValue.slice(0, 12);
-      }
+      // Fallback: use browser back if no onBack prop provided
+      window.history.back();
+    }
+  };
+
+  // Handle edit employee - open modal with current data
+  const handleEditEmployee = () => {
+    if (!employee) return;
+
+    // Pre-populate form with existing employee data
+    setEditFormData({
+      fullName: `${employee.firstName || ''} ${employee.lastName || ''}`.trim(),
+      email: employee.email,
+      phoneNumber: employee.personalMobile || employee.workPhone,
+      gender: employee.gender as any,
+      maritalStatus: employee.maritalStatus as any,
+      dateOfBirth: employee.dateOfBirth,
+      bloodGroup: '',
+      presentAddressLine1: employee.presentAddress,
+      shiftType: employee.shift as any,
+      status: employee.employeeStatus,
+      UAN: employee.uan,
+      PAN: employee.pan,
+      aadharNumber: employee.aadhaar,
+    });
+    setIsEditModalOpen(true);
+  };
+
+  // Handle save employee updates
+  const handleSaveEmployee = async () => {
+    if (!employee) return;
+
+    const orgId = getOrgId();
+    if (!orgId) {
+      showAlert("Error", "Organization not found", "error");
+      return;
+    }
 
       // PAN validation
       if (name === 'pan') {
@@ -283,23 +218,109 @@ export default function ProfilePage({ employeeId: propEmployeeId, onBack }: Prof
         finalValue = validatedValue;
       }
 
-      if (['passportNumber', 'drivingLicenseNumber'].includes(name)) {
-        finalValue = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      if (result.error) {
+        showAlert("Error", `Failed to update: ${result.error}`, "error");
+      } else {
+        showAlert("Success", "Employee updated successfully!", "success");
+        setIsEditModalOpen(false);
+        setProfilePicFile(null);
+        // Refresh employee data
+        setCurrentEmployeeId(employee.id);
       }
-
-      setFormData((prev) => ({ ...prev, [name]: finalValue }))
+    } catch (error) {
+      console.error('Error updating employee:', error);
+      showAlert("Error", "Failed to update employee", "error");
+    } finally {
+      setSaving(false);
     }
-  }
+  };
 
-  const handleSelectChange = (value: string, fieldName: string) => {
-    setFormData((prev) => ({ ...prev, [fieldName]: value }))
-  }
+  // Handle form field changes
+  const handleEditFormChange = (field: keyof EmployeeUpdateData, value: any) => {
+    setEditFormData(prev => ({ ...prev, [field]: value }));
+  };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0]
-      setSelectedProfilePicFile(file)
-      setProfilePicUrl(URL.createObjectURL(file))
+  // Handle delete employee
+  const handleDeleteEmployee = () => {
+    if (!employee) return;
+
+    showConfirm(
+      "Delete Employee",
+      `Are you sure you want to delete ${employee.firstName} ${employee.lastName}? This action cannot be undone.`,
+      async () => {
+        const orgId = getOrgId();
+        if (!orgId) {
+          showAlert("Error", "Organization not found", "error");
+          return;
+        }
+
+        try {
+          const result = await employeeService.delete(orgId, employee.id);
+
+          if (result.error) {
+            showAlert("Error", `Failed to delete: ${result.error}`, "error");
+          } else {
+            showAlert("Success", "Employee deleted successfully!", "success");
+            // Go back after deletion
+            if (onBack) {
+              onBack();
+            } else {
+              window.history.back();
+            }
+          }
+        } catch (error) {
+          console.error('Error deleting employee:', error);
+          showAlert("Error", "Failed to delete employee. Check console for details.", "error");
+        }
+      }
+    );
+  };
+
+  const renderTabContent = () => {
+    if (!employee) return <div>Loading...</div>;
+
+    switch (activeTab) {
+      case 'profile':
+        return (
+          <ProfileTab
+            employee={employee}
+            education={education}
+            dependents={[]}
+          />
+        );
+      case 'peers':
+        return (
+          <PeersTab
+            peers={peers}
+            managerName={employee.reportingManager}
+            onEmployeeClick={handleEmployeeClick}
+          />
+        );
+      case 'leave':
+        return (
+          <LeaveTab
+            leaveBalances={leaveBalances}
+            year="This Year"
+          />
+        );
+      case 'attendance':
+        return (
+          <AttendanceTab records={attendanceRecords} />
+        );
+      case 'time-tracking':
+        return <TimeTrackingTab />;
+      case 'department':
+        return (
+          <DepartmentTab
+            department="Management"
+            location="Unspecified location"
+            ceoMembers={[]}
+            administrationMembers={[]}
+            onEmployeeClick={handleEmployeeClick}
+          />
+        );
+      default:
+        return null;
     }
   }
 
@@ -382,14 +403,17 @@ export default function ProfilePage({ employeeId: propEmployeeId, onBack }: Prof
   const bloodGroups = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"]
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white border-b px-6 py-4 mb-8 -mx-6 -mt-6">
-          <button onClick={handleBackClick} className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
-            <ArrowLeft className="w-5 h-5" />
-            <span>Back</span>
-          </button>
-        </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Back Button */}
+      <div className="bg-white border-b px-6 py-4">
+        <button
+          onClick={handleBackClick}
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          <span>Back</span>
+        </button>
+      </div>
 
         <div className="mb-8 flex justify-between items-start">
           <div>
@@ -797,8 +821,44 @@ export default function ProfilePage({ employeeId: propEmployeeId, onBack }: Prof
               </div>
             </div>
           </div>
-        </Card>
+        </div>
+      )}
+
+      {/* Profile Header */}
+      <ProfileHeader
+        employee={employee}
+        onEmployeeClick={handleEmployeeClick}
+        onEdit={handleEditEmployee}
+        onDelete={handleDeleteEmployee}
+      />
+
+      {/* Tabs */}
+      <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {/* Tab Content */}
+      <div className="bg-gray-50">
+        {renderTabContent()}
       </div>
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
+
+      <ConfirmDialog
+        open={confirmState.open}
+        onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
+        title={confirmState.title}
+        description={confirmState.description}
+        onConfirm={() => {
+          confirmState.onConfirm();
+          setConfirmState(prev => ({ ...prev, open: false }));
+        }}
+        variant="destructive"
+      />
     </div>
   )
 }

@@ -11,6 +11,7 @@ import ProfilePage from '../profile/ProfilePage';
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId, getCookie } from '@/lib/auth';
 import attendanceService from '@/lib/attendanceService';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 type Reportee = {
   id: string;
@@ -43,6 +44,21 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
   const [seconds, setSeconds] = useState(0);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [alertState, setAlertState] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    variant: 'info'
+  });
+
+  const showAlert = (title: string, description: string, variant: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -62,7 +78,7 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
 
   const handleToggleCheckIn = async () => {
     if (!token || !orgId) {
-      alert('Authentication required');
+      showAlert('Error', 'Authentication required', 'error');
       return;
     }
 
@@ -71,7 +87,7 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
       if (isCheckedIn) {
         const response = await attendanceService.checkOut(orgId);
         if (response.error) {
-          alert('Failed to check out: ' + response.error);
+          showAlert('Error', 'Failed to check out: ' + response.error, 'error');
           return;
         }
         setIsCheckedIn(false);
@@ -80,7 +96,7 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
       } else {
         const response = await attendanceService.checkIn(orgId);
         if (response.error) {
-          alert('Failed to check in: ' + response.error);
+          showAlert('Error', 'Failed to check in: ' + response.error, 'error');
           return;
         }
         setIsCheckedIn(true);
@@ -89,7 +105,7 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
       }
     } catch (error) {
       console.error('Error toggling check-in:', error);
-      alert('Error toggling check-in');
+      showAlert('Error', 'Error toggling check-in', 'error');
     } finally {
       setLoading(false);
     }
@@ -178,6 +194,13 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
       >
         {loading ? 'Processing...' : isCheckedIn ? 'Check-out' : 'Check-in'}
       </button>
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </div>
   );
 };

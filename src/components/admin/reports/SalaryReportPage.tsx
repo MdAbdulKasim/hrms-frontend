@@ -6,6 +6,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 export interface SalaryRecord {
   id: string;
@@ -29,6 +30,15 @@ export default function SalaryReportPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [employeeMap, setEmployeeMap] = useState<{ [key: string]: string }>({});
+
+  // Alert State
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   // Selection states
   const [selectedRecords, setSelectedRecords] = useState<Set<number>>(new Set());
@@ -55,10 +65,10 @@ export default function SalaryReportPage() {
       const employees = Array.isArray(response.data) ? response.data : (response.data.data || []);
       const mapping: { [key: string]: string } = {};
       employees.forEach((emp: any) => {
-        const fullName = emp.fullName || 
-          `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 
-          emp.name || 
-          emp.email || 
+        const fullName = emp.fullName ||
+          `${emp.firstName || ''} ${emp.lastName || ''}`.trim() ||
+          emp.name ||
+          emp.email ||
           'Unknown';
         mapping[emp.id] = fullName;
       });
@@ -82,9 +92,9 @@ export default function SalaryReportPage() {
     try {
       const apiUrl = getApiUrl();
       const token = getAuthToken();
-      
+
       console.log('Fetching from:', `${apiUrl}/org/${organizationId}/salaries`);
-      
+
       // Fetch all sal.ary records - FIXED ENDPOINT
       const response = await axios.get(`${apiUrl}/org/${organizationId}/salaries`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -104,11 +114,11 @@ export default function SalaryReportPage() {
       });
 
       let data = response.data;
-      
+
       // Handle different response structures based on API documentation
       // Expected structure: { data: [...], total: number, page: number, limit: number, totalPages: number }
       let salaries = [];
-      
+
       if (data && typeof data === 'object') {
         if ('data' in data && Array.isArray(data.data)) {
           // Paginated response structure
@@ -130,7 +140,7 @@ export default function SalaryReportPage() {
 
       // Enrich with employee names
       const enrichedSalaries = salaries.map((salary: any) => {
-        const employeeName = salary.employeeName || 
+        const employeeName = salary.employeeName ||
           (salary.employee && (salary.employee.fullName || salary.employee.name || `${salary.employee.firstName || ''} ${salary.employee.lastName || ''}`.trim())) ||
           employeeMap[salary.employeeId] ||
           'Unknown';
@@ -138,7 +148,7 @@ export default function SalaryReportPage() {
         // Extract month and year from payPeriodStart or createdAt
         const dateSource = salary.payPeriodStart || salary.createdAt || new Date();
         const date = new Date(dateSource);
-        
+
         return {
           id: salary.id,
           employeeId: salary.employeeId,
@@ -158,14 +168,14 @@ export default function SalaryReportPage() {
       console.log('Enriched salaries sample:', enrichedSalaries[0]);
 
       setSalaryData(enrichedSalaries);
-      
+
       if (enrichedSalaries.length === 0) {
         console.warn('No salary records found');
       }
     } catch (err: any) {
       console.error('Error fetching salary data:', err);
       console.error('Error response:', err.response);
-      
+
       let errorMessage = "Failed to fetch salary report";
       if (err.response?.status === 404) {
         errorMessage = "Salary endpoint not found. Please check if the salary route is properly configured in your backend.";
@@ -174,7 +184,7 @@ export default function SalaryReportPage() {
       } else if (err.message) {
         errorMessage = err.message;
       }
-      
+
       setError(errorMessage);
       setSalaryData([]);
     } finally {
@@ -254,12 +264,12 @@ export default function SalaryReportPage() {
   });
 
   const handleExportPDF = () => {
-    const dataToExport = selectedRecords.size === 0 
-      ? filteredSalaries 
+    const dataToExport = selectedRecords.size === 0
+      ? filteredSalaries
       : Array.from(selectedRecords).map(index => filteredSalaries[index]);
 
     if (!dataToExport || dataToExport.length === 0) {
-      alert("No records to export");
+      showAlert("Info", "No records to export", "info");
       setShowExportDropdown(false);
       return;
     }
@@ -304,19 +314,19 @@ export default function SalaryReportPage() {
       doc.save(`salary-report-${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (err) {
       console.error('Error generating PDF:', err);
-      alert("Failed to generate PDF");
+      showAlert("Error", "Failed to generate PDF", "error");
     } finally {
       setShowExportDropdown(false);
     }
   };
 
   const handleExportExcel = () => {
-    const dataToExport = selectedRecords.size === 0 
-      ? filteredSalaries 
+    const dataToExport = selectedRecords.size === 0
+      ? filteredSalaries
       : Array.from(selectedRecords).map(index => filteredSalaries[index]);
 
     if (dataToExport.length === 0) {
-      alert("No records to export");
+      showAlert("Info", "No records to export", "info");
       setShowExportDropdown(false);
       return;
     }
@@ -346,7 +356,7 @@ export default function SalaryReportPage() {
     a.click();
     window.URL.revokeObjectURL(url);
 
-    alert(`Exported ${dataToExport.length} records to Excel (CSV format).`);
+    showAlert("Success", `Exported ${dataToExport.length} records to Excel (CSV format).`, "success");
     setShowExportDropdown(false);
   };
 
@@ -493,7 +503,7 @@ export default function SalaryReportPage() {
                   <Download className="w-4 h-4" />
                   Export
                 </button>
-                
+
                 {showExportDropdown && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
                     <button
@@ -518,8 +528,8 @@ export default function SalaryReportPage() {
         )}
 
         {showExportDropdown && (
-          <div 
-            className="fixed inset-0 z-0" 
+          <div
+            className="fixed inset-0 z-0"
             onClick={() => setShowExportDropdown(false)}
           />
         )}
@@ -587,11 +597,10 @@ export default function SalaryReportPage() {
                   </tr>
                 ) : (
                   filteredSalaries.map((salary, index) => (
-                    <tr 
-                      key={salary.id} 
-                      className={`hover:bg-gray-50 transition-colors ${
-                        selectedRecords.has(index) ? 'bg-blue-50' : ''
-                      }`}
+                    <tr
+                      key={salary.id}
+                      className={`hover:bg-gray-50 transition-colors ${selectedRecords.has(index) ? 'bg-blue-50' : ''
+                        }`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <input
@@ -642,6 +651,14 @@ export default function SalaryReportPage() {
           </div>
         )}
       </div>
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </div>
   );
 }

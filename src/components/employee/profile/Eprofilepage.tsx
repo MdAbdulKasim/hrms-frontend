@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Card } from "@/components/ui/card"
 import { ChevronLeft, Edit, Upload, User, Plus, Trash2 } from "lucide-react"
 import { getApiUrl, getAuthToken, getOrgId, getEmployeeId } from "@/lib/auth"
-import { useRouter } from "next/navigation"
+import { CustomAlertDialog } from "@/components/ui/custom-dialogs"
 
 interface FormData {
   // Personal Details
@@ -130,7 +130,22 @@ const initialFormData: FormData = {
 }
 
 export default function EmployeeProfileForm() {
-  const router = useRouter()
+  const [alertState, setAlertState] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    variant: 'info'
+  });
+
+  const showAlert = (title: string, description: string, variant: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setAlertState({ open: true, title, description, variant });
+  };
+
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState<FormData>(initialFormData)
   const [currentExperience, setCurrentExperience] = useState({
@@ -276,11 +291,11 @@ export default function EmployeeProfileForm() {
           url: error.config?.url
         })
         if (error.response?.status === 404) {
-          alert("Employee profile not found. Please contact your administrator.")
+          showAlert("Error", "Employee profile not found. Please contact your administrator.", "error")
         } else if (error.response?.status === 403) {
-          alert("You don't have permission to access this profile.")
+          showAlert("Permission Denied", "You don't have permission to access this profile.", "error")
         } else {
-          alert("Failed to load profile. Please try again.")
+          showAlert("Error", "Failed to load profile. Please try again.", "error")
         }
       }
     }
@@ -552,10 +567,10 @@ export default function EmployeeProfileForm() {
         setSelectedProfilePicFile(null)
       }
 
-      alert("Profile updated successfully!")
+      showAlert("Success", "Profile updated successfully!", "success")
     } catch (error: any) {
       console.error("Failed to save profile:", error)
-      alert(error.response?.data?.error || "Failed to save profile. Please try again.")
+      showAlert("Error", error.response?.data?.error || "Failed to save profile. Please try again.", "error")
     }
   }
 
@@ -1493,6 +1508,13 @@ export default function EmployeeProfileForm() {
           </div>
         )}
       </div>
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </div>
   )
 }

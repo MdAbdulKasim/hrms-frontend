@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog"
 import projectService from "@/lib/projectService"
 import { getOrgId } from "@/lib/auth"
+import { CustomAlertDialog } from "@/components/ui/custom-dialogs"
 
 interface TimeEntryDialogProps {
   open: boolean
@@ -52,6 +53,21 @@ export default function TimeEntryDialog({
   const [showProjectDropdown, setShowProjectDropdown] = useState(false)
   const [showTaskDropdown, setShowTaskDropdown] = useState(false)
   const [showStatusDropdown, setShowStatusDropdown] = useState(false)
+  const [alertState, setAlertState] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    variant: 'info'
+  });
+
+  const showAlert = (title: string, description: string, variant: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   const projectDropdownRef = useRef<HTMLDivElement>(null)
   const taskDropdownRef = useRef<HTMLDivElement>(null)
@@ -114,7 +130,7 @@ export default function TimeEntryDialog({
       setCreatingProject(true);
       const orgId = getOrgId();
       if (!orgId) {
-        alert('Organization not found');
+        showAlert('Error', 'Organization not found', 'error');
         return;
       }
 
@@ -124,7 +140,7 @@ export default function TimeEntryDialog({
       });
 
       if (response.error) {
-        alert(response.error);
+        showAlert('Error', response.error, 'error');
         return;
       }
 
@@ -135,7 +151,7 @@ export default function TimeEntryDialog({
       setShowProjectDropdown(false);
     } catch (error) {
       console.error('Error creating project:', error);
-      alert('Failed to create project');
+      showAlert('Error', 'Failed to create project', 'error');
     } finally {
       setCreatingProject(false);
     }
@@ -408,17 +424,23 @@ export default function TimeEntryDialog({
             <button
               onClick={handleSubmit}
               disabled={!project || !task || !date || !hours}
-              className={`flex-1 px-4 py-2.5 rounded-lg text-white ${
-                !project || !task || !date || !hours
+              className={`flex-1 px-4 py-2.5 rounded-lg text-white ${!project || !task || !date || !hours
                   ? "bg-blue-400"
                   : "bg-blue-600 hover:bg-blue-700"
-              }`}
+                }`}
             >
               Add Entry
             </button>
           </div>
         </div>
       </DialogContent>
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </Dialog>
   )
 }

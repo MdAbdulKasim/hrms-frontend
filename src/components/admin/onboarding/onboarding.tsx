@@ -7,6 +7,7 @@ import AddCandidateForm from './AddCandidateForm';
 import BulkImport from './BulkImport';
 import ViewCandidate from './ViewCandidate';
 import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
+import { ConfirmDialog, CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 const EmployeeOnboardingSystem: React.FC = () => {
   const [currentView, setCurrentView] = useState<OnboardingView>('list');
@@ -57,6 +58,18 @@ const EmployeeOnboardingSystem: React.FC = () => {
     insuranceType: '',
     insurancePercentage: ''
   });
+
+  // Dialog States
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+  const [confirmState, setConfirmState] = useState<{ open: boolean, title: string, description: string, onConfirm: () => void, variant: "default" | "destructive" | "blue" }>({
+    open: false, title: "", description: "", onConfirm: () => { }, variant: "destructive"
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   useEffect(() => {
     const orgId = getOrgId();
@@ -144,7 +157,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
     const mailtoLink = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.location.href = mailtoLink;
 
-    alert(`Onboarding invitation sent to ${email}`);
+    showAlert("Success", `Onboarding invitation sent to ${email}`, "success");
   };
 
   const handleAddCandidate = async () => {
@@ -170,7 +183,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
       .map(([, label]) => label);
 
     if (missingFields.length > 0) {
-      alert(`Please complete the following required fields: \n- ${missingFields.join('\n- ')}`);
+      showAlert("Missing Information", `Please complete the following required fields: \n- ${missingFields.join('\n- ')}`, "warning");
       return;
     }
 
@@ -179,7 +192,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
     const apiUrl = getApiUrl();
 
     if (!orgId || !token) {
-      alert("Authentication error. Please log in again.");
+      showAlert("Authentication Error", "Authentication error. Please log in again.", "error");
       return;
     }
 
@@ -225,7 +238,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
       );
 
       if (response.status === 200 || response.status === 201) {
-        alert("Employee onboarded successfully! An invitation email has been sent.");
+        showAlert("Success", "Employee onboarded successfully! An invitation email has been sent.", "success");
 
         // Refresh employee list
         fetchEmployees();
@@ -265,7 +278,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
       }
 
       const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || "Unknown error";
-      alert(`Failed to onboard employee: ${errorMessage}`);
+      showAlert("Error", `Failed to onboard employee: ${errorMessage}`, "error");
     } finally {
       setIsLoading(false);
     }
@@ -313,7 +326,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
       setCurrentView('addCandidate');
     } catch (err: any) {
       console.error(err);
-      alert(`Failed to fetch employee details: ${err.message}`);
+      showAlert("Error", `Failed to fetch employee details: ${err.message}`, "error");
     } finally {
       setIsLoading(false);
     }
@@ -325,7 +338,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
     const apiUrl = getApiUrl();
 
     if (!orgId || !token || !editingEmployeeId) {
-      alert("Authentication or operation error. Please try again.");
+      showAlert("Error", "Authentication or operation error. Please try again.", "error");
       return;
     }
 
@@ -363,7 +376,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
         }
       );
 
-      alert("Employee details updated successfully!");
+      showAlert("Success", "Employee details updated successfully!", "success");
       fetchEmployees();
       setCandidateForm({
         fullName: '',
@@ -391,7 +404,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
     } catch (error: any) {
       console.error('Update ERROR:', error);
       const errorMessage = error.response?.data?.message || error.message || "Unknown error";
-      alert(`Failed to update employee: ${errorMessage}`);
+      showAlert("Error", `Failed to update employee: ${errorMessage}`, "error");
     } finally {
       setIsLoading(false);
     }
@@ -453,26 +466,26 @@ const EmployeeOnboardingSystem: React.FC = () => {
       setCurrentView('viewCandidate');
     } catch (err) {
       console.error(err);
-      alert("Failed to fetch employee details");
+      showAlert("Error", "Failed to fetch employee details", "error");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDeleteEmployee = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this employee? This action cannot be undone.")) return;
-
+  const executeDeleteEmployee = async (id: string) => {
     const orgId = getOrgId();
     const token = getAuthToken();
     const apiUrl = getApiUrl();
     if (!orgId || !token) return;
 
     setIsLoading(true);
+    setConfirmState(prev => ({ ...prev, open: false })); // Close dialog
+
     try {
       await axios.delete(`${apiUrl}/org/${orgId}/employees/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert("Employee deleted successfully");
+      showAlert("Success", "Employee deleted successfully", "success");
       fetchEmployees();
       // If deleted item was selected, remove it
       if (selectedIds.includes(id)) {
@@ -480,23 +493,31 @@ const EmployeeOnboardingSystem: React.FC = () => {
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to delete employee");
+      showAlert("Error", "Failed to delete employee", "error");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleBulkDelete = async () => {
-    if (!confirm(`Are you sure you want to delete ${selectedIds.length} employees? This action cannot be undone.`)) return;
+  const handleDeleteEmployee = (id: string) => {
+    setConfirmState({
+      open: true,
+      title: "Delete Employee?",
+      description: "Are you sure you want to delete this employee? This action cannot be undone.",
+      variant: "destructive",
+      onConfirm: () => executeDeleteEmployee(id)
+    });
+  };
 
+  const executeBulkDelete = async () => {
     const orgId = getOrgId();
     const token = getAuthToken();
     const apiUrl = getApiUrl();
     if (!orgId || !token) return;
 
     setIsLoading(true);
-    // Execute multiple deletes
-    // Ideally backend should support bulk delete, but looping for now
+    setConfirmState(prev => ({ ...prev, open: false })); // Close dialog
+
     let successCount = 0;
     try {
       await Promise.all(selectedIds.map(id =>
@@ -505,16 +526,26 @@ const EmployeeOnboardingSystem: React.FC = () => {
         }).then(() => { successCount++; })
       ));
 
-      alert(`Successfully deleted ${successCount} employees.`);
+      showAlert("Success", `Successfully deleted ${successCount} employees.`, "success");
       fetchEmployees();
       setSelectedIds([]);
     } catch (err) {
       console.error(err);
-      alert(`Some deletions failed. Deleted ${successCount} out of ${selectedIds.length}.`);
+      showAlert("Warning", `Some deletions failed. Deleted ${successCount} out of ${selectedIds.length}.`, "warning");
       fetchEmployees(); // Refresh likely partial state
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleBulkDelete = () => {
+    setConfirmState({
+      open: true,
+      title: "Delete Employees?",
+      description: `Are you sure you want to delete ${selectedIds.length} employees? This action cannot be undone.`,
+      variant: "destructive",
+      onConfirm: () => executeBulkDelete()
+    });
   };
 
   const handleDownloadTemplate = (format: 'csv' | 'excel') => {
@@ -557,20 +588,20 @@ const EmployeeOnboardingSystem: React.FC = () => {
       const validTypes = ['text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
       if (validTypes.includes(file.type) || file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
         setUploadedFile(file);
-        alert(`File "${file.name}" uploaded successfully!`);
+        showAlert("Success", `File "${file.name}" uploaded successfully!`, "success");
       } else {
-        alert('Please upload a valid CSV or Excel file.');
+        showAlert("Invalid File", 'Please upload a valid CSV or Excel file.', "error");
       }
     }
   };
 
   const handleImportEmployees = () => {
     if (!uploadedFile) {
-      alert('Please upload a file first.');
+      showAlert("Warning", 'Please upload a file first.', "warning");
       return;
     }
 
-    alert(`Processing ${uploadedFile.name}...\n\nEmployees will be imported and ${importType === 'new' ? 'onboarding invitations will be sent' : 'existing records will be updated'}.`);
+    showAlert("Processing", `Processing ${uploadedFile.name}...\n\nEmployees will be imported and ${importType === 'new' ? 'onboarding invitations will be sent' : 'existing records will be updated'}.`, "info");
 
     setUploadedFile(null);
     setCurrentView('list');
@@ -578,7 +609,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
   const handleExportCSV = () => {
     if (employees.length === 0) {
-      alert("No data to export");
+      showAlert("Info", "No data to export", "info");
       return;
     }
 
@@ -694,6 +725,26 @@ const EmployeeOnboardingSystem: React.FC = () => {
           onCancel={() => setCurrentView('list')}
         />
       )}
+
+
+      {/* Global Dialogs */}
+      <ConfirmDialog
+        open={confirmState.open}
+        onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
+        title={confirmState.title}
+        description={confirmState.description}
+        onConfirm={confirmState.onConfirm}
+        variant={confirmState.variant}
+        confirmText="Delete" // Assuming mainly used for deletion. If generic, use state prop.
+      />
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </>
   );
 };

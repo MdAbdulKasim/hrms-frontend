@@ -12,6 +12,7 @@ import {
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 import projectService from '@/lib/projectService';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 import TimeEntryDialog from "./dialog"
 
@@ -137,7 +138,22 @@ export default function TimeTrackingPage() {
   const [timerTask, setTimerTask] = useState("")
   const [timerDescription, setTimerDescription] = useState("")
   const [timerStatus, setTimerStatus] = useState<string>("Pending")
-  
+  const [alertState, setAlertState] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    variant: 'info'
+  });
+
+  const showAlert = (title: string, description: string, variant: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setAlertState({ open: true, title, description, variant });
+  };
+
   const [activeFilter, setActiveFilter] = useState<"All" | "Today" | "Weekly" | "Monthly" | "Yearly">("All")
 
   const [entries, setEntries] = useState<TimeEntry[]>([])
@@ -209,7 +225,7 @@ export default function TimeTrackingPage() {
           } else if (typeof entry.project === 'string') {
             projectName = entry.project;
           }
-          
+
           return {
             project: projectName,
             task: entry.taskName || entry.task || 'General Task',
@@ -239,7 +255,7 @@ export default function TimeTrackingPage() {
 
   const filteredEntries = entries.filter((entry) => {
     if (activeFilter === "All") return true
-    
+
     const entryDate = new Date(entry.date)
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -275,7 +291,7 @@ export default function TimeTrackingPage() {
       const apiUrl = getApiUrl();
 
       if (!token || !orgId || !timerProject || !timerTask) {
-        alert('Please select project and task');
+        showAlert('Error', 'Please select project and task', 'warning');
         return;
       }
 
@@ -296,7 +312,7 @@ export default function TimeTrackingPage() {
         });
 
         if (createResponse.error) {
-          alert(`Failed to create project: ${createResponse.error}`);
+          showAlert('Error', `Failed to create project: ${createResponse.error}`, 'error');
           return;
         }
 
@@ -321,7 +337,7 @@ export default function TimeTrackingPage() {
       }
     } catch (error) {
       console.error('Error starting timer:', error);
-      alert('Failed to start timer');
+      showAlert('Error', 'Failed to start timer', 'error');
     }
   };
 
@@ -361,7 +377,7 @@ export default function TimeTrackingPage() {
       }
     } catch (error) {
       console.error('Error stopping timer:', error);
-      alert('Failed to stop timer');
+      showAlert('Error', 'Failed to stop timer', 'error');
     }
   };
 
@@ -396,7 +412,7 @@ export default function TimeTrackingPage() {
         });
 
         if (createResponse.error) {
-          alert(`Failed to create project: ${createResponse.error}`);
+          showAlert('Error', `Failed to create project: ${createResponse.error}`, 'error');
           return;
         }
 
@@ -431,7 +447,7 @@ export default function TimeTrackingPage() {
       }
     } catch (error) {
       console.error('Error adding manual entry:', error);
-      alert('Failed to add time entry');
+      showAlert('Error', 'Failed to add time entry', 'error');
     }
   };
 
@@ -440,7 +456,7 @@ export default function TimeTrackingPage() {
 
   const handleCreateTimerProject = async () => {
     if (!newTimerProjectInput.trim()) return;
-    
+
     // Check if project name already exists
     const projectExists = projects.some(p => p.name === newTimerProjectInput.trim() || p === newTimerProjectInput.trim());
     if (projectExists) {
@@ -454,7 +470,7 @@ export default function TimeTrackingPage() {
       setCreatingProject(true);
       const orgId = getOrgId();
       if (!orgId) {
-        alert('Organization not found');
+        showAlert('Error', 'Organization not found', 'error');
         return;
       }
 
@@ -464,7 +480,7 @@ export default function TimeTrackingPage() {
       });
 
       if (response.error) {
-        alert(response.error);
+        showAlert('Error', response.error, 'error');
         return;
       }
 
@@ -477,7 +493,7 @@ export default function TimeTrackingPage() {
       }
     } catch (error) {
       console.error('Error creating project:', error);
-      alert('Failed to create project');
+      showAlert('Error', 'Failed to create project', 'error');
     } finally {
       setCreatingProject(false);
     }
@@ -520,7 +536,7 @@ export default function TimeTrackingPage() {
         <div className="max-w-7xl mx-auto">
           {/* Header omitted for brevity - continues with full implementation */}
           {/* Full implementation available in the complete file */}
-          
+
           <TimeEntryDialog
             open={isDialogOpen}
             onOpenChange={setIsDialogOpen}
@@ -539,6 +555,13 @@ export default function TimeTrackingPage() {
             onConfirm={handleConfirmStop}
             currentStatus={timerStatus}
             statuses={statuses}
+          />
+          <CustomAlertDialog
+            open={alertState.open}
+            onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+            title={alertState.title}
+            description={alertState.description}
+            variant={alertState.variant}
           />
         </div>
       )}

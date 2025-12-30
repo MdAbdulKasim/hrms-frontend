@@ -21,6 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 interface LeaveType {
   id: string;
@@ -67,6 +68,15 @@ const LeaveTracker = () => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [selectedLeaveRequest, setSelectedLeaveRequest] = useState<LeaveRequest | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'reject'>('approve');
+
+  // Alert State
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   // Loading state
   const [loading, setLoading] = useState(false);
@@ -399,7 +409,7 @@ const LeaveTracker = () => {
       }
     } catch (error: any) {
       console.error('Error applying for leave:', error);
-      alert(error.response?.data?.error || 'Failed to apply for leave. Please try again.');
+      showAlert('Error', error.response?.data?.error || 'Failed to apply for leave. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -434,7 +444,7 @@ const LeaveTracker = () => {
       }
     } catch (error: any) {
       console.error('Error updating leave status:', error);
-      alert(error.response?.data?.error || 'Failed to update leave status. Please try again.');
+      showAlert('Error', error.response?.data?.error || 'Failed to update leave status. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -464,11 +474,11 @@ const LeaveTracker = () => {
       if (response.status === 200) {
         await fetchLeaveTypes();
         setIsConfigDialogOpen(false);
-        alert('Leave configuration updated successfully');
+        showAlert('Success', 'Leave configuration updated successfully', 'success');
       }
     } catch (error: any) {
       console.error('Error updating leave config:', error);
-      alert(error.response?.data?.error || 'Failed to update leave configuration. Please try again.');
+      showAlert('Error', error.response?.data?.error || 'Failed to update leave configuration. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -935,6 +945,14 @@ const LeaveTracker = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </div>
   );
 };

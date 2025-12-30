@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, X, Plus } from 'lucide-react';
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId, getCookie } from '@/lib/auth';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 interface Holiday {
   id: string;
@@ -15,6 +16,15 @@ const UpcomingHolidaysSection: React.FC = () => {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [loading, setLoading] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+
+  // Alert State
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   useEffect(() => {
     setUserRole(getCookie('role'));
@@ -80,7 +90,7 @@ const UpcomingHolidaysSection: React.FC = () => {
         const orgId = getOrgId();
 
         if (!orgId) {
-          alert('Organization not found');
+          showAlert("Error", "Organization not found", "error");
           return;
         }
 
@@ -114,7 +124,7 @@ const UpcomingHolidaysSection: React.FC = () => {
         }
       } catch (error) {
         console.error('Error creating holiday:', error);
-        alert('Failed to add holiday. Please try again.');
+        showAlert("Error", "Failed to add holiday. Please try again.", "error");
       } finally {
         setLoading(false);
       }
@@ -223,6 +233,14 @@ const UpcomingHolidaysSection: React.FC = () => {
           </div>
         </div>
       )}
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </>
   );
 };

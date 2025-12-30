@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Card } from "@/components/ui/card"
 import { ChevronLeft, Edit, Upload, User, Plus, Trash2 } from "lucide-react"
 import { getApiUrl, getAuthToken, getOrgId, getEmployeeId } from "@/lib/auth"
-import ChangePassword from "./ChangePassword"
+import { CustomAlertDialog } from "@/components/ui/custom-dialogs"
 
 interface FormData {
   // Personal Details
@@ -115,13 +115,30 @@ export default function EmployeeProfileForm() {
   const [isEditing, setIsEditing] = useState(false)
   const [showPasswordChange, setShowPasswordChange] = useState(false)
   const [formData, setFormData] = useState<FormData>(initialFormData)
-  const [expandedSections, setExpandedSections] = useState({
-    personal: true,
-    identity: true,
-    workExperience: true,
-    contact: true,
-    education: true,
+  const [currentExperience, setCurrentExperience] = useState({
+    companyName: "",
+    jobTitle: "",
+    fromDate: "",
+    toDate: "",
+    currentlyWorkHere: false,
+    jobDescription: "",
   })
+  const [currentEducation, setCurrentEducation] = useState({
+    instituteName: "",
+    degree: "",
+    fieldOfStudy: "",
+    startYear: "",
+    endYear: "",
+  })
+
+  // Alert State
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   // Profile Picture State
   const [selectedProfilePicFile, setSelectedProfilePicFile] = useState<File | null>(null)
@@ -448,10 +465,10 @@ export default function EmployeeProfileForm() {
         setSelectedProfilePicFile(null)
       }
 
-      alert("Profile updated successfully!")
+      showAlert("Success", "Profile updated successfully!", "success")
     } catch (error: any) {
       console.error("Failed to save profile:", error)
-      alert(error.response?.data?.error || "Failed to save profile. Please try again.")
+      showAlert("Error", error.response?.data?.error || "Failed to save profile. Please try again.", "error")
     }
   }
 
@@ -1187,6 +1204,14 @@ export default function EmployeeProfileForm() {
           </Button>
         </div>
       </div>
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </div>
   )
 }

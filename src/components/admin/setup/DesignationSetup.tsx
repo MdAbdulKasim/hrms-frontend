@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { Designation } from './types';
 import { getApiUrl, getAuthToken, getOrgId, getLocationId, getDepartmentId } from '@/lib/auth';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 interface DesignationsStepProps {
   designations: Designation[];
@@ -36,6 +37,15 @@ export default function DesignationsStep({
     departmentId: '',
   });
 
+  // Alert State
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
+
   const handleSaveDesignation = async () => {
     // Basic Validation
     if (!currentDesignation.name) return;
@@ -46,7 +56,7 @@ export default function DesignationsStep({
       // Get Token using auth utilities
       const token = getAuthToken();
       if (!token) {
-        alert('Authentication token not found. Please log in.');
+        showAlert('Error', 'Authentication token not found. Please log in.', 'error');
         setIsLoading(false);
         return;
       }
@@ -57,19 +67,19 @@ export default function DesignationsStep({
       const activeDepartmentId = departmentId || getDepartmentId();
 
       if (!activeOrgId) {
-        alert('Organization ID is missing.');
+        showAlert('Error', 'Organization ID is missing.', 'error');
         setIsLoading(false);
         return;
       }
 
       if (!activeLocationId) {
-        alert('Location ID is missing.');
+        showAlert('Error', 'Location ID is missing.', 'error');
         setIsLoading(false);
         return;
       }
 
       if (!activeDepartmentId) {
-        alert('Department ID is missing. Please ensure a department is created first.');
+        showAlert('Error', 'Department ID is missing. Please ensure a department is created first.', 'error');
         setIsLoading(false);
         return;
       }
@@ -128,13 +138,13 @@ export default function DesignationsStep({
         if (error.message === 'Network Error') {
           const activeOrgId = orgId || getOrgId();
           const apiUrl = `${getApiUrl()}/org/${activeOrgId}/designations`;
-          alert(`Network Error: Unable to connect to server at ${apiUrl}. Please ensure the backend is running and accessible.`);
+          showAlert('Network Error', `Unable to connect to server at ${apiUrl}. Please ensure the backend is running and accessible.`, 'error');
         } else {
-          alert(`Failed to save designation: ${error.response?.data?.message || error.message}`);
+          showAlert('Error', `Failed to save designation: ${error.response?.data?.message || error.message}`, 'error');
         }
       } else {
         console.error('Unexpected error:', error);
-        alert('An unexpected error occurred.');
+        showAlert('Error', 'An unexpected error occurred.', 'error');
       }
     } finally {
       setIsLoading(false);
@@ -178,29 +188,29 @@ export default function DesignationsStep({
               placeholder="Brief description of the role..."
             />
           </div>
-        </div>
-        <div className="flex flex-col md:flex-row gap-3 mt-8">
-          <button
-            onClick={handleSaveDesignation}
-            disabled={!currentDesignation.name || isLoading}
-            className={`w-full md:w-auto px-6 py-2.5 rounded-md text-white font-medium transition-colors ${(!currentDesignation.name || isLoading)
-              ? 'bg-blue-300 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
-              }`}
-          >
-            {isLoading ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                Saving...
-              </span>
-            ) : 'Submit and New'}
-          </button>
-          <button
-            onClick={() => setShowDesignationForm(false)}
-            className="w-full md:w-auto px-6 py-2.5 border border-gray-300 rounded-md hover:bg-gray-50 text-gray-700 font-medium transition-colors"
-          >
-            Cancel
-          </button>
+          <div className="flex flex-col md:flex-row gap-3 mt-8">
+            <button
+              onClick={handleSaveDesignation}
+              disabled={!currentDesignation.name || isLoading}
+              className={`w-full md:w-auto px-6 py-2.5 rounded-md text-white font-medium transition-colors ${(!currentDesignation.name || isLoading)
+                ? 'bg-blue-300 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
+                }`}
+            >
+              {isLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  Saving...
+                </span>
+              ) : 'Submit and New'}
+            </button>
+            <button
+              onClick={() => setShowDesignationForm(false)}
+              className="w-full md:w-auto px-6 py-2.5 border border-gray-300 rounded-md hover:bg-gray-50 text-gray-700 font-medium transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -281,6 +291,14 @@ export default function DesignationsStep({
           Complete Setup
         </button>
       </div>
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </div>
   );
 }

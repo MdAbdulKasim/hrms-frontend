@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Plus, X, Megaphone } from 'lucide-react';
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 interface Event {
   id: string;
@@ -19,6 +20,15 @@ const Calendar: React.FC = () => {
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [showSelectionModal, setShowSelectionModal] = useState(false);
   const [selectedDateForCreate, setSelectedDateForCreate] = useState<string>('');
+
+  // Alert State
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   const [holidayForm, setHolidayForm] = useState({
     holidayName: '',
@@ -117,7 +127,7 @@ const Calendar: React.FC = () => {
         const orgId = getOrgId();
 
         if (!orgId) {
-          alert('Organization not found');
+          showAlert("Error", "Organization not found", "error");
           return;
         }
 
@@ -139,7 +149,7 @@ const Calendar: React.FC = () => {
         }
       } catch (error) {
         console.error('Error creating holiday:', error);
-        alert('Failed to add holiday. Please try again.');
+        showAlert("Error", "Failed to add holiday. Please try again.", "error");
       } finally {
         setLoading(false);
       }
@@ -155,7 +165,7 @@ const Calendar: React.FC = () => {
         const orgId = getOrgId();
 
         if (!orgId) {
-          alert('Organization not found');
+          showAlert("Error", "Organization not found", "error");
           return;
         }
 
@@ -190,7 +200,7 @@ const Calendar: React.FC = () => {
         }
       } catch (error) {
         console.error('Error creating announcement:', error);
-        alert('Failed to create announcement. Please try again.');
+        showAlert("Error", "Failed to create announcement. Please try again.", "error");
       } finally {
         setLoading(false);
       }
@@ -663,6 +673,13 @@ const Calendar: React.FC = () => {
           </div>
         </div>
       )}
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </div>
   );
 };

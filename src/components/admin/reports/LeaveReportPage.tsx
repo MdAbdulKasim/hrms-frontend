@@ -6,6 +6,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 export interface LeaveRecord {
   id: string;
@@ -28,6 +29,15 @@ export default function LeaveReportPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [employeeMap, setEmployeeMap] = useState<{ [key: string]: string }>({});
+
+  // Alert State
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   // Selection states
   const [selectedRecords, setSelectedRecords] = useState<Set<number>>(new Set());
@@ -53,10 +63,10 @@ export default function LeaveReportPage() {
       const employees = Array.isArray(response.data) ? response.data : (response.data.data || []);
       const mapping: { [key: string]: string } = {};
       employees.forEach((emp: any) => {
-        const fullName = emp.fullName || 
-          `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 
-          emp.name || 
-          emp.email || 
+        const fullName = emp.fullName ||
+          `${emp.firstName || ''} ${emp.lastName || ''}`.trim() ||
+          emp.name ||
+          emp.email ||
           'Unknown';
         mapping[emp.id] = fullName;
       });
@@ -95,7 +105,7 @@ export default function LeaveReportPage() {
     try {
       const apiUrl = getApiUrl();
       const token = getAuthToken();
-      
+
       // Use the same endpoint as LeaveTracker
       const response = await axios.get(`${apiUrl}/org/${organizationId}/leaves/admin/all`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -105,7 +115,7 @@ export default function LeaveReportPage() {
 
       // Handle different response structures
       let data = response.data;
-      
+
       // If response has a data property, use that
       if (data && typeof data === 'object' && 'data' in data) {
         data = data.data;
@@ -119,7 +129,7 @@ export default function LeaveReportPage() {
       // Transform and enrich the data
       const enrichedLeaves = leaves.map((leave: any) => {
         const employeeId = leave.employeeId || leave.employee?.id;
-        const employeeName = leave.employeeName || 
+        const employeeName = leave.employeeName ||
           (leave.employee && (leave.employee.fullName || leave.employee.name || `${leave.employee.firstName || ''} ${leave.employee.lastName || ''}`.trim())) ||
           employeeMap[employeeId] ||
           'Unknown';
@@ -141,7 +151,7 @@ export default function LeaveReportPage() {
       });
 
       setLeaveData(enrichedLeaves);
-      
+
       if (enrichedLeaves.length === 0) {
         console.warn('No leave records found after processing');
       }
@@ -220,12 +230,12 @@ export default function LeaveReportPage() {
   });
 
   const handleExportPDF = () => {
-    const dataToExport = selectedRecords.size === 0 
-      ? filteredLeaves 
+    const dataToExport = selectedRecords.size === 0
+      ? filteredLeaves
       : Array.from(selectedRecords).map(index => filteredLeaves[index]);
 
     if (!dataToExport || dataToExport.length === 0) {
-      alert("No records to export");
+      showAlert("Info", "No records to export", "info");
       setShowExportDropdown(false);
       return;
     }
@@ -270,19 +280,19 @@ export default function LeaveReportPage() {
       doc.save(`leave-report-${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (err) {
       console.error('Error generating PDF:', err);
-      alert("Failed to generate PDF");
+      showAlert("Error", "Failed to generate PDF", "error");
     } finally {
       setShowExportDropdown(false);
     }
   };
 
   const handleExportExcel = () => {
-    const dataToExport = selectedRecords.size === 0 
-      ? filteredLeaves 
+    const dataToExport = selectedRecords.size === 0
+      ? filteredLeaves
       : Array.from(selectedRecords).map(index => filteredLeaves[index]);
 
     if (dataToExport.length === 0) {
-      alert("No records to export");
+      showAlert("Info", "No records to export", "info");
       setShowExportDropdown(false);
       return;
     }
@@ -312,7 +322,7 @@ export default function LeaveReportPage() {
     a.click();
     window.URL.revokeObjectURL(url);
 
-    alert(`Exported ${dataToExport.length} records to Excel (CSV format).`);
+    showAlert("Success", `Exported ${dataToExport.length} records to Excel (CSV format).`, "success");
     setShowExportDropdown(false);
   };
 
@@ -444,7 +454,7 @@ export default function LeaveReportPage() {
                   <Download className="w-4 h-4" />
                   Export
                 </button>
-                
+
                 {showExportDropdown && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
                     <button
@@ -469,8 +479,8 @@ export default function LeaveReportPage() {
         )}
 
         {showExportDropdown && (
-          <div 
-            className="fixed inset-0 z-0" 
+          <div
+            className="fixed inset-0 z-0"
             onClick={() => setShowExportDropdown(false)}
           />
         )}
@@ -538,11 +548,10 @@ export default function LeaveReportPage() {
                   </tr>
                 ) : (
                   filteredLeaves.map((leave, index) => (
-                    <tr 
-                      key={leave.id} 
-                      className={`hover:bg-gray-50 transition-colors ${
-                        selectedRecords.has(index) ? 'bg-blue-50' : ''
-                      }`}
+                    <tr
+                      key={leave.id}
+                      className={`hover:bg-gray-50 transition-colors ${selectedRecords.has(index) ? 'bg-blue-50' : ''
+                        }`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <input
@@ -593,6 +602,14 @@ export default function LeaveReportPage() {
           </div>
         )}
       </div>
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </div>
   );
 }

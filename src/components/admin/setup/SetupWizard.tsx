@@ -8,6 +8,7 @@ import LocationsStep from '@/components/admin/setup/LocationStep';
 import DepartmentsStep from '@/components/admin/setup/DepartmentSetup';
 import DesignationsStep from '@/components/admin/setup/DesignationSetup';
 import { getOrgId, getLocationId, getDepartmentId, getApiUrl, getAuthToken, setCookie, checkSetupStatus, syncSetupState, getUserRole } from '@/lib/auth';
+import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 // Check if setup is completed using the centralized auth utility
 export const isSetupCompleted = (): boolean => {
@@ -49,6 +50,15 @@ export default function OrganizationSetupWizard({
   const [orgId, setOrgIdState] = useState<string | null>(null);
   const [locationId, setLocationId] = useState<string | null>(null);
   const [departmentId, setDepartmentId] = useState<string | null>(null);
+
+  // Alert State
+  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
+    open: false, title: "", description: "", variant: "info"
+  });
+
+  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
+    setAlertState({ open: true, title, description, variant });
+  };
 
   // Load existing IDs and restore progress from localStorage on mount
   // Also check backend to verify if setup is actually completed
@@ -92,7 +102,7 @@ export default function OrganizationSetupWizard({
         // If no orgId, setup is definitely not complete
         return;
       }
-      
+
       const apiUrl = getApiUrl();
       const headers = { Authorization: `Bearer ${token}` };
 
@@ -135,7 +145,7 @@ export default function OrganizationSetupWizard({
         // Check if organization details exist (orgId exists), location exists, department exists, and designation exists
         const orgDetailsComplete = !!storedOrgId && orgRes?.data?.data?.name; // Org has name/details
         const allStepsComplete = orgDetailsComplete && hasLocs && hasDepts && hasDesigs;
-        
+
         if (allStepsComplete) {
           console.log("SetupWizard: Found complete setup with all steps done. Redirecting to Overview...");
           // Mark setup as completed and redirect
@@ -231,7 +241,7 @@ export default function OrganizationSetupWizard({
 
       } catch (error) {
         console.error('Failed to save organization setup:', error);
-        alert('Failed to complete setup. Please try again.');
+        showAlert('Error', 'Failed to complete setup. Please try again.', 'error');
       }
     }
   };
@@ -366,7 +376,16 @@ export default function OrganizationSetupWizard({
             />
           </div>
         </div>
+
       </div>
+
+      <CustomAlertDialog
+        open={alertState.open}
+        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+        title={alertState.title}
+        description={alertState.description}
+        variant={alertState.variant}
+      />
     </div>
   );
 }
