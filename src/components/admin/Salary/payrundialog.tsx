@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react"
@@ -8,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { CalendarIcon, Loader2 } from "lucide-react"
-import { format } from "date-fns"
+import { format, startOfMonth, endOfMonth } from "date-fns"
 import { SalaryEmployee } from "./Mainpage"
 import { getApiUrl, getAuthToken, getOrgId } from "@/lib/auth"
 import { cn } from "@/lib/utils"
@@ -18,6 +17,28 @@ interface Props {
   employees: SalaryEmployee[]
   onClose: () => void
   onConfirm: (date: Date) => void
+}
+
+interface DeductionBreakdown {
+  homeDeduction: number
+  foodDeduction: number
+  travelDeduction: number
+  insuranceDeduction: number
+}
+
+interface SalaryRecordResponse {
+  id: string
+  employeeId: string
+  employeeName: string
+  organizationId: string
+  grossSalary: string
+  totalDeductions: string
+  netSalary: string
+  status: "unpaid" | "paid"
+  payPeriodStart: string
+  payPeriodEnd: string
+  paidDate: string | null
+  deductionBreakdown: DeductionBreakdown
 }
 
 export default function PayRunDialog({
@@ -37,6 +58,9 @@ export default function PayRunDialog({
   const handlePayment = async () => {
     if (!paidDate) return
 
+    setLoading(true)
+    setError(null)
+
     const orgId = getOrgId()
     const token = getAuthToken()
     const apiUrl = getApiUrl()
@@ -46,50 +70,108 @@ export default function PayRunDialog({
       return
     }
 
-    setLoading(true)
-    setError(null)
-
     try {
-      // Prepare payment data
-      const paymentData = {
-        employeeIds: employees.map(e => e.id),
-        paymentDate: paidDate.toISOString(),
-        payPeriod: format(paidDate, "MMMM yyyy"),
-        payments: employees.map(e => ({
-          employeeId: e.id,
-          employeeName: e.name,
-          department: e.department,
-          designation: e.designation,
-          grossSalary: e.salary,
-          deductions: e.salary * 0.1, // 10% deductions (adjust as needed)
-          netPay: e.salary * 0.9,
-          paymentMethod: "Bank Transfer",
-        }))
-      }
+      // Calculate pay period from selected date
+      const payPeriodStart = format(startOfMonth(paidDate), 'yyyy-MM-dd')
+      const payPeriodEnd = format(endOfMonth(paidDate), 'yyyy-MM-dd')
+      const paidDateStr = format(paidDate, 'yyyy-MM-dd')
 
-      // Make API call to process payment
-      const response = await axios.post(
-        `${apiUrl}/org/${orgId}/payroll/process`,
-        paymentData,
-        {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json"
-          },
-        }
+      console.log('Processing salary for period:', { payPeriodStart, payPeriodEnd })
+
+      // Step 1: Process salary for each selected employee
+      const processedSalaries = await Promise.all(
+        employees.map(async (emp) => {
+          try {
+            // POST /org/:organizationId/salaries/process
+            const processPayload = {
+              employeeId: emp.id,
+              payPeriodStart,
+              payPeriodEnd,
+            }
+
+            const processRes = await axios.post<SalaryRecordResponse>(
+              `${apiUrl}/org/${orgId}/salaries/process`,
+              processPayload,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+              }
+            )
+
+            const salaryRecord = processRes.data
+            console.log(`Processed salary for ${emp.name}:`, salaryRecord)
+
+            return { success: true, salaryRecord, employee: emp }
+          } catch (err: any) {
+            console.error(`Failed to process salary for ${emp.name}:`, err)
+            return {
+              success: false,
+              error: err.response?.data?.error || err.message,
+              employee: emp
+            }
+          }
+        })
       )
 
-      if (response.data.success) {
-        // Success - call parent callback
-        onConfirm(paidDate)
-      } else {
-        setError(response.data.message || "Payment processing failed")
+      // Step 2: Check for process failures
+      const failures = processedSalaries.filter(result => !result.success)
+
+      if (failures.length > 0) {
+        const failedNames = failures.map(f => f.employee.name).join(', ')
+        setError(`Failed to process salary for: ${failedNames}`)
+        return
       }
+
+      // Step 3: Mark all processed salaries as paid
+      // PATCH /org/:organizationId/salaries/:id/mark-paid
+      const markPaidResults = await Promise.all(
+        processedSalaries
+          .filter(result => result.success && result.salaryRecord)
+          .map(async (result) => {
+            try {
+              const salaryId = result.salaryRecord!.id
+              await axios.patch(
+                `${apiUrl}/org/${orgId}/salaries/${salaryId}/mark-paid`,
+                { paidDate: paidDateStr },
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                }
+              )
+              return { success: true, employee: result.employee }
+            } catch (err: any) {
+              console.error(`Failed to mark as paid for ${result.employee.name}:`, err)
+              return {
+                success: false,
+                error: err.response?.data?.error || err.message,
+                employee: result.employee
+              }
+            }
+          })
+      )
+
+      const markPaidFailures = markPaidResults.filter(result => !result.success)
+
+      if (markPaidFailures.length > 0) {
+        const failedNames = markPaidFailures.map(f => f.employee.name).join(', ')
+        setError(`Salary processed but failed to mark as paid for: ${failedNames}`)
+        return
+      }
+
+      // Success
+      console.log('All salaries processed and marked as paid successfully')
+      onConfirm(paidDate)
+
     } catch (err: any) {
       console.error("Payment processing error:", err)
       setError(
-        err.response?.data?.message || 
-        err.message || 
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
         "Failed to process payment. Please try again."
       )
     } finally {
@@ -222,4 +304,3 @@ export default function PayRunDialog({
     </Dialog>
   )
 }
-
