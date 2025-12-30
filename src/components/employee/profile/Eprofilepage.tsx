@@ -546,7 +546,7 @@ export default function EmployeeProfileForm() {
         <div className="mb-8">
           <button className="flex items-center text-blue-600 hover:text-blue-700 mb-4">
             <ChevronLeft className="w-4 h-4 mr-1" />
-            Back to steps
+            
           </button>
           <div className="flex justify-between items-start mb-6">
             <div>

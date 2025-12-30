@@ -6,10 +6,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { CalendarIcon, Loader2 } from "lucide-react"
+import { CalendarIcon, Loader2, AlertCircle, CheckCircle2 } from "lucide-react"
 import { format, startOfMonth, endOfMonth } from "date-fns"
 import { SalaryEmployee } from "./Mainpage"
-import { getApiUrl, getAuthToken, getOrgId } from "@/lib/auth"
+import { getApiUrl, getOrgId, getAuthToken } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 
 interface Props {
@@ -17,28 +17,6 @@ interface Props {
   employees: SalaryEmployee[]
   onClose: () => void
   onConfirm: (date: Date) => void
-}
-
-interface DeductionBreakdown {
-  homeDeduction: number
-  foodDeduction: number
-  travelDeduction: number
-  insuranceDeduction: number
-}
-
-interface SalaryRecordResponse {
-  id: string
-  employeeId: string
-  employeeName: string
-  organizationId: string
-  grossSalary: string
-  totalDeductions: string
-  netSalary: string
-  status: "unpaid" | "paid"
-  payPeriodStart: string
-  payPeriodEnd: string
-  paidDate: string | null
-  deductionBreakdown: DeductionBreakdown
 }
 
 export default function PayRunDialog({
@@ -49,145 +27,134 @@ export default function PayRunDialog({
 }: Props) {
   const [paidDate, setPaidDate] = useState<Date | undefined>(new Date())
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [errorDetails, setErrorDetails] = useState<string[] | null>(null)
 
   const totalAmount = employees.reduce((sum, e) => sum + e.salary, 0)
 
   /* ================= PROCESS PAYMENT ================= */
 
+  /**
+   * Two-step payment process:
+   * 1. POST /salaries/process - Creates salary record (status: unpaid)
+   * 2. PATCH /salaries/:id/mark-paid - Changes status to paid
+   */
   const handlePayment = async () => {
     if (!paidDate) return
 
-    setLoading(true)
-    setError(null)
-
     const orgId = getOrgId()
-    const token = getAuthToken()
     const apiUrl = getApiUrl()
+    const token = getAuthToken()
 
     if (!orgId || !token) {
-      setError("Authentication required")
+      setErrorDetails([
+        "Authentication required. Please log in again."
+      ])
       return
     }
 
-    try {
-      // Calculate pay period from selected date
-      const payPeriodStart = format(startOfMonth(paidDate), 'yyyy-MM-dd')
-      const payPeriodEnd = format(endOfMonth(paidDate), 'yyyy-MM-dd')
-      const paidDateStr = format(paidDate, 'yyyy-MM-dd')
+    setLoading(true)
+    setErrorDetails(null)
 
-      console.log('Processing salary for period:', { payPeriodStart, payPeriodEnd })
+    const payPeriodStart = format(startOfMonth(paidDate), "yyyy-MM-dd")
+    const payPeriodEnd = format(endOfMonth(paidDate), "yyyy-MM-dd")
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    }
 
-      // Step 1: Process salary for each selected employee
-      const processedSalaries = await Promise.all(
-        employees.map(async (emp) => {
-          try {
-            // POST /org/:organizationId/salaries/process
-            const processPayload = {
-              employeeId: emp.id,
-              payPeriodStart,
-              payPeriodEnd,
-            }
+    const failedEmployees: { name: string; error: string }[] = []
+    const successCount = { value: 0 }
 
-            const processRes = await axios.post<SalaryRecordResponse>(
-              `${apiUrl}/org/${orgId}/salaries/process`,
-              processPayload,
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                },
-              }
-            )
+    // Process each employee sequentially to handle the 2-step flow
+    for (const employee of employees) {
+      try {
+        console.log(`Step 1: Processing salary for ${employee.name}...`)
 
-            const salaryRecord = processRes.data
-            console.log(`Processed salary for ${emp.name}:`, salaryRecord)
+        // Step 1: Create salary record (this uses employee's salary from database)
+        const processPayload = {
+          employeeId: employee.id,
+          payPeriodStart: payPeriodStart,
+          payPeriodEnd: payPeriodEnd,
+        }
 
-            return { success: true, salaryRecord, employee: emp }
-          } catch (err: any) {
-            console.error(`Failed to process salary for ${emp.name}:`, err)
-            return {
-              success: false,
-              error: err.response?.data?.error || err.message,
-              employee: emp
-            }
-          }
+        const processResponse = await axios.post(
+          `${apiUrl}/org/${orgId}/salaries/process`,
+          processPayload,
+          { headers }
+        )
+
+        const salaryRecordId = processResponse.data?.id || processResponse.data?._id
+        console.log(`Salary record created with ID: ${salaryRecordId}`)
+
+        if (!salaryRecordId) {
+          throw new Error("No salary record ID returned from server")
+        }
+
+        // Step 2: Mark as paid
+        console.log(`Step 2: Marking salary ${salaryRecordId} as paid...`)
+
+        await axios.patch(
+          `${apiUrl}/org/${orgId}/salaries/${salaryRecordId}/mark-paid`,
+          { paidDate: format(paidDate, "yyyy-MM-dd") },
+          { headers }
+        )
+
+        console.log(`✅ Successfully processed and paid ${employee.name}`)
+        successCount.value++
+
+      } catch (err: any) {
+        const errorMessage =
+          err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          err?.message ||
+          "Unknown error"
+
+        console.error(`❌ Failed for ${employee.name}:`, {
+          status: err?.response?.status,
+          error: errorMessage,
+          data: err?.response?.data
         })
-      )
 
-      // Step 2: Check for process failures
-      const failures = processedSalaries.filter(result => !result.success)
+        // Provide helpful message for common errors
+        let displayError = errorMessage
+        if (errorMessage === "Employee salary not set") {
+          displayError = "Salary not configured in database"
+        }
 
-      if (failures.length > 0) {
-        const failedNames = failures.map(f => f.employee.name).join(', ')
-        setError(`Failed to process salary for: ${failedNames}`)
-        return
+        failedEmployees.push({ name: employee.name, error: displayError })
       }
+    }
 
-      // Step 3: Mark all processed salaries as paid
-      // PATCH /org/:organizationId/salaries/:id/mark-paid
-      const markPaidResults = await Promise.all(
-        processedSalaries
-          .filter(result => result.success && result.salaryRecord)
-          .map(async (result) => {
-            try {
-              const salaryId = result.salaryRecord!.id
-              await axios.patch(
-                `${apiUrl}/org/${orgId}/salaries/${salaryId}/mark-paid`,
-                { paidDate: paidDateStr },
-                {
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                  },
-                }
-              )
-              return { success: true, employee: result.employee }
-            } catch (err: any) {
-              console.error(`Failed to mark as paid for ${result.employee.name}:`, err)
-              return {
-                success: false,
-                error: err.response?.data?.error || err.message,
-                employee: result.employee
-              }
-            }
-          })
-      )
+    setLoading(false)
 
-      const markPaidFailures = markPaidResults.filter(result => !result.success)
-
-      if (markPaidFailures.length > 0) {
-        const failedNames = markPaidFailures.map(f => f.employee.name).join(', ')
-        setError(`Salary processed but failed to mark as paid for: ${failedNames}`)
-        return
-      }
-
-      // Success
-      console.log('All salaries processed and marked as paid successfully')
+    if (failedEmployees.length > 0 && successCount.value > 0) {
+      // Partial success
+      setErrorDetails([
+        `✅ ${successCount.value} employee(s) paid successfully`,
+        `❌ ${failedEmployees.length} employee(s) failed:`,
+        ...failedEmployees.map(emp => `• ${emp.name}: ${emp.error}`)
+      ])
+      // Still call onConfirm to refresh the list
       onConfirm(paidDate)
-
-    } catch (err: any) {
-      console.error("Payment processing error:", err)
-      setError(
-        err.response?.data?.error ||
-        err.response?.data?.message ||
-        err.message ||
-        "Failed to process payment. Please try again."
-      )
-    } finally {
-      setLoading(false)
+    } else if (failedEmployees.length > 0) {
+      // All failed
+      setErrorDetails([
+        `Failed to process payments for ${failedEmployees.length} employee(s):`,
+        ...failedEmployees.map(emp => `• ${emp.name}: ${emp.error}`),
+        "",
+        "💡 Tip: Employees must have salary configured in the system first."
+      ])
+    } else {
+      // All success
+      onConfirm(paidDate)
     }
   }
 
-  /* ================= RESET ON CLOSE ================= */
-
   const handleClose = () => {
     setPaidDate(new Date())
-    setError(null)
+    setErrorDetails(null)
     onClose()
   }
-
-  /* ================= UI ================= */
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -197,7 +164,6 @@ export default function PayRunDialog({
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* SUMMARY SECTION */}
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
               <p className="text-sm text-gray-600 mb-1">Employees Selected</p>
@@ -211,7 +177,6 @@ export default function PayRunDialog({
             </div>
           </div>
 
-          {/* EMPLOYEE LIST */}
           <div>
             <h3 className="font-semibold mb-3">Selected Employees:</h3>
             <div className="border rounded-lg max-h-64 overflow-y-auto">
@@ -226,8 +191,8 @@ export default function PayRunDialog({
                 <tbody>
                   {employees.map((emp) => (
                     <tr key={emp.id} className="border-t">
-                      <td className="p-3">{emp.name}</td>
-                      <td className="p-3">{emp.department}</td>
+                      <td className="p-3 font-medium">{emp.name}</td>
+                      <td className="p-3 text-gray-500">{emp.department}</td>
                       <td className="p-3 text-right font-medium">
                         ₹{emp.salary.toLocaleString()}
                       </td>
@@ -238,7 +203,6 @@ export default function PayRunDialog({
             </div>
           </div>
 
-          {/* PAYMENT DATE PICKER */}
           <div>
             <label className="block text-sm font-medium mb-2">
               Payment Date <span className="text-red-500">*</span>
@@ -267,14 +231,19 @@ export default function PayRunDialog({
             </Popover>
           </div>
 
-          {/* ERROR MESSAGE */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              <p className="text-sm">{error}</p>
+          {errorDetails && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" />
+              <div className="text-sm">
+                {errorDetails.map((line, i) => (
+                  <p key={i} className={i === 0 ? "font-semibold mb-1" : ""}>
+                    {line}
+                  </p>
+                ))}
+              </div>
             </div>
           )}
 
-          {/* ACTION BUTTONS */}
           <div className="flex gap-3 pt-4">
             <Button
               variant="outline"
