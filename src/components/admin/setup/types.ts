@@ -23,6 +23,8 @@ export interface Location {
   name: string;
   code: string;
   organizationId?: string;
+  site: string;
+  building: string;
   addressLine1: string;
   addressLine2: string;
   city: string;
