@@ -5,7 +5,6 @@ import { X } from 'lucide-react';
 import axios from 'axios';
 import { Location } from './types';
 import { getApiUrl, getAuthToken, getOrgId, setLocationId as saveLocationId } from '@/lib/auth';
-import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
 interface LocationsStepProps {
   locations: Location[];
@@ -25,15 +24,6 @@ export default function LocationsStep({
   const [showLocationForm, setShowLocationForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false); // Track API loading state
 
-  // Alert State
-  const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
-    open: false, title: "", description: "", variant: "info"
-  });
-
-  const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
-    setAlertState({ open: true, title, description, variant });
-  };
-
   // State to track validation errors
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
@@ -41,6 +31,8 @@ export default function LocationsStep({
     id: '',
     name: '',
     code: '',
+    site: '',
+    building: '',
     addressLine1: '',
     addressLine2: '',
     city: '',
@@ -84,7 +76,7 @@ export default function LocationsStep({
         const token = getAuthToken();
 
         if (!token) {
-          showAlert('Error', 'Authentication token not found. Please log in.', 'error');
+          alert('Authentication token not found. Please log in.');
           setIsLoading(false);
           return;
         }
@@ -98,7 +90,7 @@ export default function LocationsStep({
         console.log('- activeOrgId:', activeOrgId);
 
         if (!activeOrgId) {
-          showAlert('Error', 'Organization ID is missing. Please try refreshing the page or going back to the Organization Details step to ensure it was saved correctly.', 'error');
+          alert('Organization ID is missing. Please try refreshing the page or going back to the Organization Details step to ensure it was saved correctly.');
           setIsLoading(false);
           return;
         }
@@ -108,6 +100,8 @@ export default function LocationsStep({
         const payload = {
           name: currentLocation.name,
           code: currentLocation.code,
+          site: currentLocation.site,
+          building: currentLocation.building,
           addressLine1: currentLocation.addressLine1,
           addressLine2: currentLocation.addressLine2,
           city: currentLocation.city,
@@ -154,6 +148,8 @@ export default function LocationsStep({
             id: '',
             name: '',
             code: '',
+            site: '',
+            building: '',
             addressLine1: '',
             addressLine2: '',
             city: '',
@@ -179,18 +175,18 @@ export default function LocationsStep({
           if (error.message === 'Network Error') {
             const activeOrgId = orgId || getOrgId();
             const apiUrl = `${getApiUrl()}/org/${activeOrgId}/locations`;
-            showAlert('Network Error', `Unable to connect to server at ${apiUrl}. Please ensure the backend is running and accessible.`, 'error');
+            alert(`Network Error: Unable to connect to server at ${apiUrl}. Please ensure the backend is running and accessible.`);
           } else if (error.response) {
             // Server responded with error
             const errorMsg = error.response.data?.message || error.response.data?.error || error.message;
-            showAlert('Error', `Failed to save location: ${errorMsg}`, 'error');
+            alert(`Failed to save location: ${errorMsg}`);
           } else {
             // Request was made but no response received
-            showAlert('Error', `Failed to save location: ${error.message}`, 'error');
+            alert(`Failed to save location: ${error.message}`);
           }
         } else {
           console.error('Unexpected error:', error);
-          showAlert('Error', 'An unexpected error occurred while saving the location.', 'error');
+          alert('An unexpected error occurred while saving the location.');
         }
       } finally {
         setIsLoading(false);
@@ -248,6 +244,34 @@ export default function LocationsStep({
                   }`}
               />
               {errors.code && <span className="text-xs text-red-500 font-medium">Required</span>}
+            </div>
+
+            {/* Site */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">
+                Site
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Main Campus"
+                value={currentLocation.site}
+                onChange={(e) => setCurrentLocation({ ...currentLocation, site: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Building */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">
+                Building
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Tower A"
+                value={currentLocation.building}
+                onChange={(e) => setCurrentLocation({ ...currentLocation, building: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
 
             <div className="space-y-2 md:col-span-2">
@@ -460,13 +484,6 @@ export default function LocationsStep({
           </div>
         </div>
       )}
-      <CustomAlertDialog
-        open={alertState.open}
-        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
-        title={alertState.title}
-        description={alertState.description}
-        variant={alertState.variant}
-      />
     </div>
   );
 }
