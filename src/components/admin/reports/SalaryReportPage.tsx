@@ -95,7 +95,7 @@ export default function SalaryReportPage() {
 
       console.log('Fetching from:', `${apiUrl}/org/${organizationId}/salaries`);
 
-      // Fetch all sal.ary records - FIXED ENDPOINT
+      // Fetch all salary records
       const response = await axios.get(`${apiUrl}/org/${organizationId}/salaries`, {
         headers: { Authorization: `Bearer ${token}` },
         params: {
@@ -105,30 +105,18 @@ export default function SalaryReportPage() {
       });
 
       console.log('API Response:', response.data);
-      console.log('Response structure:', {
-        isArray: Array.isArray(response.data),
-        hasData: 'data' in response.data,
-        hasRecords: 'records' in response.data,
-        keys: Object.keys(response.data),
-        fullResponse: JSON.stringify(response.data, null, 2)
-      });
 
       let data = response.data;
 
-      // Handle different response structures based on API documentation
-      // Expected structure: { data: [...], total: number, page: number, limit: number, totalPages: number }
+      // Handle different response structures
       let salaries = [];
 
       if (data && typeof data === 'object') {
         if ('data' in data && Array.isArray(data.data)) {
-          // Paginated response structure
           salaries = data.data;
-          console.log('Found paginated data:', data);
         } else if ('records' in data && Array.isArray(data.records)) {
-          // Alternative records structure
           salaries = data.records;
         } else if (Array.isArray(data)) {
-          // Direct array response
           salaries = data;
         }
       } else if (Array.isArray(data)) {
@@ -165,8 +153,6 @@ export default function SalaryReportPage() {
         } as SalaryRecord;
       });
 
-      console.log('Enriched salaries sample:', enrichedSalaries[0]);
-
       setSalaryData(enrichedSalaries);
 
       if (enrichedSalaries.length === 0) {
@@ -174,7 +160,6 @@ export default function SalaryReportPage() {
       }
     } catch (err: any) {
       console.error('Error fetching salary data:', err);
-      console.error('Error response:', err.response);
 
       let errorMessage = "Failed to fetch salary report";
       if (err.response?.status === 404) {
@@ -312,6 +297,7 @@ export default function SalaryReportPage() {
       });
 
       doc.save(`salary-report-${new Date().toISOString().split('T')[0]}.pdf`);
+      showAlert("Success", `Exported ${dataToExport.length} records to PDF.`, "success");
     } catch (err) {
       console.error('Error generating PDF:', err);
       showAlert("Error", "Failed to generate PDF", "error");
@@ -415,6 +401,35 @@ export default function SalaryReportPage() {
               <Filter className="w-4 h-4" />
               Filters
             </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowExportDropdown(!showExportDropdown)}
+                disabled={filteredSalaries.length === 0}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                <Download className="w-4 h-4" />
+                Export
+              </button>
+
+              {showExportDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                  <button
+                    onClick={handleExportPDF}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-gray-700 font-medium transition-colors rounded-t-lg border-b border-gray-100"
+                  >
+                    <Download className="w-4 h-4 text-red-600" />
+                    Export as PDF
+                  </button>
+                  <button
+                    onClick={handleExportExcel}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-gray-700 font-medium transition-colors rounded-b-lg"
+                  >
+                    <Download className="w-4 h-4 text-green-600" />
+                    Export as Excel
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {showFilters && (
@@ -487,43 +502,13 @@ export default function SalaryReportPage() {
             <p className="text-sm font-medium text-blue-900">
               {selectedRecords.size} record{selectedRecords.size !== 1 ? 's' : ''} selected
             </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleCancelSelection}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-              >
-                <X className="w-4 h-4" />
-                Cancel
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => setShowExportDropdown(!showExportDropdown)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  Export
-                </button>
-
-                {showExportDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                    <button
-                      onClick={handleExportPDF}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-gray-700 font-medium transition-colors rounded-t-lg border-b border-gray-100"
-                    >
-                      <Download className="w-4 h-4 text-red-600" />
-                      Export as PDF
-                    </button>
-                    <button
-                      onClick={handleExportExcel}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-gray-700 font-medium transition-colors rounded-b-lg"
-                    >
-                      <Download className="w-4 h-4 text-green-600" />
-                      Export as Excel
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
+            <button
+              onClick={handleCancelSelection}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+            >
+              <X className="w-4 h-4" />
+              Cancel Selection
+            </button>
           </div>
         )}
 

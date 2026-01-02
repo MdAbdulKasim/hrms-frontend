@@ -123,24 +123,20 @@ export default function EmployeeReportPage() {
 
   // Helper to resolve department name
   const getDepartmentName = (emp: any): string => {
-    // First check if department is an object with a name
     if (emp.department && typeof emp.department === 'object') {
       if (emp.department.name) return emp.department.name;
       if (emp.department.title) return emp.department.title;
       if (emp.department.departmentName) return emp.department.departmentName;
     }
 
-    // Get the department ID (could be in multiple places)
     const deptId = emp.departmentId ||
       (typeof emp.department === 'string' ? emp.department : null) ||
       (emp.department && (emp.department.id || emp.department._id));
 
-    // Look up in the map
     if (deptId && departmentsMap[String(deptId)]) {
       return departmentsMap[String(deptId)];
     }
 
-    // If we have an ID but no mapping, try to fetch it individually
     if (deptId && !departmentsMap[String(deptId)]) {
       fetchMissingDepartment(String(deptId));
       return 'Loading...';
@@ -173,19 +169,16 @@ export default function EmployeeReportPage() {
 
   // Helper to resolve designation name
   const getDesignationName = (emp: any): string => {
-    // First check if designation is an object with a name
     if (emp.designation && typeof emp.designation === 'object') {
       if (emp.designation.name) return emp.designation.name;
       if (emp.designation.title) return emp.designation.title;
       if (emp.designation.designationName) return emp.designation.designationName;
     }
 
-    // Get the designation ID
     const desigId = emp.designationId ||
       (typeof emp.designation === 'string' ? emp.designation : null) ||
       (emp.designation && (emp.designation.id || emp.designation._id));
 
-    // Look up in the map
     if (desigId && designationsMap[String(desigId)]) {
       return designationsMap[String(desigId)];
     }
@@ -195,24 +188,31 @@ export default function EmployeeReportPage() {
 
   // Helper to resolve location name
   const getLocationName = (emp: any): string => {
-    // First check if location is an object with a name
     if (emp.location && typeof emp.location === 'object') {
       if (emp.location.name) return emp.location.name;
       if (emp.location.title) return emp.location.title;
       if (emp.location.locationName) return emp.location.locationName;
     }
 
-    // Get the location ID
     const locId = emp.locationId ||
       (typeof emp.location === 'string' ? emp.location : null) ||
       (emp.location && (emp.location.id || emp.location._id));
 
-    // Look up in the map
     if (locId && locationsMap[String(locId)]) {
       return locationsMap[String(locId)];
     }
 
     return '';
+  };
+
+  // Helper to format date
+  const formatDate = (dateString?: string): string => {
+    if (!dateString) return 'N/A';
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch {
+      return 'N/A';
+    }
   };
 
   // Fetch employee data
@@ -357,7 +357,7 @@ export default function EmployeeReportPage() {
         getDepartmentName(emp) || 'N/A',
         getDesignationName(emp) || 'N/A',
         getLocationName(emp) || 'N/A',
-        emp.dateOfJoining ? new Date(emp.dateOfJoining).toLocaleDateString() : 'N/A'
+        formatDate(emp.dateOfJoining)
       ]);
 
       autoTable(doc, {
@@ -379,6 +379,7 @@ export default function EmployeeReportPage() {
       });
 
       doc.save(`employee-report-${new Date().toISOString().split('T')[0]}.pdf`);
+      showAlert("Success", `Exported ${dataToExport.length} records to PDF.`, "success");
     } catch (err) {
       console.error('Error generating PDF:', err);
       showAlert("Error", "Failed to generate PDF", "error");
@@ -409,7 +410,7 @@ export default function EmployeeReportPage() {
         `"${getDepartmentName(emp) || 'N/A'}"`,
         `"${getDesignationName(emp) || 'N/A'}"`,
         `"${getLocationName(emp) || 'N/A'}"`,
-        `"${emp.dateOfJoining ? new Date(emp.dateOfJoining).toLocaleDateString() : 'N/A'}"`
+        `"${formatDate(emp.dateOfJoining)}"`
       ];
       csvRows.push(row.join(','));
     });
@@ -446,7 +447,6 @@ export default function EmployeeReportPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-6">
           <button
             onClick={handleBack}
@@ -463,7 +463,6 @@ export default function EmployeeReportPage() {
           </p>
         </div>
 
-        {/* Search Bar */}
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-200">
           <div className="flex flex-col md:flex-row gap-3">
             <div className="flex-1 relative">
@@ -484,6 +483,35 @@ export default function EmployeeReportPage() {
               <Filter className="w-4 h-4" />
               Filters
             </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowExportDropdown(!showExportDropdown)}
+                disabled={filteredEmployees.length === 0}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                <Download className="w-4 h-4" />
+                Export
+              </button>
+
+              {showExportDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                  <button
+                    onClick={handleExportPDF}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-gray-700 font-medium transition-colors rounded-t-lg border-b border-gray-100"
+                  >
+                    <Download className="w-4 h-4 text-red-600" />
+                    Export as PDF
+                  </button>
+                  <button
+                    onClick={handleExportExcel}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-gray-700 font-medium transition-colors rounded-b-lg"
+                  >
+                    <Download className="w-4 h-4 text-green-600" />
+                    Export as Excel
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {showFilters && (
@@ -557,43 +585,13 @@ export default function EmployeeReportPage() {
             <p className="text-sm font-medium text-blue-900">
               {selectedRecords.size} record{selectedRecords.size !== 1 ? 's' : ''} selected
             </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleCancelSelection}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-              >
-                <X className="w-4 h-4" />
-                Cancel
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => setShowExportDropdown(!showExportDropdown)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  Export
-                </button>
-
-                {showExportDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                    <button
-                      onClick={handleExportPDF}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-gray-700 font-medium transition-colors rounded-t-lg border-b border-gray-100"
-                    >
-                      <Download className="w-4 h-4 text-red-600" />
-                      Export as PDF
-                    </button>
-                    <button
-                      onClick={handleExportExcel}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-gray-700 font-medium transition-colors rounded-b-lg"
-                    >
-                      <Download className="w-4 h-4 text-green-600" />
-                      Export as Excel
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
+            <button
+              onClick={handleCancelSelection}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+            >
+              <X className="w-4 h-4" />
+              Cancel Selection
+            </button>
           </div>
         )}
 
@@ -642,12 +640,15 @@ export default function EmployeeReportPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Location
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Joined
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                       <div className="flex items-center justify-center">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                         <span className="ml-3">Loading...</span>
@@ -656,7 +657,7 @@ export default function EmployeeReportPage() {
                   </tr>
                 ) : filteredEmployees.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                       <User className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                       <p className="text-lg font-medium">No employees found</p>
                       <p className="text-sm mt-1">Try adjusting your search or filters</p>
@@ -666,8 +667,7 @@ export default function EmployeeReportPage() {
                   filteredEmployees.map((employee, index) => (
                     <tr
                       key={employee.id || index}
-                      className={`hover:bg-gray-50 transition-colors ${selectedRecords.has(index) ? 'bg-blue-50' : ''
-                        }`}
+                      className={`hover:bg-gray-50 transition-colors ${selectedRecords.has(index) ? 'bg-blue-50' : ''}`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <input
@@ -694,6 +694,9 @@ export default function EmployeeReportPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {getLocationName(employee) || "—"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDate(employee.dateOfJoining)}
                       </td>
                     </tr>
                   ))

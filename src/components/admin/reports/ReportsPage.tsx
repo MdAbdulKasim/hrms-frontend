@@ -103,13 +103,6 @@ export default function ReportsPage() {
                     <Eye className="w-4 h-4" />
                     View
                   </button>
-                  <button
-                    onClick={() => handleDownloadReport(report.id)}
-                    className="flex-1 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center justify-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    Export
-                  </button>
                 </div>
               </div>
             </div>
