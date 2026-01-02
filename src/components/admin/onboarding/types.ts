@@ -17,6 +17,18 @@ export interface AccommodationAllowance {
     type: string; // 'food' | 'travel' | 'house'
     percentage: string;
 }
+export interface Insurance {
+    type: string; // 'life' | 'health' | 'accident'
+    percentage: string;
+}
+
+export interface BankDetails {
+    bankName: string;
+    branchName: string;
+    accountNumber: string;
+    accountHolderName: string;
+    ifscCode: string;
+}
 
 export interface Education {
     instituteName: string;
@@ -36,6 +48,7 @@ export interface WorkExperience {
 }
 
 export interface CandidateForm {
+    employeeId?: string; // Auto-generated employee ID (e.g., EMP 001)
     fullName: string;
     email: string;
     phoneNumber: string;
@@ -53,8 +66,9 @@ export interface CandidateForm {
     // Compensation & Benefits
     basicSalary: string;
     accommodationAllowances: AccommodationAllowance[];
-    insuranceType: string;
-    insurancePercentage: string;
+    insurances: Insurance[];
+    // Bank Details
+    bankDetails: BankDetails;
     // Keep internal UI helper fields if needed
     mobileNumber?: string;
     employeeType?: string;

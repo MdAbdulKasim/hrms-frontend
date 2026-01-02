@@ -1,7 +1,8 @@
 'use client';
 import React from 'react';
 import { X, ChevronDown, Check, Plus, Trash2 } from 'lucide-react';
-import { CandidateForm, AccommodationAllowance } from './types';
+import { CandidateForm, AccommodationAllowance, Insurance, BankDetails } from './types';
+import SuccessDialog from './SuccessDialog';
 
 interface ComboboxProps {
     value: string;
@@ -96,7 +97,7 @@ const Combobox: React.FC<ComboboxProps> = ({
 interface AddCandidateFormProps {
     candidateForm: CandidateForm;
     onInputChange: (field: keyof CandidateForm, value: any) => void;
-    onAddCandidate: () => void;
+    onAddCandidate: () => void | Promise<void>;
     onCancel: () => void;
     departments: any[];
     designations: any[];
@@ -105,6 +106,8 @@ interface AddCandidateFormProps {
     shifts: any[];
     isLoading: boolean;
     isEditing?: boolean;
+    employees?: any[]; // For generating employee ID
+    onSuccess?: () => void; // Optional success callback
 }
 
 const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
@@ -119,7 +122,70 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
     shifts,
     isLoading,
     isEditing = false,
+    employees = [],
+    onSuccess,
 }) => {
+    // State for success dialog
+    const [showSuccessDialog, setShowSuccessDialog] = React.useState(false);
+    // Auto-generate employee ID on component mount
+    React.useEffect(() => {
+        if (!isEditing && !candidateForm.employeeId) {
+            const generateEmployeeId = () => {
+                // Find the highest employee number from existing employees
+                let maxNumber = 0;
+                
+                // Check all employees for existing employee IDs
+                employees.forEach(emp => {
+                    // Check employeeId field first, then id/_id as fallback
+                    const empId = emp.employeeId || emp.id || emp._id;
+                    if (empId) {
+                        // Try to match pattern like "EMP 001", "EMP001", "EMP 1", etc.
+                        const match = String(empId).match(/EMP\s*(\d+)/i);
+                        if (match) {
+                            const num = parseInt(match[1], 10);
+                            if (num > maxNumber) maxNumber = num;
+                        }
+                    }
+                });
+                
+                // Generate next ID
+                const nextNumber = maxNumber + 1;
+                return `EMP ${String(nextNumber).padStart(3, '0')}`;
+            };
+            const newEmployeeId = generateEmployeeId();
+            onInputChange('employeeId', newEmployeeId);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isEditing, employees.length]);
+
+    // Calculate total salary
+    const calculateTotalSalary = () => {
+        const basic = parseFloat(candidateForm.basicSalary || '0') || 0;
+        
+        // Calculate allowances (added to salary)
+        let allowanceTotal = 0;
+        candidateForm.accommodationAllowances?.forEach(allowance => {
+            const percentage = parseFloat(allowance.percentage || '0') || 0;
+            allowanceTotal += (basic * percentage) / 100;
+        });
+        
+        // Calculate insurance deductions (reduced from salary)
+        let insuranceDeduction = 0;
+        candidateForm.insurances?.forEach(insurance => {
+            const percentage = parseFloat(insurance.percentage || '0') || 0;
+            insuranceDeduction += (basic * percentage) / 100;
+        });
+        
+        const total = basic + allowanceTotal - insuranceDeduction;
+        return {
+            basic,
+            allowanceTotal,
+            insuranceDeduction,
+            total: Math.max(0, total) // Ensure non-negative
+        };
+    };
+
+    const salaryBreakdown = calculateTotalSalary();
     const handleAddAllowance = () => {
         const newAllowances = [...(candidateForm.accommodationAllowances || []), { type: '', percentage: '' }];
         onInputChange('accommodationAllowances', newAllowances);
@@ -151,12 +217,56 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
         return allTypes.filter(type => !selectedTypes.includes(type.id));
     };
 
-    const insuranceOptions = [
-        { id: 'health_basic', label: 'Health Insurance' },
-    ];
+    // Insurance handlers
+    const handleAddInsurance = () => {
+        const newInsurances = [...(candidateForm.insurances || []), { type: '', percentage: '' }];
+        onInputChange('insurances', newInsurances);
+    };
+
+    const handleRemoveInsurance = (index: number) => {
+        const newInsurances = candidateForm.insurances.filter((_, i) => i !== index);
+        onInputChange('insurances', newInsurances);
+    };
+
+    const handleInsuranceChange = (index: number, field: 'type' | 'percentage', value: string) => {
+        const newInsurances = [...candidateForm.insurances];
+        newInsurances[index] = { ...newInsurances[index], [field]: value };
+        onInputChange('insurances', newInsurances);
+    };
+
+    // Get available insurance types (excluding already selected ones)
+    const getAvailableInsuranceTypes = (currentIndex: number) => {
+        const allTypes = [
+            { id: 'health_basic', label: 'Health Insurance' },
+            { id: 'life', label: 'Life Insurance' },
+            { id: 'accident', label: 'Accident Insurance' },
+            { id: 'disability', label: 'Disability Insurance' },
+        ];
+
+        const selectedTypes = candidateForm.insurances
+            ?.map((a, idx) => idx !== currentIndex ? a.type : null)
+            .filter(Boolean) || [];
+
+        return allTypes.filter(type => !selectedTypes.includes(type.id));
+    };
+
+    // Bank details handler
+    const handleBankDetailsChange = (field: keyof BankDetails, value: string) => {
+        const updatedBankDetails = {
+            ...(candidateForm.bankDetails || {
+                bankName: '',
+                branchName: '',
+                accountNumber: '',
+                accountHolderName: '',
+                ifscCode: ''
+            }),
+            [field]: value
+        };
+        onInputChange('bankDetails', updatedBankDetails);
+    };
 
     return (
-        <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+        <div className="min-h-screen bg-white p-4 md:p-8">
             <div className="max-w-6xl mx-auto">
                 <div className="flex justify-between items-center mb-6">
                     <h1 className="text-xl md:text-2xl font-bold">{isEditing ? 'Edit Employee' : 'Add Candidate'}</h1>
@@ -181,6 +291,20 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Employee ID <span className="text-gray-400 text-xs">(Auto-generated)</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="EMP 001"
+                                    value={candidateForm.employeeId || ''}
+                                    onChange={(e) => onInputChange('employeeId', e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
+                                    readOnly={!isEditing}
+                                />
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Full Name
@@ -476,47 +600,203 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
 
                             {/* Insurance Section */}
                             <div className="pt-4 border-t border-gray-100">
-                                <label className="block text-sm font-medium text-gray-700 mb-4">
-                                    Insurance
-                                </label>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50 rounded-lg">
-                                    <Combobox
-                                        label="Insurance Type"
-                                        value={candidateForm.insuranceType || ''}
-                                        onChange={(val) => onInputChange('insuranceType', val)}
-                                        placeholder="Type to search insurance..."
-                                        options={insuranceOptions}
-                                    />
+                                <div className="flex items-center justify-between mb-4">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        Insurance
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={handleAddInsurance}
+                                        className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                        Add More
+                                    </button>
+                                </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Deduction Percentage
-                                        </label>
-                                        <div className="relative">
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                max="100"
-                                                placeholder="Percentage"
-                                                value={candidateForm.insurancePercentage || ''}
-                                                onChange={(e) => onInputChange('insurancePercentage', e.target.value)}
-                                                className="w-full px-4 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                disabled={!candidateForm.insuranceType}
-                                            />
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span>
+                                <div className="space-y-3">
+                                    {candidateForm.insurances?.map((insurance, index) => (
+                                        <div key={index} className="flex gap-3 items-center p-4 bg-gray-50 rounded-lg">
+                                            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                <Combobox
+                                                    label=""
+                                                    value={insurance.type}
+                                                    onChange={(val) => handleInsuranceChange(index, 'type', val)}
+                                                    placeholder="Type to search insurance..."
+                                                    options={getAvailableInsuranceTypes(index)}
+                                                />
+
+                                                <div>
+                                                    <div className="relative">
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            max="100"
+                                                            placeholder="Deduction Percentage"
+                                                            value={insurance.percentage}
+                                                            onChange={(e) => handleInsuranceChange(index, 'percentage', e.target.value)}
+                                                            className="w-full px-4 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                        />
+                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span>
+                                                    </div>
+                                                    <p className="mt-1 text-xs text-gray-500">
+                                                        Reduced from salary monthly
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveInsurance(index)}
+                                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
                                         </div>
-                                        <p className="mt-1 text-xs text-gray-500">
-                                            Reduced from salary monthly
-                                        </p>
+                                    ))}
+
+                                    {(!candidateForm.insurances || candidateForm.insurances.length === 0) && (
+                                        <div className="text-center py-8 text-gray-400 text-sm italic">
+                                            No insurance added. Click "Add More" to add one.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Salary Summary */}
+                            <div className="pt-4 border-t border-gray-100">
+                                <label className="block text-sm font-medium text-gray-700 mb-4">
+                                    Salary Summary
+                                </label>
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-700">Basic Salary:</span>
+                                        <span className="font-medium">₹{salaryBreakdown.basic.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                    {salaryBreakdown.allowanceTotal > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-700">Allowances (+):</span>
+                                            <span className="font-medium text-green-600">+₹{salaryBreakdown.allowanceTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+                                    )}
+                                    {salaryBreakdown.insuranceDeduction > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-700">Insurance Deductions (-):</span>
+                                            <span className="font-medium text-red-600">-₹{salaryBreakdown.insuranceDeduction.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between text-base font-bold pt-2 border-t border-blue-300">
+                                        <span className="text-gray-900">Total Salary:</span>
+                                        <span className="text-blue-700">₹{salaryBreakdown.total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
+                    {/* Bank Details Section */}
+                    <div>
+                        <div className="flex items-center gap-2 mb-6">
+                            <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                                <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                </svg>
+                            </div>
+                            <h2 className="text-lg font-semibold">Employee Bank Details</h2>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Bank Name
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="Enter bank name"
+                                    value={candidateForm.bankDetails?.bankName || ''}
+                                    onChange={(e) => handleBankDetailsChange('bankName', e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Branch Name
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="Enter branch name"
+                                    value={candidateForm.bankDetails?.branchName || ''}
+                                    onChange={(e) => handleBankDetailsChange('branchName', e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Account Number
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="Enter account number"
+                                    value={candidateForm.bankDetails?.accountNumber || ''}
+                                    onChange={(e) => handleBankDetailsChange('accountNumber', e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Account Holder Name <span className="text-gray-500 font-normal">(same as bank passbook)</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="Enter account holder name"
+                                    value={candidateForm.bankDetails?.accountHolderName || ''}
+                                    onChange={(e) => handleBankDetailsChange('accountHolderName', e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    IFSC Code
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="Enter IFSC code"
+                                    value={candidateForm.bankDetails?.ifscCode || ''}
+                                    onChange={(e) => handleBankDetailsChange('ifscCode', e.target.value.toUpperCase())}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    maxLength={11}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     <button
-                        onClick={onAddCandidate}
+                        onClick={async () => {
+                            try {
+                                // Call the parent's onAddCandidate handler
+                                const result = onAddCandidate();
+                                // If it returns a promise, wait for it
+                                if (result && typeof result.then === 'function') {
+                                    await result;
+                                }
+                                // Show success dialog after successful submission (only for new candidates)
+                                if (!isEditing) {
+                                    setShowSuccessDialog(true);
+                                }
+                                // Call optional onSuccess callback
+                                if (onSuccess) {
+                                    onSuccess();
+                                }
+                            } catch (error) {
+                                // Error handling is done in parent component
+                                console.error('Error adding candidate:', error);
+                            }
+                        }}
                         disabled={isLoading}
                         className={`mt-8 px-6 py-3 bg-blue-700 text-white rounded-lg hover:bg-blue-800 flex items-center justify-center w-full sm:w-auto gap-2 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
                     >
@@ -530,7 +810,18 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                         {isLoading ? (isEditing ? 'Updating...' : 'Adding...') : (isEditing ? 'Update Employee' : 'Add Candidate')}
                     </button>
                 </div>
-            </div >
+            </div>
+
+            {/* Success Dialog */}
+            <SuccessDialog
+                open={showSuccessDialog}
+                onOpenChange={setShowSuccessDialog}
+                title="Successfully Completed"
+                message={`Candidate "${candidateForm.fullName || 'Employee'}" has been added successfully! An onboarding invitation email has been sent.`}
+                onClose={() => {
+                    setShowSuccessDialog(false);
+                }}
+            />
         </div >
     );
 };

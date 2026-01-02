@@ -58,16 +58,26 @@ const UpcomingHolidaysSection: React.FC = () => {
 
         const holidayData = response.data.data || response.data || [];
 
-        // Transform API data to component format and sort by date
+        // Transform API data to component format, filter upcoming holidays, sort by date, and limit to 4
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+
         const transformedHolidays: Holiday[] = holidayData
           .map((item: any) => ({
             id: item.id || Date.now().toString(),
             holidayName: item.holidayName || 'Holiday',
             date: item.date || ''
           }))
+          .filter((holiday: Holiday) => {
+            // Filter to show only upcoming holidays (future dates)
+            const holidayDate = new Date(holiday.date);
+            holidayDate.setHours(0, 0, 0, 0);
+            return holidayDate >= today;
+          })
           .sort((a: Holiday, b: Holiday) =>
             new Date(a.date).getTime() - new Date(b.date).getTime()
-          );
+          )
+          .slice(0, 4); // Show only 4 most upcoming holidays
 
         setHolidays(transformedHolidays);
       } catch (error) {
@@ -114,9 +124,20 @@ const UpcomingHolidaysSection: React.FC = () => {
             date: holidayForm.date
           };
 
-          const updatedHolidays = [...holidays, newHoliday].sort((a, b) =>
-            new Date(a.date).getTime() - new Date(b.date).getTime()
-          );
+          // Add new holiday, filter upcoming, sort, and keep only 4 most upcoming
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          const updatedHolidays = [...holidays, newHoliday]
+            .filter((holiday) => {
+              const holidayDate = new Date(holiday.date);
+              holidayDate.setHours(0, 0, 0, 0);
+              return holidayDate >= today;
+            })
+            .sort((a, b) =>
+              new Date(a.date).getTime() - new Date(b.date).getTime()
+            )
+            .slice(0, 4);
 
           setHolidays(updatedHolidays);
           setHolidayForm({ holidayName: '', date: '' });

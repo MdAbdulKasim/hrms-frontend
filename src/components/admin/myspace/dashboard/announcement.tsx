@@ -63,17 +63,26 @@ const AnnouncementsSection: React.FC = () => {
 
         const announcementData = response.data.data || response.data || [];
 
-        // Transform API data to component format
-        const transformedAnnouncements: Announcement[] = announcementData.map((item: any) => ({
-          id: item.id || Date.now().toString(),
-          title: item.title || 'Untitled',
-          description: item.content || item.description || '',
-          date: new Date(item.createdAt || item.date).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-          })
-        }));
+        // Transform API data to component format and sort by date (most recent first)
+        const transformedAnnouncements: Announcement[] = announcementData
+          .map((item: any) => ({
+            id: item.id || Date.now().toString(),
+            title: item.title || 'Untitled',
+            description: item.content || item.description || '',
+            date: new Date(item.createdAt || item.date).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            }),
+            createdAt: new Date(item.createdAt || item.date).getTime() // Keep timestamp for sorting
+          }))
+          .sort((a: any, b: any) => b.createdAt - a.createdAt) // Sort by most recent first
+          .slice(0, 4) // Show only 4 most recent
+          .map((item: any) => {
+            // Remove createdAt after sorting
+            const { createdAt, ...rest } = item;
+            return rest;
+          });
 
         setAnnouncements(transformedAnnouncements);
       } catch (error) {
@@ -129,7 +138,43 @@ const AnnouncementsSection: React.FC = () => {
             })
           };
 
-          setAnnouncements([newAnnouncement, ...announcements]);
+          // Add new announcement and keep only 4 most recent
+          // Re-fetch to get properly sorted list
+          const apiUrl = getApiUrl();
+          const token = getAuthToken();
+          const orgId = getOrgId();
+          
+          if (orgId) {
+            try {
+              const response = await axios.get(`${apiUrl}/org/${orgId}/announcements`, {
+                headers: { Authorization: `Bearer ${token}` }
+              });
+              
+              const announcementData = response.data.data || response.data || [];
+              const transformedAnnouncements: Announcement[] = announcementData
+                .map((item: any) => ({
+                  id: item.id || Date.now().toString(),
+                  title: item.title || 'Untitled',
+                  description: item.content || item.description || '',
+                  date: new Date(item.createdAt || item.date).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  }),
+                  createdAt: new Date(item.createdAt || item.date).getTime()
+                }))
+                .sort((a: any, b: any) => b.createdAt - a.createdAt)
+                .slice(0, 4)
+                .map((item: any) => {
+                  const { createdAt, ...rest } = item;
+                  return rest;
+                });
+              
+              setAnnouncements(transformedAnnouncements);
+            } catch (error) {
+              console.error('Error refreshing announcements:', error);
+            }
+          }
 
           // Reset form
           setAnnouncementForm({

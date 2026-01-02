@@ -3,7 +3,7 @@
 import { Home, Users, Bell, Calendar, Clock, UserCircle, ClipboardList, X, LogOut, ReceiptIndianRupeeIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from 'react';
-import { clearSetupData, checkSetupStatus, requiresSetup, getAuthToken, decodeToken, getCookie, setCookie, getUserDetails, getOrgId, getEmployeeId, getApiUrl } from "@/lib/auth";
+import { clearSetupData, getAuthToken, decodeToken, getCookie, setCookie, getUserDetails, getOrgId, getEmployeeId, getApiUrl } from "@/lib/auth";
 
 interface SidebarProps {
   isDesktopCollapsed: boolean;
@@ -12,12 +12,6 @@ interface SidebarProps {
   userRole?: 'admin' | 'employee';
 }
 
-const checkSetupCompleted = (role: 'admin' | 'employee'): boolean => {
-  // If it's an employee, setup is always "complete" (not required)
-  // If it's an admin, check the actual status
-  return !requiresSetup(role);
-};
-
 export default function Sidebar({
   isDesktopCollapsed,
   isMobileOpen,
@@ -25,7 +19,6 @@ export default function Sidebar({
   userRole = 'admin'
 }: SidebarProps) {
   const pathname = usePathname();
-  const [setupComplete, setSetupComplete] = useState(false);
 
   // User data state
   const [userData, setUserData] = useState(() => {
@@ -88,28 +81,6 @@ export default function Sidebar({
     fetchUserData();
   }, [userRole]);
 
-  useEffect(() => {
-    setSetupComplete(checkSetupCompleted(userRole));
-
-    const handleSetupStatusChange = () => {
-      setSetupComplete(checkSetupCompleted(userRole));
-    };
-
-    window.addEventListener('setupStatusChanged', handleSetupStatusChange);
-    window.addEventListener('storage', handleSetupStatusChange);
-
-    return () => {
-      window.removeEventListener('setupStatusChanged', handleSetupStatusChange);
-      window.removeEventListener('storage', handleSetupStatusChange);
-    };
-  }, [userRole]);
-
-  const handleProtectedClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (!setupComplete) {
-      e.preventDefault();
-      console.warn("SIDEBAR: Navigation blocked - Setup required for admins");
-    }
-  };
 
   const handleLogout = () => {
     clearSetupData();
@@ -170,57 +141,30 @@ export default function Sidebar({
         {menu.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.href;
-          const isDisabled = item.protected && !setupComplete;
 
           return (
             <a
               key={item.href}
               href={item.href}
-              onClick={(e) => {
-                handleProtectedClick(e);
-                if (setupComplete) closeMobileMenu();
-              }}
+              onClick={() => closeMobileMenu()}
               title={isDesktopCollapsed ? item.label : ""}
               className={`group flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 border border-transparent ${active
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20 border-blue-600/10"
-                : isDisabled
-                  ? "text-slate-300 cursor-not-allowed opacity-60"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
+                : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
                 } ${isDesktopCollapsed ? "md:justify-center md:px-0" : ""}`}
             >
               <Icon
-                className={`transition-all duration-300 shrink-0 ${active ? "text-white" : isDisabled ? "text-slate-300" : "text-slate-400 group-hover:text-blue-600"
+                className={`transition-all duration-300 shrink-0 ${active ? "text-white" : "text-slate-400 group-hover:text-blue-600"
                   } ${isDesktopCollapsed ? "md:w-6 md:h-6" : "w-5 h-5"}`}
               />
 
               <span className={`whitespace-nowrap transition-all duration-300 ${isDesktopCollapsed ? "md:hidden" : "block"}`}>
                 {item.label}
               </span>
-
-              {isDisabled && !isDesktopCollapsed && (
-                <div className="ml-auto bg-slate-100 p-1.5 rounded-lg group-hover:bg-slate-200 transition-colors">
-                  <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
-              )}
             </a>
           );
         })}
       </nav>
-
-      {/* Setup Required Banner */}
-      {!setupComplete && (
-        <div className={`mx-4 mb-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 ${isDesktopCollapsed ? "md:hidden" : ""}`}>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-5 h-5 bg-amber-200 rounded-full flex items-center justify-center text-amber-800 text-[10px] font-bold">!</div>
-            <span className="text-xs font-bold text-amber-800 uppercase tracking-wider">Setup Required</span>
-          </div>
-          <p className="text-[11px] text-amber-700 leading-relaxed font-medium">
-            Complete organization setup to unlock all premium features.
-          </p>
-        </div>
-      )}
 
       {/* User Info & Logout Section */}
       <div className="p-4 border-t border-slate-100 space-y-2">
