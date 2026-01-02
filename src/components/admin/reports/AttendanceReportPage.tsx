@@ -178,7 +178,7 @@ export default function AttendanceReportPage() {
     const selectedData = selectedRecords.size === 0 ? attendanceData : Array.from(selectedRecords).map(index => attendanceData[index]);
 
     if (!selectedData || selectedData.length === 0) {
-      // Nothing to export
+      showAlert("Info", "No records to export", "info");
       setShowExportDropdown(false);
       return;
     }
@@ -222,8 +222,10 @@ export default function AttendanceReportPage() {
 
       // Save PDF (will trigger download)
       doc.save(`attendance-report-${new Date().toISOString().split('T')[0]}.pdf`);
+      showAlert("Success", `Exported ${selectedData.length} records to PDF.`, "success");
     } catch (err) {
       console.error('Error generating PDF:', err);
+      showAlert("Error", "Failed to generate PDF", "error");
     } finally {
       setShowExportDropdown(false);
     }
@@ -241,7 +243,7 @@ export default function AttendanceReportPage() {
     }
 
     // Create CSV content with wider headers
-    const headers = ['Employee Name                    ', 'Date            ', 'Check In Time   ', 'Check Out Time  ', 'Hours Worked', 'Status        '];
+    const headers = ['Employee Name', 'Date', 'Check In Time', 'Check Out Time', 'Hours Worked', 'Status'];
     const csvRows = [headers.join(',')];
 
     dataToExport.forEach(record => {
@@ -350,6 +352,35 @@ export default function AttendanceReportPage() {
               <Filter className="w-4 h-4" />
               Filters
             </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowExportDropdown(!showExportDropdown)}
+                disabled={attendanceData.length === 0}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                <Download className="w-4 h-4" />
+                Export
+              </button>
+
+              {showExportDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                  <button
+                    onClick={handleExportPDF}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-gray-700 font-medium transition-colors rounded-t-lg border-b border-gray-100"
+                  >
+                    <Download className="w-4 h-4 text-red-600" />
+                    Export as PDF
+                  </button>
+                  <button
+                    onClick={handleExportExcel}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-gray-700 font-medium transition-colors rounded-b-lg"
+                  >
+                    <Download className="w-4 h-4 text-green-600" />
+                    Export as Excel
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Filters Dropdown */}
@@ -398,43 +429,13 @@ export default function AttendanceReportPage() {
             <p className="text-sm font-medium text-blue-900">
               {selectedRecords.size} record{selectedRecords.size !== 1 ? 's' : ''} selected
             </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleCancelSelection}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-              >
-                <X className="w-4 h-4" />
-                Cancel
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => setShowExportDropdown(!showExportDropdown)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  Export
-                </button>
-
-                {showExportDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                    <button
-                      onClick={handleExportPDF}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-gray-700 font-medium transition-colors rounded-t-lg border-b border-gray-100"
-                    >
-                      <Download className="w-4 h-4 text-red-600" />
-                      Export as PDF
-                    </button>
-                    <button
-                      onClick={handleExportExcel}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-gray-700 font-medium transition-colors rounded-b-lg"
-                    >
-                      <Download className="w-4 h-4 text-green-600" />
-                      Export as Excel
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
+            <button
+              onClick={handleCancelSelection}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+            >
+              <X className="w-4 h-4" />
+              Cancel Selection
+            </button>
           </div>
         )}
 

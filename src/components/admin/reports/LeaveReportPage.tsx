@@ -278,6 +278,7 @@ export default function LeaveReportPage() {
       });
 
       doc.save(`leave-report-${new Date().toISOString().split('T')[0]}.pdf`);
+      showAlert("Success", `Exported ${dataToExport.length} records to PDF.`, "success");
     } catch (err) {
       console.error('Error generating PDF:', err);
       showAlert("Error", "Failed to generate PDF", "error");
@@ -382,6 +383,35 @@ export default function LeaveReportPage() {
               <Filter className="w-4 h-4" />
               Filters
             </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowExportDropdown(!showExportDropdown)}
+                disabled={filteredLeaves.length === 0}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                <Download className="w-4 h-4" />
+                Export
+              </button>
+
+              {showExportDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                  <button
+                    onClick={handleExportPDF}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-gray-700 font-medium transition-colors rounded-t-lg border-b border-gray-100"
+                  >
+                    <Download className="w-4 h-4 text-red-600" />
+                    Export as PDF
+                  </button>
+                  <button
+                    onClick={handleExportExcel}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-gray-700 font-medium transition-colors rounded-b-lg"
+                  >
+                    <Download className="w-4 h-4 text-green-600" />
+                    Export as Excel
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {showFilters && (
@@ -438,43 +468,13 @@ export default function LeaveReportPage() {
             <p className="text-sm font-medium text-blue-900">
               {selectedRecords.size} record{selectedRecords.size !== 1 ? 's' : ''} selected
             </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleCancelSelection}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-              >
-                <X className="w-4 h-4" />
-                Cancel
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => setShowExportDropdown(!showExportDropdown)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  Export
-                </button>
-
-                {showExportDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                    <button
-                      onClick={handleExportPDF}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-gray-700 font-medium transition-colors rounded-t-lg border-b border-gray-100"
-                    >
-                      <Download className="w-4 h-4 text-red-600" />
-                      Export as PDF
-                    </button>
-                    <button
-                      onClick={handleExportExcel}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-gray-700 font-medium transition-colors rounded-b-lg"
-                    >
-                      <Download className="w-4 h-4 text-green-600" />
-                      Export as Excel
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
+            <button
+              onClick={handleCancelSelection}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+            >
+              <X className="w-4 h-4" />
+              Cancel Selection
+            </button>
           </div>
         )}
 
