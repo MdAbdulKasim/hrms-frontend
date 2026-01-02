@@ -34,10 +34,15 @@ export const attendanceService = {
   /**
    * Check in for the day
    */
-  async checkIn(organizationId: string): Promise<AttendanceResponse> {
+  async checkIn(organizationId: string, checkInTime?: string): Promise<AttendanceResponse> {
     try {
+      const payload: { checkInTime?: string } = {};
+      if (checkInTime) {
+        payload.checkInTime = checkInTime;
+      }
       const response = await api.post(
-        `/org/${organizationId}/attendance/check-in`
+        `/org/${organizationId}/attendance/check-in`,
+        Object.keys(payload).length > 0 ? payload : undefined
       );
       return response.data;
     } catch (error: any) {
@@ -51,10 +56,15 @@ export const attendanceService = {
   /**
    * Check out from work
    */
-  async checkOut(organizationId: string): Promise<AttendanceResponse> {
+  async checkOut(organizationId: string, checkOutTime?: string): Promise<AttendanceResponse> {
     try {
+      const payload: { checkOutTime?: string } = {};
+      if (checkOutTime) {
+        payload.checkOutTime = checkOutTime;
+      }
       const response = await api.post(
-        `/org/${organizationId}/attendance/check-out`
+        `/org/${organizationId}/attendance/check-out`,
+        Object.keys(payload).length > 0 ? payload : undefined
       );
       return response.data;
     } catch (error: any) {
@@ -198,6 +208,58 @@ export const attendanceService = {
       return {
         success: false,
         error: error.response?.data?.error || error.message || 'Failed to fetch all attendance',
+      };
+    }
+  },
+
+  /**
+   * Admin check-in for a specific employee
+   */
+  async adminCheckIn(
+    organizationId: string,
+    employeeId: string,
+    checkInTime?: string // Optional time in HH:MM format
+  ): Promise<AttendanceResponse> {
+    try {
+      const payload: { employeeId: string; checkInTime?: string } = { employeeId };
+      if (checkInTime) {
+        payload.checkInTime = checkInTime;
+      }
+      const response = await api.post(
+        `/org/${organizationId}/attendance/admin/check-in`,
+        payload
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to check in employee',
+      };
+    }
+  },
+
+  /**
+   * Admin check-out for a specific employee
+   */
+  async adminCheckOut(
+    organizationId: string,
+    employeeId: string,
+    checkOutTime?: string // Optional time in HH:MM format
+  ): Promise<AttendanceResponse> {
+    try {
+      const payload: { employeeId: string; checkOutTime?: string } = { employeeId };
+      if (checkOutTime) {
+        payload.checkOutTime = checkOutTime;
+      }
+      const response = await api.post(
+        `/org/${organizationId}/attendance/admin/check-out`,
+        payload
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to check out employee',
       };
     }
   },
