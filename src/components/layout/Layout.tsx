@@ -42,14 +42,14 @@ export default function Layout({ children }: LayoutProps) {
     const setupRequired = requiresSetup(role);
 
     // Redirect to setup if required and trying to access protected routes
-    if (setupRequired) {
-      if (role === 'admin') {
-        router.push('/admin/setup');
-      } else if (role === 'employee') {
-        // router.push('/employee/setup');
-        // router.push('/employee/my-space/overview');
-      }
-    }
+    // if (setupRequired) {
+    //   if (role === 'admin') {
+    //     router.push('/admin/setup');
+    //   } else if (role === 'employee') {
+    //     // router.push('/employee/setup');
+    //     // router.push('/employee/my-space/overview');
+    //   }
+    // }
   }, [pathname, router, role, isChecking]);
 
   // Listen for setup completion events

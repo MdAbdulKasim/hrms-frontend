@@ -180,10 +180,23 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-500 mb-1">Insurance</label>
-                                <div className="text-gray-900 font-medium">
-                                    {candidate.insuranceType ? `${candidate.insuranceType} (${candidate.insurancePercentage}%)` : 'Not Selected'}
+                            <div className="col-span-1 md:col-span-2">
+                                <label className="block text-sm font-medium text-gray-500 mb-2">Insurance</label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {candidate.insurances && candidate.insurances.length > 0 ? (
+                                        candidate.insurances.map((insurance, idx) => (
+                                            <div key={idx} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                                <div className="text-sm font-semibold text-gray-900 capitalize">
+                                                    {insurance.type?.replace('_', ' ') || 'N/A'}
+                                                </div>
+                                                <div className="text-xs text-gray-600 mt-1">
+                                                    Deduction: {insurance.percentage || '0'}%
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="text-gray-500 text-sm italic">No insurance added</div>
+                                    )}
                                 </div>
                             </div>
 

@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Search, Settings, Bell, User, PanelLeft, Menu } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Bell, PanelLeft, Menu } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { getAuthToken, decodeToken, getCookie, getUserDetails, setCookie, getOrgId, getEmployeeId, getUserRole, getApiUrl } from '@/lib/auth';
+import { getAuthToken, getUserDetails, setCookie, getOrgId, getEmployeeId, getUserRole, getApiUrl, clearSetupData } from '@/lib/auth';
 
 type SubTab = {
   name: string;
@@ -75,29 +75,53 @@ export default function NavigationHeader({
   useEffect(() => {
     const fetchUserData = async () => {
       const token = getAuthToken();
-      const orgId = getOrgId();
-      const empId = getEmployeeId();
       const role = getUserRole();
 
-      console.log('Header - Fetching user data for role:', role);
+      // First, try to get user data from cache (cookies/localStorage/token)
+      const cachedDetails = getUserDetails();
+      if (cachedDetails.fullName && cachedDetails.fullName !== 'User') {
+        setUserData({
+          name: cachedDetails.fullName,
+          email: cachedDetails.email,
+          initials: cachedDetails.initials
+        });
+        setIsLoading(false);
+        
+        // If we have good cached data, we can still try to refresh from API in background
+        // but don't block on it
+      }
 
-      if (!token || !orgId || !empId) {
-        console.log('Header - Missing auth data');
+      if (!token) {
         setIsLoading(false);
         return;
       }
 
-      const apiUrl = getApiUrl();
+      const orgId = getOrgId();
+      const empId = getEmployeeId();
+
+      // If we have a token but missing orgId or empId, try to get from localStorage with a small delay
+      // This handles the case where cookies might not be immediately available after login
+      let finalOrgId = orgId;
+      let finalEmpId = empId;
       
-      // Fetch from the appropriate endpoint based on role
-      let endpoint = '';
-      if (role === 'admin') {
-        endpoint = `${apiUrl}/org/${orgId}/admin/${empId}`;
-      } else {
-        endpoint = `${apiUrl}/org/${orgId}/employees/${empId}`;
+      if (!finalOrgId || !finalEmpId) {
+        // Wait a bit for cookies to be set after login redirect
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        finalOrgId = getOrgId();
+        finalEmpId = getEmployeeId();
+        
+        if (!finalOrgId || !finalEmpId) {
+          setIsLoading(false);
+          // Already set cached data above, so we're done
+          return;
+        }
       }
 
-      console.log('Header - Fetching from endpoint:', endpoint);
+      // Only make API call if we have both orgId and empId
+      // This is optional - we already have cached data displayed
+      const apiUrl = getApiUrl();
+      const endpoint = `${apiUrl}/org/${finalOrgId}/employees/${finalEmpId}`;
 
       try {
         const response = await fetch(endpoint, {
@@ -108,11 +132,67 @@ export default function NavigationHeader({
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          // Handle 404 Not Found - employee might not exist or endpoint issue
+          if (response.status === 404) {
+            // Use cached data as fallback for 404
+            const details = getUserDetails();
+            if (details.fullName && details.fullName !== 'User') {
+              setUserData({
+                name: details.fullName,
+                email: details.email,
+                initials: details.initials
+              });
+              setIsLoading(false);
+              return;
+            }
+            // If no cached data, just set loading to false and continue
+            setIsLoading(false);
+            return;
+          }
+          
+          // Handle 401 Unauthorized - token expired or invalid
+          if (response.status === 401) {
+            // Try to use cached data first before redirecting
+            const details = getUserDetails();
+            if (details.fullName && details.fullName !== 'User') {
+              setUserData({
+                name: details.fullName,
+                email: details.email,
+                initials: details.initials
+              });
+              setIsLoading(false);
+              return;
+            }
+            
+            // Only redirect if we're sure the session is invalid and we have no cached data
+            clearSetupData();
+            // Add a small delay to prevent immediate redirect loops
+            setTimeout(() => {
+              if (typeof window !== 'undefined' && window.location.pathname !== '/auth/login') {
+                window.location.href = '/auth/login';
+              }
+            }, 500);
+            return; // Exit early to prevent further processing
+          }
+          
+          // For other errors, try to use cached data
+          const details = getUserDetails();
+          if (details.fullName && details.fullName !== 'User') {
+            setUserData({
+              name: details.fullName,
+              email: details.email,
+              initials: details.initials
+            });
+            setIsLoading(false);
+            return;
+          }
+          
+          // If no cached data and it's not a critical error, just continue
+          setIsLoading(false);
+          return;
         }
 
         const data = await response.json();
-        console.log('Header - API Response:', data);
 
         const user = data.data || data.admin || data.employee || data;
         
@@ -152,8 +232,6 @@ export default function NavigationHeader({
                 .toUpperCase()
             : (role === 'admin' ? 'AD' : 'EM');
 
-          console.log('Header - Setting user data:', { fullName, email, initials, role });
-
           setUserData({
             name: fullName,
             email: email,
@@ -176,19 +254,16 @@ export default function NavigationHeader({
             }
           }
         }
-      } catch (error) {
-        console.error("Header - Failed to fetch user data:", error);
-        
-        // Try to get from local storage as fallback
+      } catch (error: any) {
+        // Silently handle errors - use cached data as fallback
         const details = getUserDetails();
-        if (details.fullName) {
+        if (details.fullName && details.fullName !== 'User') {
           setUserData({
             name: details.fullName,
             email: details.email,
             initials: details.initials
           });
         }
-      } finally {
         setIsLoading(false);
       }
     };
