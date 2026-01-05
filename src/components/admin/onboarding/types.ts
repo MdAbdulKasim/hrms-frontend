@@ -11,6 +11,7 @@ export interface Employee {
     aadhaar: string;
     uan: string;
     fullName?: string;
+    employeeNumber?: string;
 }
 
 export interface AccommodationAllowance {
@@ -28,6 +29,7 @@ export interface BankDetails {
     accountNumber: string;
     accountHolderName: string;
     ifscCode: string;
+    bankPassbookFile?: File | null;
 }
 
 export interface Education {
@@ -48,7 +50,7 @@ export interface WorkExperience {
 }
 
 export interface CandidateForm {
-    employeeId?: string; // Auto-generated employee ID (e.g., EMP 001)
+    employeeNumber?: string; // Auto-generated employee ID (e.g., EMP 001)
     fullName: string;
     email: string;
     phoneNumber: string;
@@ -63,12 +65,53 @@ export interface CandidateForm {
     empType: string;
     siteId?: string;
     buildingId?: string;
+    // Contract Details
+    contractStartDate?: string;
+    contractEndDate?: string;
+    contractType?: string;
     // Compensation & Benefits
     basicSalary: string;
     accommodationAllowances: AccommodationAllowance[];
     insurances: Insurance[];
     // Bank Details
     bankDetails: BankDetails;
+    // Personal Details
+    gender?: string;
+    maritalStatus?: string;
+    dateOfBirth?: string;
+    bloodGroup?: string;
+    // Identity Information
+    uan?: string;
+    pan?: string;
+    aadhaar?: string;
+    passportNumber?: string;
+    drivingLicenseNumber?: string;
+    // Address Information
+    presentAddress?: {
+        addressLine1: string;
+        addressLine2: string;
+        city: string;
+        state: string;
+        country: string;
+        pinCode: string;
+    };
+    permanentAddress?: {
+        addressLine1: string;
+        addressLine2: string;
+        city: string;
+        state: string;
+        country: string;
+        pinCode: string;
+    };
+    // Emergency Contact
+    emergencyContact?: {
+        contactName: string;
+        relation: string;
+        contactNumber: string;
+    };
+    // Education & Experience
+    education?: Education[];
+    experience?: WorkExperience[];
     // Keep internal UI helper fields if needed
     mobileNumber?: string;
     employeeType?: string;

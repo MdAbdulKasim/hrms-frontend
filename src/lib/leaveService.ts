@@ -5,12 +5,15 @@ const api = axios.create({
   baseURL: getApiUrl(),
 });
 
+// Interceptor to add auth token to every request
 api.interceptors.request.use((config) => {
   const token = getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
+}, (error) => {
+  return Promise.reject(error);
 });
 
 /* =======================

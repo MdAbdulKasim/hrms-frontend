@@ -68,15 +68,17 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
         const emp = response.data?.data || response.data;
         setEmployee(emp);
 
-        try {
-          const picResponse = await axios.get(`${apiUrl}/org/${orgId}/employees/${currentEmployeeId}/profile-pic`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (picResponse.data.success && picResponse.data.imageUrl) {
-            setProfilePicUrl(picResponse.data.imageUrl);
+        if (emp.profilePicUrl) {
+          try {
+            const picResponse = await axios.get(`${apiUrl}/org/${orgId}/employees/${currentEmployeeId}/profile-pic`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (picResponse.data.success && picResponse.data.imageUrl) {
+              setProfilePicUrl(picResponse.data.imageUrl);
+            }
+          } catch (error) {
+            console.error("Failed to fetch profile picture:", error);
           }
-        } catch (error) {
-          console.error("Failed to fetch profile picture:", error);
         }
       } catch (error) {
         console.error("Failed to fetch employee data:", error);
@@ -175,7 +177,7 @@ export default function ProfilePage({ employeeId: initialEmployeeId, onBack }: P
           <ProfileHeader
             employee={employee}
             onEdit={() => setIsEditing(true)}
-            onDelete={() => {}}
+            onDelete={() => { }}
           />
 
           <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />

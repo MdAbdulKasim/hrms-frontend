@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import ProfilePage from '../profile/ProfilePage'; // Import ProfilePage from profile folder
 import axios from 'axios';
-import { getApiUrl, getAuthToken, getOrgId, getCookie } from '@/lib/auth';
+import { getApiUrl, getAuthToken, getOrgId, getCookie, getUserRole } from '@/lib/auth';
 import attendanceService from '@/lib/attendanceService';
 import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 import { Check, Clock, UserCheck } from 'lucide-react';
@@ -44,12 +44,15 @@ interface ProfileCardProps {
   token: string | null;
   orgId: string | null;
   currentEmployeeId: string | null;
+  initialIsCheckedIn?: boolean;
+  initialIsCheckedOut?: boolean;
   onCheckInStatusChange?: (isCheckedIn: boolean) => void;
   showAlert: (title: string, description: string, variant?: "success" | "error" | "info" | "warning") => void;
 }
 
-const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInStatusChange, showAlert }: ProfileCardProps) => {
-  const [isCheckedIn, setIsCheckedIn] = useState(false);
+const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, initialIsCheckedIn = false, initialIsCheckedOut = false, onCheckInStatusChange, showAlert }: ProfileCardProps) => {
+  const [isCheckedIn, setIsCheckedIn] = useState(initialIsCheckedIn);
+  const [isCheckedOut, setIsCheckedOut] = useState(initialIsCheckedOut);
   const [seconds, setSeconds] = useState(0);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -57,6 +60,14 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
     const now = new Date();
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   });
+  const [logoutTime, setLogoutTime] = useState<string>(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  });
+
+  useEffect(() => {
+    setIsCheckedIn(initialIsCheckedIn);
+  }, [initialIsCheckedIn]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -84,7 +95,11 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
       setLoading(true);
       if (isCheckedIn) {
         // Check out
-        const response = await attendanceService.checkOut(orgId);
+        const [hours, minutes] = logoutTime.split(':');
+        const checkOutDate = new Date();
+        checkOutDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+        const response = await attendanceService.adminCheckOut(orgId, currentEmployeeId!, checkOutDate.toISOString());
         if (response.error) {
           showAlert('Check-out Failed', response.error, "error");
           return;
@@ -94,7 +109,11 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
         onCheckInStatusChange?.(false);
       } else {
         // Check in with custom login time
-        const response = await attendanceService.checkIn(orgId, loginTime);
+        const [hours, minutes] = loginTime.split(':');
+        const checkInDate = new Date();
+        checkInDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+        const response = await attendanceService.adminCheckIn(orgId, currentEmployeeId!, checkInDate.toISOString());
         if (response.error) {
           showAlert('Check-in Failed', response.error, "error");
           return;
@@ -166,19 +185,21 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
       </div>
       <h2 className="text-gray-800 font-medium text-sm break-all">{currentUser?.firstName ? `${currentUser.firstName}${currentUser.lastName ? ' ' + currentUser.lastName : ''}` : 'Loading...'}</h2>
       <p className="text-gray-500 text-xs mt-1">{currentUser?.designation || 'N/A'}</p>
-      <p className={`text-xs font-medium mt-3 ${isCheckedIn ? 'text-green-500' : 'text-red-500'}`}>
-        {isCheckedIn ? 'Checked In' : 'Yet to check-in'}
+      <p className={`text-xs font-medium mt-3 ${isCheckedOut ? 'text-gray-400' : isCheckedIn ? 'text-green-500' : 'text-red-500'}`}>
+        {isCheckedOut ? 'Shift Completed' : isCheckedIn ? 'Checked In' : 'Yet to check-in'}
       </p>
 
-      {/* Login Time Input - only show when not checked in */}
-      {!isCheckedIn && (
+      {/* Login/Logout Time Input */}
+      {!isCheckedOut && (
         <div className="mt-3 w-full">
-          <label className="text-xs text-gray-500 block mb-1">Login Time</label>
+          <label className="text-xs text-gray-500 block mb-1">
+            {isCheckedIn ? 'Logout Time' : 'Login Time'}
+          </label>
           <input
             type="time"
-            value={loginTime}
-            onChange={(e) => setLoginTime(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-center"
+            value={isCheckedIn ? logoutTime : loginTime}
+            onChange={(e) => isCheckedIn ? setLogoutTime(e.target.value) : setLoginTime(e.target.value)}
+            className={`w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 ${isCheckedIn ? 'focus:ring-red-500' : 'focus:ring-green-500'} focus:border-transparent text-center`}
           />
         </div>
       )}
@@ -188,12 +209,12 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
       </div>
       <button
         onClick={handleToggleCheckIn}
-        disabled={loading}
-        className={`mt-4 w-full py-2 border rounded-md transition-colors text-sm font-medium ${loading ? 'opacity-50 cursor-not-allowed' :
+        disabled={loading || isCheckedOut}
+        className={`mt-4 w-full py-2 border rounded-md transition-colors text-sm font-medium ${loading || isCheckedOut ? 'opacity-50 cursor-not-allowed bg-gray-50 text-gray-400 border-gray-200' :
           isCheckedIn ? 'border-red-500 text-red-500 hover:bg-red-50' : 'border-green-500 text-green-500 hover:bg-green-50'
           }`}
       >
-        {loading ? 'Processing...' : isCheckedIn ? 'Check-out' : 'Check-in'}
+        {loading ? 'Processing...' : isCheckedOut ? 'Work Ended' : isCheckedIn ? 'Check-out' : 'Check-in'}
       </button>
     </div>
   );
@@ -395,10 +416,15 @@ const ReporteesCard = ({
                   {person.name}
                 </p>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  {person.isCheckedIn ? (
+                  {person.status === 'checked-in' ? (
                     <>
                       <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                       <span className="text-[11px] text-green-600 font-medium">Checked In</span>
+                    </>
+                  ) : person.status === 'checked-out' ? (
+                    <>
+                      <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+                      <span className="text-[11px] text-gray-500 font-medium">Checked Out</span>
                     </>
                   ) : (
                     <>
@@ -486,6 +512,9 @@ export default function Dashboard() {
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   });
   const [checkInLoading, setCheckInLoading] = useState(false);
+  const [isSelfCheckedIn, setIsSelfCheckedIn] = useState(false);
+  const [isSelfCheckedOut, setIsSelfCheckedOut] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Alert State
   const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
@@ -533,47 +562,60 @@ export default function Dashboard() {
           employeeId: userData.employeeId || userData.id,
           firstName: firstName || '',
           lastName: lastName || '',
-          designation: userData.designation?.name || userData.designation || 'N/A',
+          designation: (typeof userData.designation === 'object' ? userData.designation?.name : userData.designation) || 'N/A',
           profileImage: userData.profileImage
         });
+
+        // Fetch attendance status for all employees
+        let attendanceMap: Record<string, boolean> = {};
+        let checkedOutMap: Record<string, boolean> = {};
+        try {
+          const today = new Date().toISOString().split('T')[0];
+          const attendanceRes = await attendanceService.getDailyAttendance(authOrgId, today);
+
+          // Handle both { data: [...] } and [...] formats
+          const attendanceData = (attendanceRes as any).data || (Array.isArray(attendanceRes) ? attendanceRes : []);
+
+          if (Array.isArray(attendanceData)) {
+            attendanceData.forEach((record: any) => {
+              if (record.employeeId) {
+                // If there's a check-in but no check-out, they are active
+                if (record.checkInTime && !record.checkOutTime) {
+                  attendanceMap[record.employeeId] = true;
+                }
+                // If they have both, they are finished for the day
+                else if (record.checkInTime && record.checkOutTime) {
+                  checkedOutMap[record.employeeId] = true;
+                }
+              }
+            });
+          }
+        } catch (attendanceError) {
+          console.log('Could not fetch attendance data');
+        }
 
         // Fetch reportees
         const reporteesRes = await axios.get(`${apiUrl}/org/${authOrgId}/employees`, {
           headers: { Authorization: `Bearer ${authToken}` }
         });
-        const reporteesData = reporteesRes.data.data || reporteesRes.data;
-
-        // Fetch attendance status for all employees
-        let attendanceMap: Record<string, boolean> = {};
-        try {
-          const today = new Date().toISOString().split('T')[0];
-          const attendanceRes = await axios.get(`${apiUrl}/org/${authOrgId}/attendance`, {
-            headers: { Authorization: `Bearer ${authToken}` },
-            params: { date: today }
-          });
-          const attendanceData = attendanceRes.data?.data || attendanceRes.data || [];
-          attendanceData.forEach((record: any) => {
-            if (record.employeeId && record.checkIn) {
-              attendanceMap[record.employeeId] = true;
-            }
-          });
-        } catch (attendanceError) {
-          console.log('Could not fetch attendance data');
-        }
+        const reporteesData = reporteesRes.data.data || reporteesRes.data || [];
 
         setReportees(reporteesData.slice(0, 10).map((emp: any) => {
           const empId = emp.id || emp._id;
+          const isCheckedIn = !!attendanceMap[empId];
+          const isCheckedOut = !!checkedOutMap[empId];
           return {
             id: empId,
             name: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.email,
             roleId: emp.employeeId || empId,
-            status: attendanceMap[empId] ? 'checked-in' : 'yet-to-check-in',
+            status: isCheckedIn ? 'checked-in' : (isCheckedOut ? 'checked-out' : 'yet-to-check-in'),
             employeeId: empId,
-            isCheckedIn: !!attendanceMap[empId]
+            isCheckedIn: isCheckedIn
           };
         }));
 
-
+        setIsSelfCheckedIn(!!attendanceMap[authEmployeeId]);
+        setIsSelfCheckedOut(!!checkedOutMap[authEmployeeId]);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -582,7 +624,7 @@ export default function Dashboard() {
     };
 
     fetchData();
-  }, []);
+  }, [refreshTrigger]);
 
   const handleEmployeeClick = (employeeId: string, name: string) => {
     setSelectedEmployeeId(employeeId);
@@ -647,43 +689,53 @@ export default function Dashboard() {
       return;
     }
 
-    setCheckInLoading(true);
-    let successCount = 0;
-    let failCount = 0;
+    // Debug logging
+    const authToken = getAuthToken();
+    const userRole = getUserRole();
+    console.log('[BulkCheckIn] Auth details:', {
+      hasToken: !!authToken,
+      tokenPreview: authToken?.substring(0, 30) + '...',
+      orgId,
+      userRole,
+      employeeCount: employeeIds.length
+    });
 
+    setCheckInLoading(true);
     try {
-      // Process check-ins sequentially with global login time
-      for (const employeeId of employeeIds) {
-        try {
-          const response = await attendanceService.adminCheckIn(orgId, employeeId, globalCheckInTime);
-          if (response.error) {
-            failCount++;
-          } else {
-            successCount++;
-            // Update the reportee's status in the list
-            setReportees(prev => prev.map(r =>
-              r.employeeId === employeeId
-                ? { ...r, isCheckedIn: true, status: 'checked-in' as const }
-                : r
-            ));
-          }
-        } catch (err) {
-          failCount++;
+      const [hours, minutes] = globalCheckInTime.split(':');
+      const checkInDate = new Date();
+      checkInDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+      const response = await attendanceService.bulkCheckIn(orgId, employeeIds, checkInDate.toISOString());
+
+      if (response.error) {
+        showAlert('Bulk Check-in Failed', response.error, 'error');
+      } else {
+        // Handle success/partial success from backend bulk response
+        const { success = [], failed = [] } = response as any;
+        const successCount = success.length;
+        const failCount = failed.length;
+
+        // Update the reportees status locally based on backend success list
+        const successfulIds = success.map((att: any) => att.employeeId);
+
+        if (successCount > 0) {
+          setReportees(prev => prev.map(r =>
+            successfulIds.includes(r.employeeId)
+              ? { ...r, isCheckedIn: true, status: 'checked-in' }
+              : r
+          ));
+        }
+
+        if (failCount === 0) {
+          showAlert('Success', `Successfully checked in ${successCount} employee(s)`, 'success');
+        } else {
+          showAlert('Partial Success', `Checked in ${successCount} employee(s), ${failCount} failed`, 'warning');
         }
       }
 
-      // Clear selection and times
+      // Clear selection
       setSelectedReporteeIds([]);
-      setReporteeTimes({});
-
-      // Show result
-      if (failCount === 0) {
-        showAlert('Success', `Successfully checked in ${successCount} employee(s)`, 'success');
-      } else if (successCount > 0) {
-        showAlert('Partial Success', `Checked in ${successCount} employee(s), ${failCount} failed`, 'warning');
-      } else {
-        showAlert('Failed', `Failed to check in employees. The admin check-in endpoint may not be available.`, 'error');
-      }
     } catch (error: any) {
       console.error('Error checking in reportees:', error);
       showAlert('Check-in Failed', 'An unexpected error occurred', 'error');
@@ -700,42 +752,41 @@ export default function Dashboard() {
     }
 
     setCheckInLoading(true);
-    let successCount = 0;
-    let failCount = 0;
-
     try {
-      // Process check-outs sequentially with global logout time
-      for (const employeeId of employeeIds) {
-        try {
-          const response = await attendanceService.adminCheckOut(orgId, employeeId, globalCheckOutTime);
-          if (response.error) {
-            failCount++;
-          } else {
-            successCount++;
-            // Update the reportee's status in the list
-            setReportees(prev => prev.map(r =>
-              r.employeeId === employeeId
-                ? { ...r, isCheckedIn: false, status: 'yet-to-check-in' as const }
-                : r
-            ));
-          }
-        } catch (err) {
-          failCount++;
+      const [hours, minutes] = globalCheckOutTime.split(':');
+      const checkOutDate = new Date();
+      checkOutDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+      const response = await attendanceService.bulkCheckOut(orgId, employeeIds, checkOutDate.toISOString());
+
+      if (response.error) {
+        showAlert('Bulk Check-out Failed', response.error, 'error');
+      } else {
+        // Handle success/partial success from backend bulk response
+        const { success = [], failed = [] } = response as any;
+        const successCount = success.length;
+        const failCount = failed.length;
+
+        // Update the reportees status locally
+        const successfulIds = success.map((att: any) => att.employeeId);
+
+        if (successCount > 0) {
+          setReportees(prev => prev.map(r =>
+            successfulIds.includes(r.employeeId)
+              ? { ...r, isCheckedIn: false, status: 'yet-to-check-in' }
+              : r
+          ));
+        }
+
+        if (failCount === 0) {
+          showAlert('Success', `Successfully checked out ${successCount} employee(s)`, 'success');
+        } else {
+          showAlert('Partial Success', `Checked out ${successCount} employee(s), ${failCount} failed`, 'warning');
         }
       }
 
-      // Clear selection and times
+      // Clear selection
       setSelectedReporteeIds([]);
-      setReporteeTimes({});
-
-      // Show result
-      if (failCount === 0) {
-        showAlert('Success', `Successfully checked out ${successCount} employee(s)`, 'success');
-      } else if (successCount > 0) {
-        showAlert('Partial Success', `Checked out ${successCount} employee(s), ${failCount} failed`, 'warning');
-      } else {
-        showAlert('Failed', `Failed to check out employees. The admin check-out endpoint may not be available.`, 'error');
-      }
     } catch (error: any) {
       console.error('Error checking out reportees:', error);
       showAlert('Check-out Failed', 'An unexpected error occurred', 'error');
@@ -777,6 +828,9 @@ export default function Dashboard() {
               token={token}
               orgId={orgId}
               currentEmployeeId={currentEmployeeId}
+              initialIsCheckedIn={isSelfCheckedIn}
+              initialIsCheckedOut={isSelfCheckedOut}
+              onCheckInStatusChange={() => setRefreshTrigger(prev => prev + 1)}
               showAlert={showAlert}
             />
           </div>

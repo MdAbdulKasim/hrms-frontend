@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { X, ChevronDown, Check, Plus, Trash2 } from 'lucide-react';
+import { X, ChevronDown, Check, Plus, Trash2, Upload } from 'lucide-react';
 import { CandidateForm, AccommodationAllowance, Insurance, BankDetails } from './types';
 import SuccessDialog from './SuccessDialog';
 
@@ -97,7 +97,7 @@ const Combobox: React.FC<ComboboxProps> = ({
 interface AddCandidateFormProps {
     candidateForm: CandidateForm;
     onInputChange: (field: keyof CandidateForm, value: any) => void;
-    onAddCandidate: () => void | Promise<void>;
+    onAddCandidate: () => any | Promise<any>;
     onCancel: () => void;
     departments: any[];
     designations: any[];
@@ -108,6 +108,7 @@ interface AddCandidateFormProps {
     isEditing?: boolean;
     employees?: any[]; // For generating employee ID
     onSuccess?: () => void; // Optional success callback
+    onComplete?: () => void; // Called after success dialog is closed
 }
 
 const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
@@ -122,60 +123,33 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
     shifts,
     isLoading,
     isEditing = false,
-    employees = [],
     onSuccess,
+    onComplete,
 }) => {
     // State for success dialog
     const [showSuccessDialog, setShowSuccessDialog] = React.useState(false);
-    // Auto-generate employee ID on component mount
-    React.useEffect(() => {
-        if (!isEditing && !candidateForm.employeeId) {
-            const generateEmployeeId = () => {
-                // Find the highest employee number from existing employees
-                let maxNumber = 0;
-                
-                // Check all employees for existing employee IDs
-                employees.forEach(emp => {
-                    // Check employeeId field first, then id/_id as fallback
-                    const empId = emp.employeeId || emp.id || emp._id;
-                    if (empId) {
-                        // Try to match pattern like "EMP 001", "EMP001", "EMP 1", etc.
-                        const match = String(empId).match(/EMP\s*(\d+)/i);
-                        if (match) {
-                            const num = parseInt(match[1], 10);
-                            if (num > maxNumber) maxNumber = num;
-                        }
-                    }
-                });
-                
-                // Generate next ID
-                const nextNumber = maxNumber + 1;
-                return `EMP ${String(nextNumber).padStart(3, '0')}`;
-            };
-            const newEmployeeId = generateEmployeeId();
-            onInputChange('employeeId', newEmployeeId);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isEditing, employees.length]);
+    const [generatedId, setGeneratedId] = React.useState('');
+
+    // Remove automatic ID generation - handled by backend now
 
     // Calculate total salary
     const calculateTotalSalary = () => {
         const basic = parseFloat(candidateForm.basicSalary || '0') || 0;
-        
+
         // Calculate allowances (added to salary)
         let allowanceTotal = 0;
         candidateForm.accommodationAllowances?.forEach(allowance => {
             const percentage = parseFloat(allowance.percentage || '0') || 0;
             allowanceTotal += (basic * percentage) / 100;
         });
-        
+
         // Calculate insurance deductions (reduced from salary)
         let insuranceDeduction = 0;
         candidateForm.insurances?.forEach(insurance => {
             const percentage = parseFloat(insurance.percentage || '0') || 0;
             insuranceDeduction += (basic * percentage) / 100;
         });
-        
+
         const total = basic + allowanceTotal - insuranceDeduction;
         return {
             basic,
@@ -251,14 +225,15 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
     };
 
     // Bank details handler
-    const handleBankDetailsChange = (field: keyof BankDetails, value: string) => {
+    const handleBankDetailsChange = (field: keyof BankDetails, value: string | File | null) => {
         const updatedBankDetails = {
             ...(candidateForm.bankDetails || {
                 bankName: '',
                 branchName: '',
                 accountNumber: '',
                 accountHolderName: '',
-                ifscCode: ''
+                ifscCode: '',
+                bankPassbookFile: null
             }),
             [field]: value
         };
@@ -268,7 +243,7 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
     return (
         <div className="min-h-screen bg-white p-4 md:p-8">
             <div className="max-w-6xl mx-auto">
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex justify-between items-center mb-6 gap-4">
                     <h1 className="text-xl md:text-2xl font-bold">{isEditing ? 'Edit Employee' : 'Add Candidate'}</h1>
                     <button
                         onClick={onCancel}
@@ -293,13 +268,13 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Employee ID <span className="text-gray-400 text-xs">(Auto-generated)</span>
+                                    Employee Number <span className="text-gray-400 text-xs">({isEditing ? 'Existing' : 'Generated after creation'})</span>
                                 </label>
                                 <input
                                     type="text"
-                                    placeholder="EMP 001"
-                                    value={candidateForm.employeeId || ''}
-                                    onChange={(e) => onInputChange('employeeId', e.target.value)}
+                                    placeholder={isEditing ? "EMP 001" : "Assigns automatically"}
+                                    value={candidateForm.employeeNumber || ''}
+                                    onChange={(e) => onInputChange('employeeNumber', e.target.value)}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
                                     readOnly={!isEditing}
                                 />
@@ -486,6 +461,43 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                                     { id: 'night', label: 'Night' }
                                 ]}
                             />
+
+                            <Combobox
+                                label="Contract Type"
+                                value={candidateForm.contractType || ''}
+                                onChange={(val) => onInputChange('contractType', val)}
+                                placeholder="Select contract type..."
+                                options={[
+                                    { id: 'fixed-term', label: 'Fixed Term' },
+                                    { id: 'consultant', label: 'Consultant' },
+                                    { id: 'freelance', label: 'Freelance' },
+                                    { id: 'internship', label: 'Internship' },
+                                ]}
+                            />
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Contract Start Date
+                                </label>
+                                <input
+                                    type="date"
+                                    value={candidateForm.contractStartDate || ''}
+                                    onChange={(e) => onInputChange('contractStartDate', e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Contract End Date
+                                </label>
+                                <input
+                                    type="date"
+                                    value={candidateForm.contractEndDate || ''}
+                                    onChange={(e) => onInputChange('contractEndDate', e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
 
                             <Combobox
                                 label="Time Zone"
@@ -772,6 +784,35 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                                     maxLength={11}
                                 />
                             </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Bank Passbook / Cancelled Cheque
+                                </label>
+                                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-blue-400 transition-colors cursor-pointer relative">
+                                    <div className="space-y-1 text-center">
+                                        <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                                        <div className="flex text-sm text-gray-600">
+                                            <label className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none">
+                                                <span>{candidateForm.bankDetails?.bankPassbookFile ? candidateForm.bankDetails.bankPassbookFile.name : 'Upload a file'}</span>
+                                                <input
+                                                    type="file"
+                                                    className="sr-only"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0] || null;
+                                                        handleBankDetailsChange('bankPassbookFile', file);
+                                                    }}
+                                                    accept=".pdf,.jpg,.jpeg,.png"
+                                                />
+                                            </label>
+                                            {!candidateForm.bankDetails?.bankPassbookFile && <p className="pl-1">or drag and drop</p>}
+                                        </div>
+                                        <p className="text-xs text-gray-500">
+                                            PNG, JPG, PDF up to 10MB
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -779,10 +820,14 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                         onClick={async () => {
                             try {
                                 // Call the parent's onAddCandidate handler
-                                const result = onAddCandidate();
+                                const result = onAddCandidate() as any;
                                 // If it returns a promise, wait for it
                                 if (result && typeof result.then === 'function') {
-                                    await result;
+                                    const response: any = await result;
+                                    // Capture generated ID if available
+                                    if (response && response.employeeId) {
+                                        setGeneratedId(response.employeeId);
+                                    }
                                 }
                                 // Show success dialog after successful submission (only for new candidates)
                                 if (!isEditing) {
@@ -817,9 +862,10 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                 open={showSuccessDialog}
                 onOpenChange={setShowSuccessDialog}
                 title="Successfully Completed"
-                message={`Candidate "${candidateForm.fullName || 'Employee'}" has been added successfully! An onboarding invitation email has been sent.`}
+                message={`Candidate "${candidateForm.fullName || 'Employee'}" has been added successfully!${generatedId ? ` Assigned ID: ${generatedId}.` : ''} An onboarding invitation email has been sent.`}
                 onClose={() => {
                     setShowSuccessDialog(false);
+                    if (onComplete) onComplete();
                 }}
             />
         </div >

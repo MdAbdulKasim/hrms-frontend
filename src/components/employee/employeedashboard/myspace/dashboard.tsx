@@ -57,8 +57,11 @@ const Dashboard: React.FC = () => {
               workHours: workHours
             });
           }
-        } catch (statusError) {
-          console.error('Error fetching attendance status:', statusError);
+        } catch (statusError: any) {
+          // If 404, it just means no attendance record for today, which is fine
+          if (statusError.response?.status !== 404) {
+            console.error('Error fetching attendance status:', statusError);
+          }
         }
 
       } catch (error) {

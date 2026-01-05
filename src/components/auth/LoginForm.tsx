@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getCookie, setCookie, setOrgId, getApiUrl, syncSetupState, syncEmployeeSetupState, clearSetupData, checkSetupStatus, checkEmployeeSetupStatus } from "@/lib/auth";
+import axios from "axios";
 
 interface FormData {
   email: string;
@@ -77,20 +78,20 @@ export default function LoginForm() {
       try {
         console.warn("LOGIN_DEBUG: Calling API", { loginUrl, email: formData.email });
 
-        const response = await fetch(loginUrl, {
-          method: 'POST',
+        const response = await axios.post(loginUrl, {
+          email: formData.email,
+          password: formData.password,
+        }, {
+          
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            email: formData.email,
-            password: formData.password,
-          }),
+          validateStatus: () => true
         });
 
-        const data = await response.json().catch(() => ({}));
+        const data = response.data;
 
-        if (response.ok && data.success) {
+        if (response.status >= 200 && response.status < 300 && data.success) {
           const { token, role, employee, employeeId } = data;
           const id = employeeId || employee?.id;
 
@@ -182,8 +183,7 @@ export default function LoginForm() {
 
           if (role === 'admin') {
             // Redirect based on actual setup status from backend
-            const dest = isSetupCompleted ? "/admin/my-space/overview" : "/admin/setup";
-            window.location.href = dest;
+            window.location.href = "/admin/my-space/overview";
           } else {
             // Redirect employees directly to overview, bypassing setup
             window.location.href = "/employee/my-space/overview";

@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Calendar, Coffee, Gift, Clock, Heart, Users, AlertCircle, CheckCircle, XCircle, Settings, Filter } from 'lucide-react';
+import { Plus, Calendar, Coffee, Gift, Clock, Heart, Users, AlertCircle, CheckCircle, XCircle, Settings, Filter, Eye } from 'lucide-react';
+import ViewLeaveDetails from './ViewLeaveDetails';
 import {
   Dialog,
   DialogContent,
@@ -68,6 +69,8 @@ const LeaveTracker = () => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [selectedLeaveRequest, setSelectedLeaveRequest] = useState<LeaveRequest | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'reject'>('approve');
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [viewingLeave, setViewingLeave] = useState<LeaveRequest | null>(null);
 
   // Alert State
   const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
@@ -208,11 +211,11 @@ const LeaveTracker = () => {
         const usedDays = Number(type.usedDays) || 0;
         const pendingDays = Number(type.pendingDays) || 0;
         const totalDays = Number(type.defaultDays) || 0;
-        
+
         // Calculate available days, ensuring it's never negative or NaN
         const booked = usedDays + pendingDays;
         const available = Math.max(0, totalDays - booked);
-        
+
         return {
           id: type.code || type.id,
           code: type.code,
@@ -668,9 +671,7 @@ const LeaveTracker = () => {
                   <th className="text-left py-4 px-4 text-sm font-semibold text-gray-600 whitespace-nowrap">Days</th>
                   <th className="text-left py-4 px-4 text-sm font-semibold text-gray-600 whitespace-nowrap">Reason</th>
                   <th className="text-left py-4 px-4 text-sm font-semibold text-gray-600 whitespace-nowrap">Status</th>
-                  {viewMode === 'pending' && (
-                    <th className="text-left py-4 px-4 text-sm font-semibold text-gray-600 whitespace-nowrap">Actions</th>
-                  )}
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-gray-600 whitespace-nowrap text-center">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -706,30 +707,42 @@ const LeaveTracker = () => {
                           {leave.status.charAt(0).toUpperCase() + leave.status.slice(1)}
                         </span>
                       </td>
-                      {viewMode === 'pending' && (
-                        <td className="py-4 px-4 whitespace-nowrap">
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-green-600 hover:text-green-700"
-                              onClick={() => openApproveDialog(leave, 'approve')}
-                            >
-                              <CheckCircle className="w-4 h-4 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 hover:text-red-700"
-                              onClick={() => openApproveDialog(leave, 'reject')}
-                            >
-                              <XCircle className="w-4 h-4 mr-1" />
-                              Reject
-                            </Button>
-                          </div>
-                        </td>
-                      )}
+                      <td className="py-4 px-4 whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => {
+                              setViewingLeave(leave);
+                              setIsViewDialogOpen(true);
+                            }}
+                            className="p-2 hover:bg-gray-100 rounded-lg text-blue-600 transition-colors"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          {viewMode === 'pending' && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-green-600 hover:text-green-700 h-8 px-2"
+                                onClick={() => openApproveDialog(leave, 'approve')}
+                              >
+                                <CheckCircle className="w-4 h-4 mr-1" />
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-red-600 hover:text-red-700 h-8 px-2"
+                                onClick={() => openApproveDialog(leave, 'reject')}
+                              >
+                                <XCircle className="w-4 h-4 mr-1" />
+                                Reject
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -738,6 +751,17 @@ const LeaveTracker = () => {
           </div>
         </div>
       </div>
+
+      {/* View Details Dialog */}
+      {isViewDialogOpen && viewingLeave && (
+        <ViewLeaveDetails
+          leave={viewingLeave}
+          onClose={() => {
+            setIsViewDialogOpen(false);
+            setViewingLeave(null);
+          }}
+        />
+      )}
 
       {/* Apply Leave Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

@@ -109,7 +109,7 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                     const [key, direction] = e.target.value.split('-');
                                     setSortConfig({ key, direction: direction as 'asc' | 'desc' });
                                 }}
-                                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 flex-1 w-full md:w-auto"
                             >
                                 <option value="fullName-asc">Name (A-Z)</option>
                                 <option value="fullName-desc">Name (Z-A)</option>
@@ -134,6 +134,12 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                             checked={employees.length > 0 && selectedIds.length === employees.length}
                                             onChange={onSelectAll}
                                         />
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => setSortConfig({ key: 'employeeNumber', direction: sortConfig.key === 'employeeNumber' && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                        <div className="flex items-center gap-1">
+                                            Employee Number
+                                            {sortConfig.key === 'employeeNumber' && (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+                                        </div>
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => setSortConfig({ key: 'fullName', direction: sortConfig.key === 'fullName' && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
                                         <div className="flex items-center gap-1">
@@ -160,7 +166,7 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                         PAN card number
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Passport number
+                                        Aadhaar number
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         UAN number
@@ -182,6 +188,7 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                                     onChange={() => onSelectOne(employee.id)}
                                                 />
                                             </td>
+                                            <td className="px-6 py-4 text-sm text-gray-900 font-medium">{employee.employeeNumber}</td>
                                             <td className="px-6 py-4 text-sm text-gray-900">{employee.fullName || `${employee.firstName} ${employee.lastName}`}</td>
                                             <td className="px-6 py-4 text-sm text-gray-900">{employee.emailId}</td>
                                             <td className="px-6 py-4 text-sm text-gray-900">{employee.officialEmail}</td>

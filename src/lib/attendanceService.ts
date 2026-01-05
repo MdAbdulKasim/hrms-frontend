@@ -5,12 +5,19 @@ const api = axios.create({
   baseURL: getApiUrl(),
 });
 
+// Interceptor to add auth token to every request
 api.interceptors.request.use((config) => {
+  // Get token fresh on each request to ensure it's current
   const token = getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    console.log(`[AttendanceService] Request to ${config.url} with token: ${token.substring(0, 20)}...`);
+  } else {
+    console.warn('No auth token found for API request:', config.url);
   }
   return config;
+}, (error) => {
+  return Promise.reject(error);
 });
 
 export interface AttendanceRecord {
@@ -213,21 +220,17 @@ export const attendanceService = {
   },
 
   /**
-   * Admin check-in for a specific employee
+   * Admin/Manager check-in for a specific employee
    */
   async adminCheckIn(
     organizationId: string,
     employeeId: string,
-    checkInTime?: string // Optional time in HH:MM format
+    checkInTime?: string // Expected as ISO string or valid date string
   ): Promise<AttendanceResponse> {
     try {
-      const payload: { employeeId: string; checkInTime?: string } = { employeeId };
-      if (checkInTime) {
-        payload.checkInTime = checkInTime;
-      }
       const response = await api.post(
-        `/org/${organizationId}/attendance/admin/check-in`,
-        payload
+        `/org/${organizationId}/attendance/manager-checkin`,
+        { employeeId, checkInTime }
       );
       return response.data;
     } catch (error: any) {
@@ -239,27 +242,100 @@ export const attendanceService = {
   },
 
   /**
-   * Admin check-out for a specific employee
+   * Admin/Manager check-out for a specific employee
    */
   async adminCheckOut(
     organizationId: string,
     employeeId: string,
-    checkOutTime?: string // Optional time in HH:MM format
+    checkOutTime?: string // Expected as ISO string or valid date string
   ): Promise<AttendanceResponse> {
     try {
-      const payload: { employeeId: string; checkOutTime?: string } = { employeeId };
-      if (checkOutTime) {
-        payload.checkOutTime = checkOutTime;
-      }
       const response = await api.post(
-        `/org/${organizationId}/attendance/admin/check-out`,
-        payload
+        `/org/${organizationId}/attendance/manager-checkout`,
+        { employeeId, checkOutTime }
       );
       return response.data;
     } catch (error: any) {
       return {
         success: false,
         error: error.response?.data?.error || error.message || 'Failed to check out employee',
+      };
+    }
+  },
+
+  /**
+   * Bulk check-in by manager
+   */
+  async bulkCheckIn(
+    organizationId: string,
+    employeeIds: string[],
+    checkInTime: string
+  ): Promise<AttendanceResponse> {
+    try {
+      console.log('Bulk check-in request:', { organizationId, employeeIds, checkInTime });
+      const response = await api.post(
+        `/org/${organizationId}/attendance/bulk-manager-checkin`,
+        { employeeIds, checkInTime }
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error('Bulk check-in error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+        headers: error.response?.headers
+      });
+      return {
+        success: false,
+        error: error.response?.data?.error || error.response?.data?.message || error.message || 'Bulk check-in failed',
+      };
+    }
+  },
+
+  /**
+   * Bulk check-out by manager
+   */
+  async bulkCheckOut(
+    organizationId: string,
+    employeeIds: string[],
+    checkOutTime: string
+  ): Promise<AttendanceResponse> {
+    try {
+      const response = await api.post(
+        `/org/${organizationId}/attendance/bulk-manager-checkout`,
+        { employeeIds, checkOutTime }
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Bulk check-out failed',
+      };
+    }
+  },
+
+  /**
+   * Get pending check-ins
+   */
+  async getPendingCheckIns(
+    organizationId: string,
+    date?: string,
+    includeAll: boolean = false
+  ): Promise<AttendanceResponse> {
+    try {
+      const params = new URLSearchParams();
+      if (date) params.append('date', date);
+      if (includeAll) params.append('includeAll', 'true');
+
+      const response = await api.get(
+        `/org/${organizationId}/attendance/pending-checkins${params.toString() ? `?${params.toString()}` : ''}`
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to fetch pending check-ins',
       };
     }
   },

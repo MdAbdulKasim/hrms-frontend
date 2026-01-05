@@ -13,8 +13,10 @@ import {
   ChevronRight,
   Download,
   Search,
-  User
+  User,
+  Eye
 } from 'lucide-react';
+import ViewAttendanceDetails from './ViewAttendanceDetails';
 import {
   format,
   startOfWeek,
@@ -48,6 +50,8 @@ interface AttendanceRecord {
   checkIn: string;
   checkOut: string;
   hoursWorked: string;
+  standardHours?: number;
+  overtimeHours?: number;
   status: 'Present' | 'Late' | 'Leave' | 'Weekend' | 'Absent' | string;
 }
 
@@ -56,6 +60,8 @@ interface PersonalAttendanceRecord {
   checkInTime?: string;
   checkOutTime?: string;
   totalHours?: number;
+  standardHours?: number;
+  overtimeHours?: number;
   status?: string;
 }
 
@@ -76,6 +82,8 @@ const AttendanceTracker: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [employees, setEmployees] = useState<{ id: string, fullName: string }[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState('all');
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [viewingRecord, setViewingRecord] = useState<AttendanceRecord | null>(null);
 
   // Close calendar when clicking outside
   useEffect(() => {
@@ -150,6 +158,8 @@ const AttendanceTracker: React.FC = () => {
                   checkInTime: rawData.checkInTime || rawData.checkIn,
                   checkOutTime: rawData.checkOutTime || rawData.checkOut,
                   totalHours: rawData.totalHours || rawData.hoursWorked,
+                  standardHours: rawData.standardHours,
+                  overtimeHours: rawData.overtimeHours,
                   status: rawData.status || (rawData.checkInTime || rawData.checkIn ? 'Present' : 'Absent')
                 };
               }
@@ -268,6 +278,8 @@ const AttendanceTracker: React.FC = () => {
                 checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
                 checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : '-',
                 hoursWorked: r.totalHours ? `${r.totalHours}h` : '-',
+                standardHours: r.standardHours,
+                overtimeHours: r.overtimeHours,
                 status: status
               };
             });
@@ -317,6 +329,8 @@ const AttendanceTracker: React.FC = () => {
                 checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
                 checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : '-',
                 hoursWorked: r.totalHours ? `${r.totalHours}h` : '-',
+                standardHours: r.standardHours,
+                overtimeHours: r.overtimeHours,
                 status: status
               };
             });
@@ -658,7 +672,8 @@ const AttendanceTracker: React.FC = () => {
                   <th className="px-4 py-3 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-gray-500 whitespace-nowrap">Date</th>
                   <th className="px-4 py-3 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-gray-500 whitespace-nowrap">Check In</th>
                   <th className="px-4 py-3 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-gray-500 whitespace-nowrap">Check Out</th>
-                  <th className="px-4 py-3 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-gray-500 whitespace-nowrap">Status</th>
+                  <th className="px-4 py-3 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-gray-500 whitespace-nowrap text-center">Status</th>
+                  <th className="px-4 py-3 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-gray-500 whitespace-nowrap text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -679,10 +694,22 @@ const AttendanceTracker: React.FC = () => {
                       </td>
                       <td className="px-4 py-3 md:px-6 md:py-4 text-sm text-gray-700 whitespace-nowrap">{record.checkIn}</td>
                       <td className="px-4 py-3 md:px-6 md:py-4 text-sm text-gray-700 whitespace-nowrap">{record.checkOut}</td>
-                      <td className="px-4 py-3 md:px-6 md:py-4 whitespace-nowrap">
+                      <td className="px-4 py-3 md:px-6 md:py-4 text-center whitespace-nowrap">
                         <span className={`inline-block px-3 py-1 rounded-md text-xs font-medium ${getStatusColor(record.status)}`}>
                           {record.status}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 md:px-6 md:py-4 text-center whitespace-nowrap">
+                        <button
+                          onClick={() => {
+                            setViewingRecord(record);
+                            setIsViewDialogOpen(true);
+                          }}
+                          className="p-1.5 hover:bg-gray-100 rounded-lg text-blue-600 transition-colors"
+                          title="View Details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -698,6 +725,15 @@ const AttendanceTracker: React.FC = () => {
           </div>
         </div>
       </div>
+      {isViewDialogOpen && viewingRecord && (
+        <ViewAttendanceDetails
+          record={viewingRecord}
+          onClose={() => {
+            setIsViewDialogOpen(false);
+            setViewingRecord(null);
+          }}
+        />
+      )}
     </div>
   );
 };
