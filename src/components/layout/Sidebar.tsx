@@ -93,7 +93,7 @@ export default function Sidebar({
     { label: "Leave Tracker", href: "/admin/leavetracker", icon: Calendar, protected: true },
     { label: "Attendance", href: "/admin/attendance", icon: Clock, protected: true },
     { label: "Reports", href: "/admin/reports", icon: Bell, protected: true },
-    { label: "Salary", href: "/admin/salary", icon: ReceiptIndianRupeeIcon, protected: true },
+    { label: "Payroll", href: "/admin/salary", icon: ReceiptIndianRupeeIcon, protected: true },
     { label: "Profile", href: "/admin/profile", icon: UserCircle, protected: true },
   ];
 
@@ -101,6 +101,7 @@ export default function Sidebar({
     { label: "Home", href: "/employee/my-space/overview", icon: Home, protected: true },
     { label: "Leave Tracker", href: "/employee/leavetracker", icon: Calendar, protected: true },
     { label: "Attendance", href: "/employee/attendance", icon: Clock, protected: true },
+    { label: "Payslip", href: "/employee/payslips", icon: ReceiptIndianRupeeIcon, protected: true },
     { label: "Profile", href: "/employee/profile", icon: UserCircle, protected: true },
   ];
 
