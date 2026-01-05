@@ -469,7 +469,7 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
                 <div className="mt-8 flex justify-end">
                     <button
                         onClick={onClose}
-                        className="px-8 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium w-full sm:w-auto"
+                        className="px-8 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium w-full sm:w-auto"
                     >
                         Close View
                     </button>

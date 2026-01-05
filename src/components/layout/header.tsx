@@ -60,6 +60,7 @@ export default function NavigationHeader({
   const pathname = usePathname();
 
   const navigationConfig = userRole === 'admin' ? adminNavigationConfig : employeeNavigationConfig;
+  const isHomeSection = navigationConfig.some(tab => pathname.startsWith(tab.path));
   const [activeMainTab, setActiveMainTab] = useState(navigationConfig[0]);
 
   // User data state - start with empty values
@@ -86,7 +87,7 @@ export default function NavigationHeader({
           initials: cachedDetails.initials
         });
         setIsLoading(false);
-        
+
         // If we have good cached data, we can still try to refresh from API in background
         // but don't block on it
       }
@@ -103,14 +104,14 @@ export default function NavigationHeader({
       // This handles the case where cookies might not be immediately available after login
       let finalOrgId = orgId;
       let finalEmpId = empId;
-      
+
       if (!finalOrgId || !finalEmpId) {
         // Wait a bit for cookies to be set after login redirect
         await new Promise(resolve => setTimeout(resolve, 200));
-        
+
         finalOrgId = getOrgId();
         finalEmpId = getEmployeeId();
-        
+
         if (!finalOrgId || !finalEmpId) {
           setIsLoading(false);
           // Already set cached data above, so we're done
@@ -125,7 +126,7 @@ export default function NavigationHeader({
 
       try {
         const response = await fetch(endpoint, {
-          headers: { 
+          headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
@@ -149,7 +150,7 @@ export default function NavigationHeader({
             setIsLoading(false);
             return;
           }
-          
+
           // Handle 401 Unauthorized - token expired or invalid
           if (response.status === 401) {
             // Try to use cached data first before redirecting
@@ -163,7 +164,7 @@ export default function NavigationHeader({
               setIsLoading(false);
               return;
             }
-            
+
             // Only redirect if we're sure the session is invalid and we have no cached data
             clearSetupData();
             // Add a small delay to prevent immediate redirect loops
@@ -174,7 +175,7 @@ export default function NavigationHeader({
             }, 500);
             return; // Exit early to prevent further processing
           }
-          
+
           // For other errors, try to use cached data
           const details = getUserDetails();
           if (details.fullName && details.fullName !== 'User') {
@@ -186,7 +187,7 @@ export default function NavigationHeader({
             setIsLoading(false);
             return;
           }
-          
+
           // If no cached data and it's not a critical error, just continue
           setIsLoading(false);
           return;
@@ -195,7 +196,7 @@ export default function NavigationHeader({
         const data = await response.json();
 
         const user = data.data || data.admin || data.employee || data;
-        
+
         if (user) {
           let firstName = user.firstName || '';
           let lastName = user.lastName || '';
@@ -214,7 +215,7 @@ export default function NavigationHeader({
 
           // Helper to check if string looks like an ID
           const isId = (s: string) => s && s.length > 20 && /\d/.test(s);
-          
+
           // Clean up if firstName/lastName are IDs
           if (isId(firstName) || isId(lastName)) {
             firstName = '';
@@ -223,13 +224,13 @@ export default function NavigationHeader({
           }
 
           // Generate initials from fullName
-          const initials = fullName 
+          const initials = fullName
             ? fullName.split(' ')
-                .filter((word: string) => word.length > 0)
-                .map((word: string) => word[0])
-                .join('')
-                .substring(0, 2)
-                .toUpperCase()
+              .filter((word: string) => word.length > 0)
+              .map((word: string) => word[0])
+              .join('')
+              .substring(0, 2)
+              .toUpperCase()
             : (role === 'admin' ? 'AD' : 'EM');
 
           setUserData({
@@ -244,7 +245,7 @@ export default function NavigationHeader({
             setCookie('hrms_user_lastName', lastName || '', 7);
             setCookie('hrms_user_fullName', fullName || '', 7);
             setCookie('hrms_user_email', email || '', 7);
-            
+
             if (typeof window !== 'undefined') {
               localStorage.setItem('hrms_user_firstName', firstName || '');
               localStorage.setItem('hrms_user_lastName', lastName || '');
@@ -323,23 +324,37 @@ export default function NavigationHeader({
           </button>
 
           {/* Desktop & Mobile Main Tabs */}
-          <div className={`flex items-center gap-2 md:gap-3 overflow-x-auto whitespace-nowrap ${noScrollbarClass} py-1`}>
-            {navigationConfig.map((tab) => {
-              const isActive = activeMainTab.name === tab.name;
-              return (
-                <button
-                  key={tab.name}
-                  onClick={() => setActiveMainTab(tab)}
-                  className={`text-xs md:text-sm font-bold transition-all px-4 py-2 rounded-xl shrink-0 ${isActive
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10'
-                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
-                    }`}
-                >
-                  {tab.name}
-                </button>
-              );
-            })}
-          </div>
+          {isHomeSection ? (
+            <div className={`flex items-center gap-2 md:gap-3 overflow-x-auto whitespace-nowrap ${noScrollbarClass} py-1`}>
+              {navigationConfig.map((tab) => {
+                const isActive = activeMainTab.name === tab.name;
+                return (
+                  <button
+                    key={tab.name}
+                    onClick={() => setActiveMainTab(tab)}
+                    className={`text-xs md:text-sm font-bold transition-all px-4 py-2 rounded-xl shrink-0 ${isActive
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10'
+                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                  >
+                    {tab.name}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex items-center ml-2">
+              <h1 className="text-sm md:text-base font-bold text-gray-900">
+                {pathname.includes('/onboarding') ? 'Employees' :
+                  pathname.includes('/leavetracker') ? 'Leave Tracker' :
+                    pathname.includes('/attendance') ? 'Attendance' :
+                      pathname.includes('/reports') ? 'Reports' :
+                        pathname.includes('/salary') ? 'Payroll' :
+                          pathname.includes('/profile') ? 'Profile' :
+                            'Dashboard'}
+              </h1>
+            </div>
+          )}
         </div>
 
         {/* Right Section - Icons */}
@@ -383,25 +398,27 @@ export default function NavigationHeader({
       </div>
 
       {/* Sub Header - Sub Navigation */}
-      <div className="bg-gray-50/50">
-        <div className={`flex items-center px-4 md:px-8 h-12 md:h-14 gap-2 md:gap-2 overflow-x-auto whitespace-nowrap ${noScrollbarClass}`}>
-          {activeMainTab.subTabs.map((tab) => {
-            const isActive = pathname === tab.path;
-            return (
-              <Link
-                key={tab.path}
-                href={tab.path}
-                className={`text-[12px] md:text-[13px] font-bold transition-all px-4 py-2 rounded-lg shrink-0 ${isActive
-                  ? 'text-blue-600 bg-blue-50'
-                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100/50'
-                  }`}
-              >
-                {tab.name}
-              </Link>
-            );
-          })}
+      {isHomeSection && (
+        <div className="bg-gray-50/50">
+          <div className={`flex items-center px-4 md:px-8 h-12 md:h-14 gap-2 md:gap-2 overflow-x-auto whitespace-nowrap ${noScrollbarClass}`}>
+            {activeMainTab.subTabs.map((tab) => {
+              const isActive = pathname === tab.path;
+              return (
+                <Link
+                  key={tab.path}
+                  href={tab.path}
+                  className={`text-[12px] md:text-[13px] font-bold transition-all px-4 py-2 rounded-lg shrink-0 ${isActive
+                    ? 'text-blue-600 bg-blue-50'
+                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100/50'
+                    }`}
+                >
+                  {tab.name}
+                </Link>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
