@@ -84,7 +84,7 @@ const BulkImport: React.FC<BulkImportProps> = ({
 
         // Parse header
         const headers = parseCSVLine(lines[0]).map(h => h.replace(/^"|"$/g, ''));
-        
+
         // Parse data rows
         const data: ParsedEmployee[] = [];
         for (let i = 1; i < lines.length; i++) {
@@ -189,11 +189,26 @@ const BulkImport: React.FC<BulkImportProps> = ({
             empType: row['Employee Type'] || row['employeeType'] || 'permanent',
             employeeStatus: row['Employee Status'] || row['employeeStatus'] || 'Active',
             basicSalary: row['Basic Salary'] || row['basicSalary'] || '',
+            bankDetails: {
+                bankName: row['Bank Name'] || '',
+                branchName: row['Branch Name'] || '',
+                accountNumber: row['Account Number'] || '',
+                accountHolderName: row['Account Holder Name'] || '',
+                ifscCode: row['IFSC Code'] || '',
+            },
+            accommodationAllowances: row['Allowances'] ? row['Allowances'].split('|').map((a: string) => {
+                const [type, percentage] = a.split(':');
+                return { type, percentage };
+            }) : [],
+            insurances: row['Insurances'] ? row['Insurances'].split('|').map((i: string) => {
+                const [type, percentage] = i.split(':');
+                return { type, percentage };
+            }) : [],
         };
     };
 
     // Map CSV columns to API fields for existing employees
-    const mapToExistingEmployeeData = (row: ParsedEmployee, employeeId: string): any => {
+    const mapToExistingEmployeeData = (row: ParsedEmployee, employeeNumber: string): any => {
         const findIdByName = (name: string, items: any[], nameField: string = 'name'): string => {
             if (!name) return '';
             const item = items.find(item => {
@@ -204,7 +219,7 @@ const BulkImport: React.FC<BulkImportProps> = ({
         };
 
         const updateData: any = {};
-        
+
         if (row['Full Name']) updateData.fullName = row['Full Name'];
         if (row['Email ID'] || row['Email Address'] || row['Email']) updateData.email = row['Email ID'] || row['Email Address'] || row['Email'];
         if (row['Mobile Number'] || row['Phone Number']) updateData.phoneNumber = row['Mobile Number'] || row['Phone Number'];
@@ -222,31 +237,7 @@ const BulkImport: React.FC<BulkImportProps> = ({
         return updateData;
     };
 
-    // Generate employee ID for bulk import
-    const generateEmployeeIds = (count: number, existingEmployees: any[]): string[] => {
-        // Find the highest employee number from existing employees
-        let maxNumber = 0;
-        
-        existingEmployees.forEach(emp => {
-            const empId = emp.employeeId || emp.id || emp._id;
-            if (empId) {
-                const match = String(empId).match(/EMP\s*(\d+)/i);
-                if (match) {
-                    const num = parseInt(match[1], 10);
-                    if (num > maxNumber) maxNumber = num;
-                }
-            }
-        });
-        
-        // Generate IDs for all new employees
-        const employeeIds: string[] = [];
-        for (let i = 1; i <= count; i++) {
-            const nextNumber = maxNumber + i;
-            employeeIds.push(`EMP ${String(nextNumber).padStart(3, '0')}`);
-        }
-        
-        return employeeIds;
-    };
+    // Removed frontend generateEmployeeIds - handled by backend
 
     // Handle bulk import for new employees
     const handleBulkCreate = async () => {
@@ -272,22 +263,18 @@ const BulkImport: React.FC<BulkImportProps> = ({
         try {
             // Filter valid entries first
             const validRows = parsedData.filter(row => row['Full Name'] || row['fullName'] || row['Email Address'] || row['Email'] || row['email']);
-            
+
             if (validRows.length === 0) {
                 setErrors(['No valid employee data found. Please check your file.']);
                 setIsLoading(false);
                 return;
             }
 
-            // Generate employee IDs for all new employees
-            const employeeIds = generateEmployeeIds(validRows.length, employees);
-            
-            // Map data and assign employee IDs
-            const employeesData = validRows.map((row, index) => {
+            // Map data
+            const employeesData = validRows.map((row) => {
                 const mapped = mapToNewEmployeeData(row);
                 return {
                     ...mapped,
-                    employeeId: employeeIds[index], // Assign generated employee ID
                     organizationId: orgId,
                     role: 'employee',
                 };
@@ -343,16 +330,16 @@ const BulkImport: React.FC<BulkImportProps> = ({
 
         try {
             const updatePromises = parsedData.map(async (row) => {
-                const employeeId = row['Employee ID'] || row['employeeId'] || row['id'] || row['EmployeeID'];
-                if (!employeeId) {
-                    return { success: false, error: 'Employee ID missing in row' };
+                const employeeNumber = row['Employee Number'] || row['Employee ID'] || row['employeeNumber'] || row['id'] || row['EmployeeID'];
+                if (!employeeNumber) {
+                    return { success: false, error: 'Employee Number missing in row' };
                 }
 
-                const updateData = mapToExistingEmployeeData(row, employeeId);
+                const updateData = mapToExistingEmployeeData(row, employeeNumber);
 
                 try {
                     await axios.put(
-                        `${apiUrl}/org/${orgId}/employees/${employeeId}`,
+                        `${apiUrl}/org/${orgId}/employees/${employeeNumber}`,
                         updateData,
                         {
                             headers: {
@@ -363,9 +350,9 @@ const BulkImport: React.FC<BulkImportProps> = ({
                     );
                     return { success: true };
                 } catch (error: any) {
-                    return { 
-                        success: false, 
-                        error: error.response?.data?.error || error.message || 'Update failed' 
+                    return {
+                        success: false,
+                        error: error.response?.data?.error || error.message || 'Update failed'
                     };
                 }
             });
@@ -402,7 +389,7 @@ const BulkImport: React.FC<BulkImportProps> = ({
     return (
         <div className="min-h-screen bg-gray-50 p-4 md:p-8">
             <div className="max-w-6xl mx-auto">
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex justify-between items-center mb-6 gap-4">
                     <h1 className="text-xl md:text-2xl font-bold">Bulk Import</h1>
                     <button
                         onClick={onCancel}
@@ -568,7 +555,7 @@ const BulkImport: React.FC<BulkImportProps> = ({
                     <div className="mt-6 bg-orange-50 border border-orange-200 rounded-lg p-4 flex items-start gap-2">
                         <div className="w-5 h-5 text-orange-600 mt-0.5 shrink-0">ⓘ</div>
                         <p className="text-sm text-orange-800">
-                            {importType === 'new' 
+                            {importType === 'new'
                                 ? 'New employees will receive onboarding invitations via email after import.'
                                 : 'Make sure your file includes Employee ID column for updating existing employees.'}
                         </p>
@@ -577,11 +564,10 @@ const BulkImport: React.FC<BulkImportProps> = ({
                     <button
                         onClick={importType === 'new' ? handleBulkCreate : handleBulkUpdate}
                         disabled={!uploadedFile || isLoading || parsedData.length === 0}
-                        className={`mt-6 w-full px-6 py-3 text-white rounded-lg flex items-center justify-center gap-2 ${
-                            uploadedFile && !isLoading && parsedData.length > 0
-                                ? 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
-                                : 'bg-gray-400 cursor-not-allowed'
-                        }`}
+                        className={`mt-6 w-full sm:w-auto px-6 py-3 text-white rounded-lg flex items-center justify-center gap-2 ${uploadedFile && !isLoading && parsedData.length > 0
+                            ? 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
+                            : 'bg-gray-400 cursor-not-allowed'
+                            }`}
                     >
                         {isLoading ? (
                             <>

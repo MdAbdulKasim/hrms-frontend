@@ -38,6 +38,19 @@ interface Employee {
   aadhaar?: string;
 }
 
+interface InfoRowProps {
+  label: string;
+  value: any;
+}
+
+const formatValue = (val: any): string => {
+  if (val === null || val === undefined) return '-';
+  if (typeof val === 'object') {
+    return val.name || val.fullName || val.title || val.label || '-';
+  }
+  return String(val);
+};
+
 interface Education {
   instituteName: string;
   degree: string;
@@ -138,7 +151,7 @@ export default function ProfileTab({ employee, education, dependents }: ProfileT
             </div>
             <div>
               <p className="text-sm text-gray-600 mb-1">Department</p>
-              <p className="text-sm font-medium text-gray-900">{employee.department}</p>
+              <p className="text-sm font-medium text-gray-900">{formatValue(employee.department)}</p>
             </div>
           </div>
 
@@ -162,7 +175,7 @@ export default function ProfileTab({ employee, education, dependents }: ProfileT
             </div>
             <div>
               <p className="text-sm text-gray-600 mb-1">Seating Location</p>
-              <p className="text-sm font-medium text-gray-900">{employee.seatingLocation}</p>
+              <p className="text-sm font-medium text-gray-900">{formatValue(employee.seatingLocation)}</p>
             </div>
           </div>
 
@@ -173,7 +186,7 @@ export default function ProfileTab({ employee, education, dependents }: ProfileT
             </div>
             <div>
               <p className="text-sm text-gray-600 mb-1">Email address</p>
-              <p className="text-sm font-medium text-gray-900">{employee.email}</p>
+              <p className="text-sm font-medium text-gray-900">{formatValue(employee.email)}</p>
             </div>
           </div>
 
@@ -206,7 +219,7 @@ export default function ProfileTab({ employee, education, dependents }: ProfileT
             </div>
             <div>
               <p className="text-sm text-gray-600 mb-1">Extension</p>
-              <p className="text-sm font-medium text-gray-900">{employee.extension}</p>
+              <p className="text-sm font-medium text-gray-900">{formatValue(employee.extension)}</p>
             </div>
           </div>
         </div>
@@ -225,7 +238,7 @@ export default function ProfileTab({ employee, education, dependents }: ProfileT
             </button>
           )}
         </div>
-        
+
         {aboutText ? (
           <div className="text-sm text-gray-700">
             {aboutText}
@@ -439,16 +452,11 @@ export default function ProfileTab({ employee, education, dependents }: ProfileT
   );
 }
 
-interface InfoRowProps {
-  label: string;
-  value: string;
-}
-
 function InfoRow({ label, value }: InfoRowProps) {
   return (
     <div>
       <p className="text-sm text-gray-600 mb-1">{label}</p>
-      <p className="text-sm font-medium text-gray-900">{value}</p>
+      <p className="text-sm font-medium text-gray-900">{formatValue(value)}</p>
     </div>
   );
 }

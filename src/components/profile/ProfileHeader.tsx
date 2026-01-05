@@ -40,7 +40,7 @@ export default function ProfileHeader({ employee, onEmployeeClick, onEdit, onDel
           backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 30c-5 0-10-5-10-10 0 5-5 10-10 10 5 0 10 5 10 10 0-5 5-10 10-10z' fill='%23ffffff' fill-opacity='0.05'/%3E%3C/svg%3E")`,
           backgroundSize: '60px 60px'
         }}></div>
-        
+
         {/* Additional decorative elements */}
         <div className="absolute top-4 right-20 w-32 h-32 rounded-full bg-green-600 opacity-10 blur-2xl"></div>
         <div className="absolute bottom-4 left-40 w-40 h-40 rounded-full bg-green-500 opacity-10 blur-3xl"></div>
@@ -70,7 +70,7 @@ export default function ProfileHeader({ employee, onEmployeeClick, onEdit, onDel
             <Video className="w-5 h-5 text-gray-700" />
           </button>
           {onEdit && (
-            <button 
+            <button
               onClick={onEdit}
               className="p-2.5 bg-white hover:bg-blue-50 rounded-lg transition-colors shadow-sm"
               title="Edit employee"
@@ -79,7 +79,7 @@ export default function ProfileHeader({ employee, onEmployeeClick, onEdit, onDel
             </button>
           )}
           {onDelete && (
-            <button 
+            <button
               onClick={onDelete}
               className="p-2.5 bg-white hover:bg-red-50 rounded-lg transition-colors shadow-sm"
               title="Delete employee"
@@ -101,7 +101,7 @@ export default function ProfileHeader({ employee, onEmployeeClick, onEdit, onDel
               alt={`${employee.firstName} ${employee.lastName}`}
               className="w-40 h-40 rounded-2xl border-4 border-white shadow-xl bg-white object-cover"
             />
-            
+
             {/* Name and designation */}
             <div className="ml-6 pb-2">
               {/* Name and status */}
@@ -112,9 +112,13 @@ export default function ProfileHeader({ employee, onEmployeeClick, onEdit, onDel
                 </h1>
                 <span className="text-red-500 text-sm font-medium">{employee.checkInStatus}</span>
               </div>
-              
+
               {/* Designation */}
-              <p className="text-gray-600">{employee.designation}</p>
+              <p className="text-gray-600">
+                {typeof employee.designation === 'object' && employee.designation !== null
+                  ? (employee.designation as any).name
+                  : employee.designation || 'N/A'}
+              </p>
             </div>
           </div>
 
@@ -122,7 +126,7 @@ export default function ProfileHeader({ employee, onEmployeeClick, onEdit, onDel
           <div className="pb-4">
             <div className="text-right">
               <div className="text-sm text-gray-600 mb-1">Reporting To</div>
-              <div 
+              <div
                 className="flex items-center gap-2 cursor-pointer group"
                 onClick={handleManagerClick}
               >

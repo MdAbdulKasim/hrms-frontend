@@ -158,13 +158,13 @@ export default function PayRunDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">Confirm Pay Run</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
               <p className="text-sm text-gray-600 mb-1">Employees Selected</p>
               <p className="text-3xl font-bold text-blue-600">{employees.length}</p>
@@ -179,22 +179,25 @@ export default function PayRunDialog({
 
           <div>
             <h3 className="font-semibold mb-3">Selected Employees:</h3>
-            <div className="border rounded-lg max-h-64 overflow-y-auto">
+            <div className="border rounded-lg max-h-64 overflow-y-auto w-full">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="text-left p-3 font-medium">Name</th>
-                    <th className="text-left p-3 font-medium">Department</th>
+                    <th className="text-left p-3 font-medium">Employee</th>
+                    <th className="text-left p-3 font-medium hidden sm:table-cell">Department</th>
                     <th className="text-right p-3 font-medium">Salary</th>
                   </tr>
                 </thead>
                 <tbody>
                   {employees.map((emp) => (
                     <tr key={emp.id} className="border-t">
-                      <td className="p-3 font-medium">{emp.name}</td>
-                      <td className="p-3 text-gray-500">{emp.department}</td>
+                      <td className="p-3 font-medium">
+                        <div className="font-medium">{emp.name}</div>
+                        <div className="text-xs text-gray-500 sm:hidden">{emp.department}</div>
+                      </td>
+                      <td className="p-3 text-gray-500 hidden sm:table-cell">{emp.department}</td>
                       <td className="p-3 text-right font-medium">
-                        ₹{emp.salary.toLocaleString()}
+                        AED {emp.salary.toLocaleString()}
                       </td>
                     </tr>
                   ))}
@@ -244,7 +247,7 @@ export default function PayRunDialog({
             </div>
           )}
 
-          <div className="flex gap-3 pt-4">
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <Button
               variant="outline"
               onClick={handleClose}

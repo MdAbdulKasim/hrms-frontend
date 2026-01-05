@@ -2,53 +2,25 @@
 
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Plus, MapPin, Building2, Briefcase, Loader2 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus } from "lucide-react";
 import { getApiUrl, getAuthToken, getOrgId } from "@/lib/auth";
 import DepartmentTab from "./DepartmentTab";
-import LocationTab from "./LocationTab";
 import DesignationTab from "./DesignationTab";
-
-// Types
-interface Location {
-    id: string;
-    name: string;
-    code: string;
-    city: string;
-    country: string;
-    addressLine1?: string;
-    addressLine2?: string;
-}
-
-interface Department {
-    id: string;
-    departmentName: string;
-    code: string;
-    locationId: string;
-}
-
-interface Designation {
-    id: string;
-    name: string;
-    code: string;
-    locationId: string;
-    departmentId: string;
-}
+import LocationTab from "./LocationTab";
+import ShiftTab from "./ShiftTab";
 
 export default function ManageSection() {
-    const [activeTab, setActiveTab] = useState("department");
-    const [isLoading, setIsLoading] = useState(false);
-
-    // Data State
-    const [locations, setLocations] = useState<Location[]>([]);
-    const [departments, setDepartments] = useState<Department[]>([]);
-    const [designations, setDesignations] = useState<Designation[]>([]);
-
+    const [activeTab, setActiveTab] = useState("departments");
     const [formVisible, setFormVisible] = useState(false);
+    const [loading, setLoading] = useState(true);
 
-    // Fetch Data
+    const [departments, setDepartments] = useState([]);
+    const [designations, setDesignations] = useState([]);
+    const [locations, setLocations] = useState([]);
+    const [shifts, setShifts] = useState([]);
+
     const fetchData = async () => {
-        setIsLoading(true);
+        setLoading(true);
         try {
             const token = getAuthToken();
             const orgId = getOrgId();
@@ -57,20 +29,21 @@ export default function ManageSection() {
 
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [locRes, deptRes, desigRes] = await Promise.all([
-                axios.get(`${apiUrl}/org/${orgId}/locations`, { headers }),
-                axios.get(`${apiUrl}/org/${orgId}/departments`, { headers }),
-                axios.get(`${apiUrl}/org/${orgId}/designations`, { headers })
+            const [deptRes, desigRes, locRes, shiftRes] = await Promise.all([
+                axios.get(`${apiUrl}/org/${orgId}/departments`, { headers }).catch(() => ({ data: [] })),
+                axios.get(`${apiUrl}/org/${orgId}/designations`, { headers }).catch(() => ({ data: [] })),
+                axios.get(`${apiUrl}/org/${orgId}/locations`, { headers }).catch(() => ({ data: [] })),
+                axios.get(`${apiUrl}/org/${orgId}/shifts`, { headers }).catch(() => ({ data: [] }))
             ]);
 
-            setLocations(locRes.data.data || locRes.data || []);
-            setDepartments(deptRes.data.data || deptRes.data || []);
-            setDesignations(desigRes.data.data || desigRes.data || []);
-
+            setDepartments(deptRes.data?.data || deptRes.data || []);
+            setDesignations(desigRes.data?.data || desigRes.data || []);
+            setLocations(locRes.data?.data || locRes.data || []);
+            setShifts(shiftRes.data?.data || shiftRes.data || []);
         } catch (error) {
-            console.error("Error fetching manage data:", error);
+            console.error("Error fetching data:", error);
         } finally {
-            setIsLoading(false);
+            setLoading(false);
         }
     };
 
@@ -78,80 +51,94 @@ export default function ManageSection() {
         fetchData();
     }, []);
 
+    const refreshData = () => {
+        fetchData();
+    };
+
+    const handleTabChange = (tab: string) => {
+        setActiveTab(tab);
+        setFormVisible(false);
+    };
+
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 mt-8">
-            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-                <h2 className="text-xl font-bold text-gray-900">Manage Organization</h2>
-                {!formVisible && (
-                    <button
-                        onClick={() => setFormVisible(true)}
-                        className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Add {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-                    </button>
-                )}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <h2 className="text-lg font-bold text-gray-900">Manage Organization</h2>
+                <button
+                    onClick={() => setFormVisible(true)}
+                    disabled={formVisible}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-medium transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                    <Plus className="w-4 h-4" />
+                    <span>Add {activeTab.slice(0, -1)}</span>
+                </button>
             </div>
 
             <div className="p-6">
-                <Tabs value={activeTab} onValueChange={(val) => { setActiveTab(val); setFormVisible(false); }} className="w-full">
-                    <TabsList className="flex w-full max-w-md mx-auto mb-8 bg-transparent p-0 gap-2">
-                        <TabsTrigger
-                            value="department"
-                            className="flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 transition-all text-gray-500 hover:text-gray-900 border border-transparent data-[state=active]:border-blue-100"
+                <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
+                    {[
+                        { id: "departments", label: "Departments" },
+                        { id: "designations", label: "Designations" },
+                        { id: "locations", label: "Locations" },
+                        { id: "shifts", label: "Shifts" }
+                    ].map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => handleTabChange(tab.id)}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab.id
+                                    ? "bg-blue-50 text-blue-600 shadow-sm ring-1 ring-blue-600/20"
+                                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                                }`}
                         >
-                            <Building2 className="w-4 h-4" /> Department
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="location"
-                            className="flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 transition-all text-gray-500 hover:text-gray-900 border border-transparent data-[state=active]:border-blue-100"
-                        >
-                            <MapPin className="w-4 h-4" /> Location
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="designation"
-                            className="flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 transition-all text-gray-500 hover:text-gray-900 border border-transparent data-[state=active]:border-blue-100"
-                        >
-                            <Briefcase className="w-4 h-4" /> Designation
-                        </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="department" className="mt-0">
-                        <DepartmentTab
-                            departments={departments}
-                            locations={locations}
-                            formVisible={formVisible}
-                            setFormVisible={setFormVisible}
-                            onRefresh={fetchData}
-                        />
-                    </TabsContent>
-
-                    <TabsContent value="location" className="mt-0">
-                        <LocationTab
-                            locations={locations}
-                            formVisible={formVisible}
-                            setFormVisible={setFormVisible}
-                            onRefresh={fetchData}
-                        />
-                    </TabsContent>
-
-                    <TabsContent value="designation" className="mt-0">
-                        <DesignationTab
-                            designations={designations}
-                            locations={locations}
-                            departments={departments}
-                            formVisible={formVisible}
-                            setFormVisible={setFormVisible}
-                            onRefresh={fetchData}
-                        />
-                    </TabsContent>
-                </Tabs>
-            </div>
-            {isLoading && (
-                <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10">
-                    <Loader2 className="w-8 h-8 animate-spin text-black" />
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
-            )}
+
+                {loading ? (
+                    <div className="flex justify-center py-12">
+                        <div className="w-8 h-8 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin"></div>
+                    </div>
+                ) : (
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        {activeTab === "departments" && (
+                            <DepartmentTab
+                                departments={departments}
+                                locations={locations}
+                                formVisible={formVisible}
+                                setFormVisible={setFormVisible}
+                                onRefresh={refreshData}
+                            />
+                        )}
+                        {activeTab === "designations" && (
+                            <DesignationTab
+                                designations={designations}
+                                departments={departments}
+                                locations={locations}
+                                formVisible={formVisible}
+                                setFormVisible={setFormVisible}
+                                onRefresh={refreshData}
+                            />
+                        )}
+                        {activeTab === "locations" && (
+                            <LocationTab
+                                locations={locations}
+                                formVisible={formVisible}
+                                setFormVisible={setFormVisible}
+                                onRefresh={refreshData}
+                            />
+                        )}
+                        {activeTab === "shifts" && (
+                            <ShiftTab
+                                shifts={shifts}
+                                formVisible={formVisible}
+                                setFormVisible={setFormVisible}
+                                onRefresh={refreshData}
+                            />
+                        )}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

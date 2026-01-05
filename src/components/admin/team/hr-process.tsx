@@ -35,6 +35,7 @@ interface Employee {
   department: string;
   location: string;
   salary: number;
+  dateOfJoining?: string;
 }
 
 interface LocationData extends Resource {
@@ -67,7 +68,7 @@ export default function HRProcessPage() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Form State
-  const [activeTab, setActiveTab] = useState<'Department' | 'Location' | 'Promotion'>('Department');
+  const [activeTab, setActiveTab] = useState<'Department' | 'Location' | 'Promotion' | 'Termination'>('Department');
   const [form, setForm] = useState({
     departmentId: '',
     locationId: '',
@@ -130,15 +131,9 @@ export default function HRProcessPage() {
 
         const [empRes, locRes, desigRes, deptRes] = await Promise.all([
           axios.get(`${apiUrl}/org/${orgId}/employees`, { headers }),
-          axios.get(`${apiUrl}/org/${orgId}/locations/`, { headers }).catch(() =>
-            axios.get(`${apiUrl}/org/${orgId}/locations`, { headers })
-          ),
-          axios.get(`${apiUrl}/org/${orgId}/designations/`, { headers }).catch(() =>
-            axios.get(`${apiUrl}/org/${orgId}/designations`, { headers })
-          ),
-          axios.get(`${apiUrl}/org/${orgId}/departments/`, { headers }).catch(() =>
-            axios.get(`${apiUrl}/org/${orgId}/departments`, { headers })
-          )
+          axios.get(`${apiUrl}/org/${orgId}/locations`, { headers }),
+          axios.get(`${apiUrl}/org/${orgId}/designations`, { headers }),
+          axios.get(`${apiUrl}/org/${orgId}/departments`, { headers })
         ]);
 
         const empRaw = empRes.data.data || empRes.data || [];
@@ -148,7 +143,8 @@ export default function HRProcessPage() {
           role: e.designation?.name || e.designation || 'N/A',
           department: e.department?.name || e.department || 'N/A',
           location: e.location?.name || e.location || 'N/A',
-          salary: e.salary || 0
+          salary: e.salary || 0,
+          dateOfJoining: e.dateOfJoining
         })));
 
         const locRaw = locRes.data.data || locRes.data || [];
@@ -233,6 +229,11 @@ export default function HRProcessPage() {
         if (activeTab === 'Promotion') {
           updateData.designationId = form.designationId;
         }
+        if (activeTab === 'Termination') {
+          updateData.terminationDate = form.date;
+          updateData.remark = form.reason;
+          updateData.status = 'Terminated';
+        }
 
         console.log(`PROCESS_SYNC: Dispatching update for ${emp.id}`, updateData);
 
@@ -250,10 +251,17 @@ export default function HRProcessPage() {
               } else if (activeTab === 'Promotion') {
                 updated.role = designations.find(d => d.id === form.designationId)?.name || e.role;
               }
+              // For Termination, we might want to keep it in state but mark as terminated if needed, 
+              // but typically we might just refetch or the user will see it in history.
               return updated;
             }
             return e;
           }));
+
+          // If terminated, remove from current visible list after processing all
+          if (activeTab === 'Termination') {
+            setAllEmployees(prev => prev.filter(e => e.id !== emp.id));
+          }
         } catch (innerErr: any) {
           const errorDetail = innerErr.response?.data || innerErr.message || innerErr;
           console.error(`PROCESS_SYNC_ERROR for ${emp.id}:`, errorDetail);
@@ -266,10 +274,11 @@ export default function HRProcessPage() {
         employeeNames: selectedEmployees.map(e => e.name).join(', '),
         type: activeTab,
         from: activeTab === 'Department' ? selectedEmployees[0]?.department :
-          activeTab === 'Location' ? selectedEmployees[0]?.location : selectedEmployees[0]?.role,
+          activeTab === 'Location' ? selectedEmployees[0]?.location :
+            activeTab === 'Promotion' ? selectedEmployees[0]?.role : 'Active',
         to: activeTab === 'Department' ? departments.find(d => d.id === form.departmentId)?.name || 'N/A' :
           activeTab === 'Location' ? `${locations.find(l => l.id === form.locationId)?.name} (${form.building || 'N/A'})` :
-            designations.find(d => d.id === form.designationId)?.name || 'N/A',
+            activeTab === 'Promotion' ? designations.find(d => d.id === form.designationId)?.name || 'N/A' : 'Terminated',
         effectiveDate: form.date,
         status: 'Scheduled',
         timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
@@ -411,15 +420,15 @@ export default function HRProcessPage() {
                   { id: 'Department', icon: LayoutGrid, label: 'Department' },
                   { id: 'Location', icon: MapPin, label: 'Location' },
                   { id: 'Promotion', icon: TrendingUp, label: 'Promotion' },
+                  { id: 'Termination', icon: X, label: 'Termination' },
                 ].map(tab => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors whitespace-nowrap ${
-                      activeTab === tab.id
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors whitespace-nowrap ${activeTab === tab.id
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
                   >
                     <tab.icon size={16} />
                     {tab.label}
@@ -596,11 +605,104 @@ export default function HRProcessPage() {
                   </div>
                 )}
 
+                {/* Termination Tab */}
+                {activeTab === 'Termination' && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Start Date (Joining)</label>
+                        <div className="w-full p-3 bg-gray-100 rounded-lg border border-gray-200 text-sm text-gray-700">
+                          {selectedEmployees[0]?.dateOfJoining ? new Date(selectedEmployees[0].dateOfJoining).toLocaleDateString() : 'N/A'}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          End Date (Termination) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          className="w-full p-3 bg-white rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                          value={form.date}
+                          onChange={(e) => setForm({ ...form, date: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    {/* EOSB Calculation Card */}
+                    {selectedEmployees[0]?.dateOfJoining && form.date && (
+                      <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
+                        <div className="flex items-center gap-2 mb-4">
+                          <DollarSign className="w-5 h-5 text-blue-600" />
+                          <h4 className="font-medium text-gray-900">End of Service Benefit (EOSB) Calculation</h4>
+                        </div>
+
+                        {(() => {
+                          const startDate = new Date(selectedEmployees[0].dateOfJoining!);
+                          const endDate = new Date(form.date);
+                          const diffTime = endDate.getTime() - startDate.getTime();
+
+                          if (diffTime < 0) {
+                            return <p className="text-sm text-red-600 font-medium">Termination date cannot be before joining date.</p>;
+                          }
+
+                          const diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
+                          const totalDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                          const years = Math.floor(totalDays / 365.25);
+                          const remainingDays = totalDays % 365.25;
+                          const months = Math.floor(remainingDays / 30.44);
+                          const actualDays = Math.floor(remainingDays % 30.44);
+
+                          let eosbDays = 0;
+                          if (diffYears < 1) {
+                            eosbDays = 0;
+                          } else if (diffYears <= 5) {
+                            eosbDays = diffYears * 21;
+                          } else {
+                            eosbDays = (5 * 21) + (diffYears - 5) * 30;
+                          }
+
+                          const monthlySalary = selectedEmployees[0].salary || 0;
+                          const dailyRate = monthlySalary / 30;
+                          const totalEOSB = dailyRate * eosbDays;
+
+                          return (
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <p className="text-xs text-blue-600 font-medium">Total Year Work</p>
+                                  <p className="text-lg font-bold text-blue-900">
+                                    {years} Year{years !== 1 ? 's' : ''}, {months} Month{months !== 1 ? 's' : ''}, {actualDays} Day{actualDays !== 1 ? 's' : ''}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-xs text-blue-600 font-medium">EOSB Days</p>
+                                  <p className="text-lg font-bold text-blue-900">{eosbDays.toFixed(1)} Days</p>
+                                </div>
+                              </div>
+
+                              <div className="pt-4 border-t border-blue-200">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-blue-800">Calculated EOSB Amount:</span>
+                                  <span className="text-2xl font-black text-blue-900">${totalEOSB.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                </div>
+                                <p className="text-[10px] text-blue-500 mt-2">
+                                  * Calculation based on: {diffYears < 1 ? 'Less than 1 year (No EOSB)' :
+                                    diffYears <= 5 ? '1-5 years (21 days/year)' : 'Over 5 years (21 days for first 5 years, 30 days thereafter)'}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Common Fields */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6 border-t border-gray-200">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Effective Date <span className="text-red-500">*</span>
+                      {activeTab === 'Termination' ? 'Termination Date' : 'Effective Date'} <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="date"
@@ -610,7 +712,7 @@ export default function HRProcessPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{activeTab === 'Termination' ? 'Termination Remark' : 'Remarks'}</label>
                     <textarea
                       className="w-full p-3 bg-white rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
                       rows={1}
@@ -626,14 +728,17 @@ export default function HRProcessPage() {
                   <button
                     onClick={handleProcess}
                     disabled={selectedIds.length === 0 || !form.date || isProcessing}
-                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`px-6 py-3 text-white rounded-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${activeTab === 'Termination'
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : 'bg-blue-600 hover:bg-blue-700'
+                      }`}
                   >
                     {isProcessing ? (
                       <>Processing...</>
                     ) : (
                       <>
-                        <ArrowRight size={18} />
-                        Process Request
+                        {activeTab === 'Termination' ? <X size={18} /> : <ArrowRight size={18} />}
+                        {activeTab === 'Termination' ? 'Terminate Employee' : 'Process Request'}
                       </>
                     )}
                   </button>
@@ -688,11 +793,11 @@ export default function HRProcessPage() {
                     <td className="px-6 py-4 text-sm font-medium text-blue-600">#{req.id}</td>
                     <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">{req.employeeNames}</td>
                     <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        req.type === 'Promotion' ? 'bg-green-100 text-green-700' :
-                        req.type === 'Location' ? 'bg-orange-100 text-orange-700' : 
-                        'bg-blue-100 text-blue-700'
-                      }`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${req.type === 'Promotion' ? 'bg-green-100 text-green-700' :
+                        req.type === 'Location' ? 'bg-orange-100 text-orange-700' :
+                          req.type === 'Termination' ? 'bg-red-100 text-red-700' :
+                            'bg-blue-100 text-blue-700'
+                        }`}>
                         {req.type}
                       </span>
                     </td>

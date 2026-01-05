@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/lib/axios';
 import { Employee, CandidateForm, OnboardingView } from './types';
 import CandidateList from './CandidateList';
 import AddCandidateForm from './AddCandidateForm';
@@ -38,7 +38,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
 
   const [candidateForm, setCandidateForm] = useState<CandidateForm>({
-    employeeId: '',
+    employeeNumber: '',
     fullName: '',
     email: '',
     phoneNumber: '',
@@ -57,6 +57,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
     basicSalary: '',
     accommodationAllowances: [],
     insurances: [],
+    contractStartDate: '',
+    contractEndDate: '',
+    contractType: '',
     bankDetails: {
       bankName: '',
       branchName: '',
@@ -107,18 +110,26 @@ const EmployeeOnboardingSystem: React.FC = () => {
     const orgId = getOrgId();
     const token = getAuthToken();
     const apiUrl = getApiUrl();
-    if (!orgId || !token) return;
+
+    // Strict validation of orgId
+    if (!orgId || orgId === 'undefined' || orgId === 'null' || !token) {
+      console.warn("ONBOARDING: Skipped fetch due to invalid credentials", { orgId, hasToken: !!token });
+      return;
+    }
 
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      
+
+      // Log the URLs we are about to hit for debugging
+      console.log(`ONBOARDING: Fetching from ${apiUrl}/org/${orgId}/departments`);
+
       // Fetch required data
       const [deptRes, desigRes, locRes] = await Promise.all([
-        axios.get(`${apiUrl}/org/${orgId}/departments`, { headers }),
-        axios.get(`${apiUrl}/org/${orgId}/designations`, { headers }),
-        axios.get(`${apiUrl}/org/${orgId}/locations`, { headers })
+        axios.get(`${apiUrl}/org/${orgId}/departments`),
+        axios.get(`${apiUrl}/org/${orgId}/designations`),
+        axios.get(`${apiUrl}/org/${orgId}/locations`)
       ]);
-      
+
       // Shifts endpoint doesn't exist in backend, so skip fetching
       // Shifts are optional and have default values in the UI
       const shiftRes = { data: { data: [] } };
@@ -128,13 +139,20 @@ const EmployeeOnboardingSystem: React.FC = () => {
       setDesignations(desigRes.data.data || desigRes.data || []);
       setLocations(locRes.data.data || locRes.data || []);
       setShifts(shiftRes.data.data || shiftRes.data || []);
-      
+
       console.log('FETCHED DEPARTMENTS:', deptData.length, deptData.map((d: any) => ({ id: d.id || d._id, name: d.departmentName || d.name })));
-      
+
       // Return departments so fetchEmployees can use them
       return deptData;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching onboarding data:', error);
+      if (error.response?.status === 404) {
+        console.error("ONBOARDING: 404 Error details:", {
+          url: error.config?.url,
+          method: error.config?.method,
+          orgIdUsed: orgId
+        });
+      }
     }
   };
 
@@ -143,21 +161,23 @@ const EmployeeOnboardingSystem: React.FC = () => {
     const token = getAuthToken();
     const apiUrl = getApiUrl();
     console.log("FETCH EMPLOYEES: Config:", { apiUrl, orgId, hasToken: !!token });
-    if (!orgId || !token) return;
-    
+
+    if (!orgId || orgId === 'undefined' || orgId === 'null' || !token) {
+      console.warn("FETCH EMPLOYEES: Aborted due to missing/invalid orgId or token.");
+      return;
+    }
+
     // Use provided departments or fall back to state
     const departmentsToUse = departmentsForLookup || departments;
 
     try {
-      const res = await axios.get(`${apiUrl}/org/${orgId}/employees`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await axios.get(`${apiUrl}/org/${orgId}/employees`);
 
       console.log("FETCH EMPLOYEES: Response status:", res.status);
       const employeeData = res.data.data || res.data || [];
       console.log("FETCH EMPLOYEES: Raw data count:", Array.isArray(employeeData) ? employeeData.length : "Not an array");
       const employeeList = Array.isArray(employeeData) ? employeeData : [];
-      
+
       // Log first employee to see structure
       if (employeeList.length > 0) {
         console.log("FETCH EMPLOYEES: Sample employee structure:", {
@@ -170,13 +190,13 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
       // Use provided departments or state for lookup
       const currentDepartments = departmentsToUse.length > 0 ? departmentsToUse : departments;
-      console.log('FORMATTING EMPLOYEES: Using departments count:', currentDepartments.length, 
+      console.log('FORMATTING EMPLOYEES: Using departments count:', currentDepartments.length,
         'Provided:', !!departmentsForLookup, 'From state:', departments.length);
-      
+
       const formattedEmployees = employeeList.map((emp: any) => {
         // Extract department name with multiple fallback options
         let departmentName = '';
-        
+
         // First, try to get department from the populated relation
         if (emp.department) {
           if (typeof emp.department === 'string') {
@@ -197,7 +217,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
             }
           }
         }
-        
+
         // If department is not populated but we have departmentId, try to find it from fetched departments
         if (!departmentName && emp.departmentId) {
           // Try multiple ways to match department - normalize IDs for comparison
@@ -207,7 +227,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
             // Compare both normalized strings
             return deptId === empDeptId && deptId !== '';
           });
-          
+
           if (dept) {
             departmentName = dept.departmentName || dept.name || '';
             console.log('✓ Department found via lookup:', {
@@ -229,7 +249,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
         return {
           id: emp.id || emp._id || String(Math.random()),
-          employeeId: emp.employeeId || emp.id || emp._id, // Include employeeId for ID generation
+          employeeNumber: emp.employeeNumber || emp.employeeId || '', // Use sequential ID if available, otherwise blank (avoiding UUID)
           fullName: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unnamed Employee',
           firstName: emp.firstName || emp.fullName?.split(' ')[0] || '',
           lastName: emp.lastName || emp.fullName?.split(' ').slice(1).join(' ') || '',
@@ -304,42 +324,54 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const payload = {
-        employeeId: candidateForm.employeeId,
-        fullName: candidateForm.fullName,
-        email: candidateForm.email,
-        phoneNumber: candidateForm.phoneNumber || candidateForm.mobileNumber,
-        role: "employee",
-        departmentId: candidateForm.departmentId,
-        designationId: candidateForm.designationId,
-        locationId: candidateForm.locationId,
-        reportingToId: reportingManagers.length > 0 ? candidateForm.reportingToId : null,
-        dateOfJoining: candidateForm.dateOfJoining,
-        shiftType: candidateForm.shiftType,
-        timeZone: candidateForm.timeZone,
-        empType: candidateForm.empType,
-        siteId: candidateForm.siteId,
-        buildingId: candidateForm.buildingId,
-        basicSalary: candidateForm.basicSalary,
-        accommodationAllowances: candidateForm.accommodationAllowances,
-        insurances: candidateForm.insurances,
-        bankDetails: candidateForm.bankDetails
-      };
+      const formData = new FormData();
+      // Append top-level fields
+      formData.append('employeeNumber', candidateForm.employeeNumber || '');
+      formData.append('fullName', candidateForm.fullName);
+      formData.append('email', candidateForm.email);
+      formData.append('phoneNumber', candidateForm.phoneNumber || candidateForm.mobileNumber || '');
+      formData.append('role', "employee");
+      formData.append('departmentId', candidateForm.departmentId);
+      formData.append('designationId', candidateForm.designationId);
+      formData.append('locationId', candidateForm.locationId);
+      formData.append('reportingToId', reportingManagers.length > 0 ? (candidateForm.reportingToId || '') : '');
+      formData.append('dateOfJoining', candidateForm.dateOfJoining);
+      formData.append('shiftType', candidateForm.shiftType);
+      formData.append('timeZone', candidateForm.timeZone);
+      formData.append('empType', candidateForm.empType);
+      formData.append('buildingId', candidateForm.buildingId || '');
+      formData.append('basicSalary', candidateForm.basicSalary);
+      formData.append('contractStartDate', candidateForm.contractStartDate || '');
+      formData.append('contractEndDate', candidateForm.contractEndDate || '');
+      formData.append('contractType', candidateForm.contractType || '');
+
+      // Append arrays as JSON strings
+      formData.append('accommodationAllowances', JSON.stringify(candidateForm.accommodationAllowances));
+      formData.append('insurances', JSON.stringify(candidateForm.insurances));
+
+      // Append bank details
+      const bankDetails: any = { ...candidateForm.bankDetails };
+      const bankFile = bankDetails.bankPassbookFile;
+      delete bankDetails.bankPassbookFile; // Don't include file in the JSON string
+
+      formData.append('bankDetails', JSON.stringify(bankDetails));
+      if (bankFile) {
+        formData.append('bankPassbook', bankFile);
+      }
 
       console.log("ONBOARDING DEBUG:", {
         apiUrl,
         orgId,
         token: token ? "Token present" : "Token missing",
-        payload
+        payload: Object.fromEntries(formData.entries())
       });
 
       const response = await axios.post(
         `${apiUrl}/org/${orgId}/employees`,
-        payload,
+        formData,
         {
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'multipart/form-data'
           }
         }
       );
@@ -351,9 +383,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
         // Refresh employee list
         fetchEmployees();
 
-        // Reset form and view
+        // Reset form - but don't switch view yet, let AddCandidateForm show success dialog
         setCandidateForm({
-          employeeId: '',
+          employeeNumber: '',
           fullName: '',
           email: '',
           phoneNumber: '',
@@ -372,6 +404,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
           basicSalary: '',
           accommodationAllowances: [],
           insurances: [],
+          contractStartDate: '',
+          contractEndDate: '',
+          contractType: '',
           bankDetails: {
             bankName: '',
             branchName: '',
@@ -380,7 +415,8 @@ const EmployeeOnboardingSystem: React.FC = () => {
             ifscCode: ''
           }
         });
-        setCurrentView('list');
+
+        return response.data.data || response.data;
       }
     } catch (error: any) {
       console.error('Onboarding ERROR OBJECT:', error);
@@ -407,9 +443,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const response = await axios.get(`${apiUrl}/org/${orgId}/employees/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.get(`${apiUrl}/org/${orgId}/employees/${id}`);
       const data = response.data.data || response.data;
       // Handle the case where the API might return an array or a single object
       const emp = Array.isArray(data) ? data[0] : data;
@@ -417,7 +451,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
       if (!emp) throw new Error("Employee not found");
 
       setCandidateForm({
-        employeeId: emp.employeeId || emp.id || emp._id || '',
+        employeeNumber: emp.employeeNumber || emp.employeeId || '',
         fullName: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
         email: emp.email || emp.emailId || '',
         phoneNumber: emp.phoneNumber || emp.mobileNumber || '',
@@ -434,6 +468,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
         siteId: emp.siteId || '',
         buildingId: emp.buildingId || '',
         basicSalary: emp.basicSalary || '',
+        contractStartDate: emp.contractStartDate ? new Date(emp.contractStartDate).toISOString().split('T')[0] : '',
+        contractEndDate: emp.contractEndDate ? new Date(emp.contractEndDate).toISOString().split('T')[0] : '',
+        contractType: emp.contractType || '',
         accommodationAllowances: emp.accommodationAllowances || [],
         insurances: emp.insurances || (emp.insuranceType ? [{ type: emp.insuranceType, percentage: emp.insurancePercentage || '' }] : []),
         bankDetails: emp.bankDetails || {
@@ -466,35 +503,47 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const payload = {
-        employeeId: candidateForm.employeeId,
-        fullName: candidateForm.fullName,
-        email: candidateForm.email,
-        phoneNumber: candidateForm.phoneNumber || candidateForm.mobileNumber,
-        role: "employee",
-        departmentId: candidateForm.departmentId,
-        designationId: candidateForm.designationId,
-        locationId: candidateForm.locationId,
-        reportingToId: candidateForm.reportingToId || null,
-        dateOfJoining: candidateForm.dateOfJoining,
-        shiftType: candidateForm.shiftType,
-        timeZone: candidateForm.timeZone,
-        empType: candidateForm.empType,
-        siteId: candidateForm.siteId,
-        buildingId: candidateForm.buildingId,
-        basicSalary: candidateForm.basicSalary,
-        accommodationAllowances: candidateForm.accommodationAllowances,
-        insurances: candidateForm.insurances,
-        bankDetails: candidateForm.bankDetails
-      };
+      const formData = new FormData();
+      // Append top-level fields
+      formData.append('employeeNumber', candidateForm.employeeNumber || '');
+      formData.append('fullName', candidateForm.fullName);
+      formData.append('email', candidateForm.email);
+      formData.append('phoneNumber', candidateForm.phoneNumber || candidateForm.mobileNumber || '');
+      formData.append('role', "employee");
+      formData.append('departmentId', candidateForm.departmentId);
+      formData.append('designationId', candidateForm.designationId);
+      formData.append('locationId', candidateForm.locationId);
+      formData.append('reportingToId', candidateForm.reportingToId || '');
+      formData.append('dateOfJoining', candidateForm.dateOfJoining);
+      formData.append('shiftType', candidateForm.shiftType);
+      formData.append('timeZone', candidateForm.timeZone);
+      formData.append('empType', candidateForm.empType);
+      formData.append('buildingId', candidateForm.buildingId || '');
+      formData.append('basicSalary', candidateForm.basicSalary);
+      formData.append('contractStartDate', candidateForm.contractStartDate || '');
+      formData.append('contractEndDate', candidateForm.contractEndDate || '');
+      formData.append('contractType', candidateForm.contractType || '');
+
+      // Append arrays as JSON strings
+      formData.append('accommodationAllowances', JSON.stringify(candidateForm.accommodationAllowances));
+      formData.append('insurances', JSON.stringify(candidateForm.insurances));
+
+      // Append bank details
+      const bankDetails: any = { ...candidateForm.bankDetails };
+      const bankFile = bankDetails.bankPassbookFile;
+      delete bankDetails.bankPassbookFile;
+
+      formData.append('bankDetails', JSON.stringify(bankDetails));
+      if (bankFile) {
+        formData.append('bankPassbook', bankFile);
+      }
 
       await axios.patch(
         `${apiUrl}/org/${orgId}/employees/${editingEmployeeId}`,
-        payload,
+        formData,
         {
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'multipart/form-data'
           }
         }
       );
@@ -502,7 +551,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
       showAlert("Success", "Employee details updated successfully!", "success");
       fetchEmployees();
       setCandidateForm({
-        employeeId: '',
+        employeeNumber: '',
         fullName: '',
         email: '',
         phoneNumber: '',
@@ -521,6 +570,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
         basicSalary: '',
         accommodationAllowances: [],
         insurances: [],
+        contractStartDate: '',
+        contractEndDate: '',
+        contractType: '',
         bankDetails: {
           bankName: '',
           branchName: '',
@@ -565,13 +617,12 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const response = await axios.get(`${apiUrl}/org/${orgId}/employees/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.get(`${apiUrl}/org/${orgId}/employees/${id}`);
       const emp: any = response.data.data || response.data;
 
       // Map to CandidateForm
       const form: CandidateForm = {
+        employeeNumber: emp.employeeNumber || emp.employeeId || '',
         fullName: emp.fullName || `${emp.firstName} ${emp.lastName}`,
         email: emp.email || emp.emailId,
         phoneNumber: emp.phoneNumber || emp.mobileNumber,
@@ -588,15 +639,55 @@ const EmployeeOnboardingSystem: React.FC = () => {
         siteId: emp.siteId || '',
         buildingId: emp.buildingId || '',
         basicSalary: emp.basicSalary || '',
+        contractStartDate: emp.contractStartDate ? new Date(emp.contractStartDate).toISOString().split('T')[0] : '',
+        contractEndDate: emp.contractEndDate ? new Date(emp.contractEndDate).toISOString().split('T')[0] : '',
+        contractType: emp.contractType || '',
         accommodationAllowances: emp.accommodationAllowances || [],
         insurances: emp.insurances || (emp.insuranceType ? [{ type: emp.insuranceType, percentage: emp.insurancePercentage || '' }] : []),
         bankDetails: emp.bankDetails || {
-          bankName: '',
-          branchName: '',
-          accountNumber: '',
-          accountHolderName: '',
-          ifscCode: ''
-        }
+          bankName: emp.bankName || '',
+          branchName: emp.branchName || '',
+          accountNumber: emp.accountNumber || '',
+          accountHolderName: emp.accountHolderName || '',
+          ifscCode: emp.ifscCode || ''
+        },
+        // Personal Details
+        gender: emp.gender,
+        maritalStatus: emp.maritalStatus,
+        dateOfBirth: emp.dateOfBirth ? new Date(emp.dateOfBirth).toISOString().split('T')[0] : '',
+        bloodGroup: emp.bloodGroup,
+        // Identity Information
+        uan: emp.uan || emp.UAN,
+        pan: emp.pan || emp.PAN || emp.panCard,
+        aadhaar: emp.aadhaar || emp.aadharNumber,
+        passportNumber: emp.passportNumber,
+        drivingLicenseNumber: emp.drivingLicenseNumber,
+        // Address Information
+        presentAddress: {
+          addressLine1: emp.presentAddressLine1 || '',
+          addressLine2: emp.presentAddressLine2 || '',
+          city: emp.presentCity || '',
+          state: emp.presentState || '',
+          country: emp.presentCountry || '',
+          pinCode: emp.presentPinCode || ''
+        },
+        permanentAddress: {
+          addressLine1: emp.permanentAddressLine1 || '',
+          addressLine2: emp.permanentAddressLine2 || '',
+          city: emp.permanentCity || '',
+          state: emp.permanentState || '',
+          country: emp.permanentCountry || '',
+          pinCode: emp.permanentPinCode || ''
+        },
+        // Emergency Contact
+        emergencyContact: {
+          contactName: emp.emergencyContactName || '',
+          relation: emp.emergencyContactRelation || '',
+          contactNumber: emp.emergencyContactNumber || ''
+        },
+        // Education & Experience
+        education: emp.education || [],
+        experience: emp.experience || []
       };
       setSelectedCandidate(form);
       setCurrentView('viewCandidate');
@@ -618,9 +709,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
     setConfirmState(prev => ({ ...prev, open: false })); // Close dialog
 
     try {
-      await axios.delete(`${apiUrl}/org/${orgId}/employees/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.delete(`${apiUrl}/org/${orgId}/employees/${id}`);
       showAlert("Success", "Employee deleted successfully", "success");
       fetchEmployees();
       // If deleted item was selected, remove it
@@ -657,9 +746,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
     let successCount = 0;
     try {
       await Promise.all(selectedIds.map(id =>
-        axios.delete(`${apiUrl}/org/${orgId}/employees/${id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }).then(() => { successCount++; })
+        axios.delete(`${apiUrl}/org/${orgId}/employees/${id}`).then(() => { successCount++; })
       ));
 
       showAlert("Success", `Successfully deleted ${successCount} employees.`, "success");
@@ -691,10 +778,10 @@ const EmployeeOnboardingSystem: React.FC = () => {
     if (importType === 'new') {
       headers = [
         'Full Name', 'Email Address', 'Mobile Number', 'Role', 'Department', 'Location', 'Site', 'Building / Area',
-        'Reporting To', 'Date of Joining', 'Shift', 'Time Zone', 'Employee Type', 'Employee Status', 'Basic Salary',
+        'Reporting To', 'Date of Joining', 'Shift', 'Time Zone', 'Employee Type', 'Contract Type', 'Contract Start', 'Contract End', 'Employee Status', 'Basic Salary',
         'Allowances', 'Insurances', 'Bank Name', 'Branch Name', 'Account Number', 'Account Holder Name', 'IFSC Code'
       ];
-      
+
       // Add sample data rows for new employees
       const sampleData = [
         [
@@ -711,6 +798,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
           shifts.length > 0 ? (shifts[0].shiftName || shifts[0].name || 'Morning') : 'Morning',
           'Asia/Kolkata',
           'permanent',
+          'fixed-term', // Contract Type
+          '', // Contract Start
+          '', // Contract End
           'Active',
           '50000',
           'food:10|travel:5', // Allowances format: "type:percentage|type:percentage"
@@ -746,17 +836,17 @@ const EmployeeOnboardingSystem: React.FC = () => {
           'HDFC0005678'
         ]
       ];
-      
-      rows = sampleData.map(row => 
+
+      rows = sampleData.map(row =>
         row.map(cell => `"${cell}"`).join(',')
       );
     } else {
       headers = [
-        'Employee ID', 'Full Name', 'Email ID', 'Mobile Number', 'Role', 'Department', 'Location', 'Site', 'Building / Area',
+        'Employee Number', 'Full Name', 'Email ID', 'Mobile Number', 'Role', 'Department', 'Location', 'Site', 'Building / Area',
         'Reporting To', 'Date of Joining', 'Shift', 'Time Zone', 'Employee Type', 'Employee Status', 'Basic Salary',
         'Allowances', 'Insurances', 'Bank Name', 'Branch Name', 'Account Number', 'Account Holder Name', 'IFSC Code'
       ];
-      
+
       // Add actual employee data for existing employees
       if (employees.length > 0) {
         rows = employees.map((emp: any) => {
@@ -766,7 +856,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
             if (typeof emp.designation === 'string') return emp.designation;
             return '';
           };
-          
+
           const getDepartmentName = () => {
             // emp.department is a string in Employee type, but can be object in raw API response
             if (emp.department && typeof emp.department === 'object') {
@@ -775,14 +865,14 @@ const EmployeeOnboardingSystem: React.FC = () => {
             if (typeof emp.department === 'string') return emp.department;
             return '';
           };
-          
+
           const getLocationName = () => {
             if (emp.location?.locationName) return emp.location.locationName;
             if (emp.location?.name) return emp.location.name;
             if (typeof emp.location === 'string') return emp.location;
             return '';
           };
-          
+
           const getReportingManagerName = () => {
             if (emp.reportingTo?.fullName) return emp.reportingTo.fullName;
             if (emp.reportingTo?.firstName && emp.reportingTo?.lastName) {
@@ -790,7 +880,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
             }
             return '';
           };
-          
+
           const getShiftName = () => {
             if (emp.shift?.shiftName) return emp.shift.shiftName;
             if (emp.shift?.name) return emp.shift.name;
@@ -798,7 +888,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
             if (emp.shiftType) return emp.shiftType;
             return '';
           };
-          
+
           // Format allowances
           const formatAllowances = () => {
             if (emp.accommodationAllowances && Array.isArray(emp.accommodationAllowances) && emp.accommodationAllowances.length > 0) {
@@ -836,7 +926,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
           };
 
           return [
-            emp.id || emp._id || '',
+            emp.employeeNumber || emp.employeeId || emp.id || emp._id || '',
             emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || '',
             emp.emailId || emp.email || '',
             emp.phoneNumber || emp.mobileNumber || '',
@@ -869,7 +959,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
       headers.map(h => `"${h}"`).join(','),
       ...rows
     ].join('\n');
-    
+
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -991,6 +1081,10 @@ const EmployeeOnboardingSystem: React.FC = () => {
           onInputChange={handleInputChange}
           onAddCandidate={editingEmployeeId ? handleUpdateCandidate : handleAddCandidate}
           onCancel={() => {
+            setEditingEmployeeId(null);
+            setCurrentView('list');
+          }}
+          onComplete={() => {
             setEditingEmployeeId(null);
             setCurrentView('list');
           }}

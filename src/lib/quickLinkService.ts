@@ -5,12 +5,15 @@ const api = axios.create({
   baseURL: getApiUrl(),
 });
 
+// Interceptor to add auth token to every request
 api.interceptors.request.use((config) => {
   const token = getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
+}, (error) => {
+  return Promise.reject(error);
 });
 
 export interface QuickLink {
@@ -73,7 +76,7 @@ export const quickLinkService = {
       const response = await api.get(
         `/org/${organizationId}/quick-links${params.toString() ? `?${params.toString()}` : ''}`
       );
-      
+
       return {
         data: Array.isArray(response.data.data) ? response.data.data : (Array.isArray(response.data) ? response.data : []),
         page: response.data.page || page,

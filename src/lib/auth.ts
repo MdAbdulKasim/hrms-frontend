@@ -73,9 +73,10 @@ export const getOrgId = (): string | null => {
             payload?.organization?.orgId ||
             payload?.employee?.organization?.id ||
             payload?.organization?.id;
-        if (fromToken) return String(fromToken);
+        if (fromToken && String(fromToken) !== 'undefined') return String(fromToken);
     }
-    return getCookie('currentOrgId') || (typeof window !== 'undefined' ? localStorage.getItem('currentOrgId') : null);
+    const fromCookie = getCookie('currentOrgId') || (typeof window !== 'undefined' ? localStorage.getItem('currentOrgId') : null);
+    return (fromCookie && fromCookie !== 'undefined') ? fromCookie : null;
 };
 
 export const setOrgId = (orgId: string): void => {

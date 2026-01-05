@@ -262,7 +262,7 @@ export default function SalaryPage() {
   return (
     <div className="p-6 space-y-6 bg-white min-h-screen">
       {/* HEADER */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-semibold">Salary</h1>
           <p className="text-sm text-muted-foreground">
@@ -270,10 +270,11 @@ export default function SalaryPage() {
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex w-full sm:w-auto gap-2">
           <Button
             variant="outline"
             onClick={() => router.push('/admin/salary/history')}
+            className="flex-1 sm:flex-none"
           >
             <History className="w-4 h-4 mr-2" />
             Pay History
@@ -282,7 +283,7 @@ export default function SalaryPage() {
           <Button
             disabled={selectedCount === 0}
             onClick={() => setOpenPayRun(true)}
-            className="bg-blue-600 text-white hover:bg-blue-700"
+            className="flex-1 sm:flex-none bg-blue-600 text-white hover:bg-blue-700"
           >
             Pay Run ({selectedCount})
           </Button>
@@ -290,21 +291,21 @@ export default function SalaryPage() {
       </div>
 
       {/* ACTION BAR */}
-      <div className="flex justify-between items-center gap-4">
-        <div className="relative w-80">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+        <div className="relative w-full lg:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search employees..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
+            className="pl-10 w-full"
           />
         </div>
 
-        <div className="inline-flex rounded-md border overflow-hidden">
+        <div className="flex flex-wrap gap-2 w-full lg:w-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="rounded-none">
+              <Button variant="outline" className="flex-1 lg:flex-none">
                 <Download className="w-4 h-4 mr-2" />
                 Export
               </Button>
@@ -316,141 +317,145 @@ export default function SalaryPage() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Status Filter */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="rounded-none border-l">
-                <Filter className="w-4 h-4 mr-2" />
-                Status: {statusFilter === 'all' ? 'All' : statusFilter}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setStatusFilter("all")}>
-                All
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter("Paid")}>
-                Paid
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter("Pending")}>
-                Unpaid
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Department Filter */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="rounded-none border-l">
-                Department: {deptFilter === 'all' ? 'All' : deptFilter}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setDeptFilter("all")}>All</DropdownMenuItem>
-              {departments.map((dept) => (
-                <DropdownMenuItem
-                  key={dept.id || dept._id}
-                  onClick={() => setDeptFilter(dept.departmentName || dept.name)}
-                >
-                  {dept.departmentName || dept.name}
+          <div className="flex flex-wrap -ml-px w-full lg:w-auto">
+            {/* Status Filter */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex-grow lg:flex-grow-0 rounded-none first:rounded-l-md border-r-0 lg:border-l lg:border-r-0">
+                  <Filter className="w-4 h-4 mr-2" />
+                  Status: {statusFilter === 'all' ? 'All' : statusFilter}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setStatusFilter("all")}>
+                  All
                 </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Designation Filter */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="rounded-none border-l">
-                Designation: {desigFilter === 'all' ? 'All' : desigFilter}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setDesigFilter("all")}>All</DropdownMenuItem>
-              {designations.map((desig) => (
-                <DropdownMenuItem
-                  key={desig.id || desig._id}
-                  onClick={() => setDesigFilter(desig.designationName || desig.name)}
-                >
-                  {desig.designationName || desig.name}
+                <DropdownMenuItem onClick={() => setStatusFilter("Paid")}>
+                  Paid
                 </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Location Filter */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="rounded-none border-l">
-                Location: {locFilter === 'all' ? 'All' : locFilter}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setLocFilter("all")}>All</DropdownMenuItem>
-              {locations.map((loc) => (
-                <DropdownMenuItem
-                  key={loc.id || loc._id}
-                  onClick={() => setLocFilter(loc.locationName || loc.name)}
-                >
-                  {loc.locationName || loc.name}
+                <DropdownMenuItem onClick={() => setStatusFilter("Pending")}>
+                  Unpaid
                 </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Department Filter */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex-grow lg:flex-grow-0 rounded-none border-l lg:border-l">
+                  Dept: {deptFilter === 'all' ? 'All' : deptFilter}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setDeptFilter("all")}>All</DropdownMenuItem>
+                {departments.map((dept) => (
+                  <DropdownMenuItem
+                    key={dept.id || dept._id}
+                    onClick={() => setDeptFilter(dept.departmentName || dept.name)}
+                  >
+                    {dept.departmentName || dept.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Designation Filter */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex-grow lg:flex-grow-0 rounded-none border-l">
+                  Desig: {desigFilter === 'all' ? 'All' : desigFilter}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setDesigFilter("all")}>All</DropdownMenuItem>
+                {designations.map((desig) => (
+                  <DropdownMenuItem
+                    key={desig.id || desig._id}
+                    onClick={() => setDesigFilter(desig.designationName || desig.name)}
+                  >
+                    {desig.designationName || desig.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Location Filter */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex-grow lg:flex-grow-0 rounded-none rounded-r-md border-l">
+                  Loc: {locFilter === 'all' ? 'All' : locFilter}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setLocFilter("all")}>All</DropdownMenuItem>
+                {locations.map((loc) => (
+                  <DropdownMenuItem
+                    key={loc.id || loc._id}
+                    onClick={() => setLocFilter(loc.locationName || loc.name)}
+                  >
+                    {loc.locationName || loc.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
 
       {/* TABLE */}
-      <div className="border rounded-lg bg-white">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10">
-                <Checkbox
-                  checked={allSelected}
-                  onCheckedChange={(v) =>
-                    toggleSelectAll(Boolean(v))
-                  }
-                />
-              </TableHead>
-              <TableHead>NAME</TableHead>
-              <TableHead>DEPARTMENT</TableHead>
-              <TableHead>DESIGNATION</TableHead>
-              <TableHead>LOCATION</TableHead>
-              <TableHead>SALARY</TableHead>
-              <TableHead>STATUS</TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {paginatedEmployees.map((e) => (
-              <TableRow key={e.id}>
-                <TableCell>
+      <div className="border rounded-lg bg-white overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10">
                   <Checkbox
-                    checked={e.selected}
+                    checked={allSelected}
                     onCheckedChange={(v) =>
-                      toggleSelectOne(e.id, Boolean(v))
+                      toggleSelectAll(Boolean(v))
                     }
                   />
-                </TableCell>
-                <TableCell className="font-medium">{e.name}</TableCell>
-                <TableCell>{e.department}</TableCell>
-                <TableCell>{e.designation}</TableCell>
-                <TableCell>{e.location}</TableCell>
-                <TableCell>₹{e.salary.toLocaleString()}</TableCell>
-                <TableCell>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs ${e.status === "Paid"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-gray-100 text-gray-600"
-                      }`}
-                  >
-                    {e.status}
-                  </span>
-                </TableCell>
+                </TableHead>
+                <TableHead className="min-w-[150px]">NAME</TableHead>
+                <TableHead className="min-w-[150px]">DEPARTMENT</TableHead>
+                <TableHead className="min-w-[150px]">DESIGNATION</TableHead>
+                <TableHead className="min-w-[120px]">LOCATION</TableHead>
+                <TableHead className="min-w-[120px]">SALARY</TableHead>
+                <TableHead className="min-w-[100px]">STATUS</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+
+            <TableBody>
+              {paginatedEmployees.map((e) => (
+                <TableRow key={e.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={e.selected}
+                      onCheckedChange={(v) =>
+                        toggleSelectOne(e.id, Boolean(v))
+                      }
+                    />
+                  </TableCell>
+                  <TableCell className="font-medium whitespace-nowrap">{e.name}</TableCell>
+                  <TableCell className="whitespace-nowrap">{e.department}</TableCell>
+                  <TableCell className="whitespace-nowrap">{e.designation}</TableCell>
+                  <TableCell className="whitespace-nowrap">{e.location}</TableCell>
+                  <TableCell className="whitespace-nowrap">AED {e.salary.toLocaleString()}</TableCell>
+                  <TableCell>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs ${e.status === "Paid"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-gray-100 text-gray-600"
+                        }`}
+                    >
+                      {e.status}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {/* PAGINATION */}

@@ -36,11 +36,14 @@ interface ProfileCardProps {
   token: string | null;
   orgId: string | null;
   currentEmployeeId: string | null;
+  initialIsCheckedIn?: boolean;
+  initialIsCheckedOut?: boolean;
   onCheckInStatusChange?: (isCheckedIn: boolean) => void;
 }
 
-const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInStatusChange }: ProfileCardProps) => {
-  const [isCheckedIn, setIsCheckedIn] = useState(false);
+const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, initialIsCheckedIn = false, initialIsCheckedOut = false, onCheckInStatusChange }: ProfileCardProps) => {
+  const [isCheckedIn, setIsCheckedIn] = useState(initialIsCheckedIn);
+  const [isCheckedOut, setIsCheckedOut] = useState(initialIsCheckedOut);
   const [seconds, setSeconds] = useState(0);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -55,6 +58,12 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
     description: '',
     variant: 'info'
   });
+
+  // Sync state with props
+  useEffect(() => {
+    setIsCheckedIn(initialIsCheckedIn);
+    setIsCheckedOut(initialIsCheckedOut);
+  }, [initialIsCheckedIn, initialIsCheckedOut]);
 
   const showAlert = (title: string, description: string, variant: 'success' | 'error' | 'info' | 'warning' = 'info') => {
     setAlertState({ open: true, title, description, variant });
@@ -179,20 +188,20 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, onCheckInSt
       )}
 
       <p className="text-gray-500 text-xs mt-1">{currentUser?.designation || 'N/A'}</p>
-      <p className={`text-xs font-medium mt-3 ${isCheckedIn ? 'text-green-500' : 'text-red-500'}`}>
-        {isCheckedIn ? 'Checked In' : 'Yet to check-in'}
+      <p className={`text-xs font-medium mt-3 ${isCheckedOut ? 'text-gray-400' : isCheckedIn ? 'text-green-500' : 'text-red-500'}`}>
+        {isCheckedOut ? 'Shift Completed' : isCheckedIn ? 'Checked In' : 'Yet to check-in'}
       </p>
       <div className={`bg-gray-100 px-4 py-2 rounded-md mt-3 font-mono font-medium tracking-wider w-full sm:w-auto ${isCheckedIn ? 'text-gray-900' : 'text-gray-600'}`}>
         {formatTime(seconds)}
       </div>
       <button
         onClick={handleToggleCheckIn}
-        disabled={loading}
-        className={`mt-4 w-full py-2 border rounded-md transition-colors text-sm font-medium ${loading ? 'opacity-50 cursor-not-allowed' :
+        disabled={loading || isCheckedOut}
+        className={`mt-4 w-full py-2 border rounded-md transition-colors text-sm font-medium ${loading || isCheckedOut ? 'opacity-50 cursor-not-allowed bg-gray-50 text-gray-400 border-gray-200' :
           isCheckedIn ? 'border-red-500 text-red-500 hover:bg-red-50' : 'border-green-500 text-green-500 hover:bg-green-50'
           }`}
       >
-        {loading ? 'Processing...' : isCheckedIn ? 'Check-out' : 'Check-in'}
+        {loading ? 'Processing...' : isCheckedOut ? 'Work Ended' : isCheckedIn ? 'Check-out' : 'Check-in'}
       </button>
       <CustomAlertDialog
         open={alertState.open}
@@ -280,6 +289,9 @@ export default function Dashboard() {
   const [token, setToken] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [currentEmployeeId, setCurrentEmployeeId] = useState<string | null>(null);
+  const [isSelfCheckedIn, setIsSelfCheckedIn] = useState(false);
+  const [isSelfCheckedOut, setIsSelfCheckedOut] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -341,11 +353,25 @@ export default function Dashboard() {
           firstName: firstName,
           lastName: lastName,
           fullName: fullName,
-          designation: userData.designation?.name || userData.designation || 'N/A',
+          designation: (typeof userData.designation === 'object' ? userData.designation?.name : userData.designation) || 'N/A',
           profileImage: userData.profileImage
         });
 
-        // Fetch reportees - wrap in try-catch since employees may not have access to this endpoint
+        // Fetch attendance status for synchronization
+        const today = new Date().toISOString().split('T')[0];
+        const attendanceRes = await attendanceService.getDailyAttendance(authOrgId, today);
+        const attendanceData = (attendanceRes as any).data || (Array.isArray(attendanceRes) ? attendanceRes : []);
+
+        const currentRecord = Array.isArray(attendanceData)
+          ? attendanceData.find((r: any) => r.employeeId === authEmployeeId)
+          : null;
+
+        if (currentRecord) {
+          setIsSelfCheckedIn(!!currentRecord.checkInTime && !currentRecord.checkOutTime);
+          setIsSelfCheckedOut(!!currentRecord.checkInTime && !!currentRecord.checkOutTime);
+        }
+
+        // Fetch reportees
         try {
           // Try to fetch reportees - this may fail with 403 for regular employees
           const reporteesRes = await axios.get(`${apiUrl}/org/${authOrgId}/employees/${authEmployeeId}/reportees`, {
@@ -376,7 +402,7 @@ export default function Dashboard() {
     };
 
     fetchData();
-  }, []);
+  }, [refreshTrigger]);
 
   const handleEmployeeClick = (employeeId: string, name: string) => {
     setSelectedEmployeeId(employeeId);
@@ -422,6 +448,9 @@ export default function Dashboard() {
               token={token}
               orgId={orgId}
               currentEmployeeId={currentEmployeeId}
+              initialIsCheckedIn={isSelfCheckedIn}
+              initialIsCheckedOut={isSelfCheckedOut}
+              onCheckInStatusChange={() => setRefreshTrigger(prev => prev + 1)}
             />
           </div>
           <div className="md:col-span-2 lg:col-span-3">

@@ -56,8 +56,10 @@ const Dashboard: React.FC = () => {
 
           console.log('Extracted employee count:', total);
           setEmployeeCount(total);
-        } catch (error) {
-          console.error('Error fetching employee count:', error);
+        } catch (error: any) {
+          if (error.response?.status !== 404) {
+            console.error('Error fetching employee count:', error);
+          }
           setEmployeeCount(0);
         }
       } catch (error) {
