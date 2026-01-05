@@ -380,25 +380,6 @@ export default function PayrunViewPage() {
           </div>
         </div>
       )}
-
-      {/* ACTIONS */}
-      <div className="flex justify-end gap-3 print:hidden">
-        <Button
-          variant="outline"
-          onClick={() => window.history.back()}
-          className="border-slate-300"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Go Back
-        </Button>
-        <Button
-          onClick={() => window.print()}
-          className="bg-blue-600 hover:bg-blue-700"
-        >
-          <Printer className="w-4 h-4 mr-2" />
-          Print Payslip
-        </Button>
-      </div>
     </div>
   )
 }

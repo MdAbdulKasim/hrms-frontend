@@ -66,7 +66,7 @@ interface PayrollEmployee {
 
 /* ================= COMPONENT ================= */
 
-export default function PayRunPage() {
+export default function PayRunProcess() {
   const router = useRouter()
   const [employees, setEmployees] = useState<PayrollEmployee[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -111,9 +111,19 @@ export default function PayRunPage() {
           department: emp.department?.departmentName || emp.department?.name || "N/A",
           designation: emp.designation?.designationName || emp.designation?.name || "N/A",
           location: emp.location?.locationName || emp.location?.name || "N/A",
-          basicSalary: Number(emp.salary || emp.ctc || emp.baseSalary || 0),
-          allowances: emp.allowances || [],
-          deductions: emp.deductions || [],
+          basicSalary: Number(emp.basicSalary || emp.salary || emp.ctc || emp.baseSalary || 0),
+          allowances: (emp.accommodationAllowances || emp.allowances || []).map((a: any, idx: number) => ({
+            id: a.id || a._id || `allowance-${idx}`,
+            name: a.type || a.name || "Allowance",
+            value: Number(a.percentage || a.value || 0),
+            type: a.percentage !== undefined ? "percentage" : (a.type === "percentage" ? "percentage" : "fixed")
+          })),
+          deductions: (emp.insurances || emp.deductions || []).map((d: any, idx: number) => ({
+            id: d.id || d._id || `deduction-${idx}`,
+            name: d.type || d.name || "Deduction",
+            value: Number(d.percentage || d.value || 0),
+            type: d.percentage !== undefined ? "percentage" : (d.type === "percentage" ? "percentage" : "fixed")
+          })),
         }))
 
         setEmployees(formatted)
@@ -470,48 +480,105 @@ export default function PayRunPage() {
         </div>
       </div>
 
-      {/* CONFIRMATION DIALOG */}
+      {/* ENHANCED CONFIRMATION DIALOG */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-orange-600" />
+            <AlertDialogTitle className="flex items-center gap-2 text-lg">
+              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-orange-600" />
+              </div>
               Confirm Payment Processing
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3 pt-2">
-              <p>
+            <AlertDialogDescription className="space-y-4 pt-3">
+              <p className="text-slate-700">
                 You are about to process payroll for{" "}
                 <span className="font-semibold text-slate-900">
                   {stats.totalEmployees} employee{stats.totalEmployees !== 1 ? "s" : ""}
                 </span>
                 .
               </p>
-              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                <p className="text-sm font-medium text-slate-700 mb-2">Payment Summary:</p>
-                <div className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-600">Total Employees:</span>
+
+              {/* Enhanced Payment Summary Card */}
+              <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl p-5 border border-slate-200 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <DollarSign className="w-5 h-5 text-white" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900">Payment Summary</p>
+                </div>
+
+                <div className="space-y-3">
+                  {/* Total Employees */}
+                  <div className="flex items-center justify-between py-2 border-b border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-slate-500" />
+                      <span className="text-sm text-slate-600">Total Employees</span>
+                    </div>
                     <span className="font-semibold text-slate-900">{stats.totalEmployees}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-600">Total Amount:</span>
+
+                  {/* Basic Salary */}
+                  <div className="flex items-center justify-between py-2 border-b border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="w-4 h-4 text-indigo-500" />
+                      <span className="text-sm text-slate-600">Basic Salary</span>
+                    </div>
+                    <span className="font-semibold text-slate-900">
+                      ₹{stats.totalBasic.toLocaleString()}
+                    </span>
+                  </div>
+
+                  {/* Total Allowances */}
+                  <div className="flex items-center justify-between py-2 border-b border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-green-500" />
+                      <span className="text-sm text-slate-600">Total Allowances</span>
+                    </div>
                     <span className="font-semibold text-green-600">
+                      +₹{stats.totalAllowances.toLocaleString()}
+                    </span>
+                  </div>
+
+                  {/* Total Deductions */}
+                  <div className="flex items-center justify-between py-2 border-b border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <TrendingDown className="w-4 h-4 text-red-500" />
+                      <span className="text-sm text-slate-600">Total Deductions</span>
+                    </div>
+                    <span className="font-semibold text-red-600">
+                      -₹{stats.totalDeductions.toLocaleString()}
+                    </span>
+                  </div>
+
+                  {/* Net Amount - Highlighted */}
+                  <div className="flex items-center justify-between py-3 bg-blue-600 -mx-5 px-5 -mb-5 rounded-b-xl mt-3">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-blue-100" />
+                      <span className="text-sm font-semibold text-white">Net Amount</span>
+                    </div>
+                    <span className="font-bold text-lg text-white">
                       ₹{stats.totalNet.toLocaleString()}
                     </span>
                   </div>
                 </div>
               </div>
-              <p className="text-sm">
-                This action cannot be undone. Are you sure you want to continue?
-              </p>
+
+              <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-amber-800">
+                  This action cannot be undone. Please verify all details before proceeding.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel className="mt-0">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleProcessPayment}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700"
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-md"
             >
+              <CheckCircle2 className="w-4 h-4 mr-2" />
               Confirm & Process
             </AlertDialogAction>
           </AlertDialogFooter>
