@@ -5,11 +5,12 @@ import { Fragment, useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 
 interface SearchableDropdownProps {
-    value: string[];
+    value: string | string[];
     options: string[];
-    onChange: (value: string[]) => void;
+    onChange: (value: string | string[]) => void;
     placeholder?: string;
     multiple?: boolean;
+    disabled?: boolean;
 }
 
 export default function SearchableDropdown({
@@ -18,6 +19,7 @@ export default function SearchableDropdown({
     onChange,
     placeholder = "Select...",
     multiple = false,
+    disabled = false,
 }: SearchableDropdownProps) {
     const [query, setQuery] = useState("");
 
@@ -32,20 +34,21 @@ export default function SearchableDropdown({
         <div className="relative w-full">
             <Combobox
                 value={value}
-                onChange={(val) => {
+                onChange={(val: any) => {
                     if (val) onChange(val);
                 }}
                 multiple={multiple}
+                disabled={disabled}
             >
                 <div className="relative mt-1">
-                    <div className="relative w-full cursor-default overflow-hidden rounded-lg bg-white text-left border focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75 focus-visible:ring-offset-2 focus-visible:ring-offset-teal-300 sm:text-sm">
+                    <div className={`relative w-full cursor-default overflow-hidden rounded-lg bg-white text-left border focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75 focus-visible:ring-offset-2 focus-visible:ring-offset-teal-300 sm:text-sm ${disabled ? "opacity-50 cursor-not-allowed bg-gray-50" : ""}`}>
                         <Combobox.Input
-                            className="w-full border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 focus:ring-0 outline-none"
-                            displayValue={(selected: string[]) => {
-                                if (Array.isArray(selected) && selected.length > 0) {
+                            className={`w-full border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 focus:ring-0 outline-none ${disabled ? "bg-gray-50 cursor-not-allowed" : ""}`}
+                            displayValue={(selected: string | string[]) => {
+                                if (Array.isArray(selected)) {
                                     return selected.join(", ");
                                 }
-                                return "";
+                                return selected || "";
                             }}
                             onChange={(event) => setQuery(event.target.value)}
                             placeholder={placeholder}

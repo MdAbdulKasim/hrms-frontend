@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { Upload, Plus, Eye, EyeOff, Trash2, Search, Download, Filter, ArrowUp, ArrowDown, Pencil } from 'lucide-react';
+import { Upload, Plus, Eye, EyeOff, Trash2, Search, Download, Filter, ArrowUp, ArrowDown, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Employee } from './types';
 
 interface CandidateListProps {
@@ -25,6 +25,8 @@ interface CandidateListProps {
     onExportCSV: () => void;
     sortConfig: { key: string; direction: 'asc' | 'desc' };
     setSortConfig: (val: { key: string; direction: 'asc' | 'desc' }) => void;
+    statusFilter: string;
+    setStatusFilter: (val: string) => void;
 }
 
 const CandidateList: React.FC<CandidateListProps> = ({
@@ -49,10 +51,30 @@ const CandidateList: React.FC<CandidateListProps> = ({
     onExportCSV,
     sortConfig,
     setSortConfig,
+    statusFilter,
+    setStatusFilter,
 }) => {
+    const [currentPage, setCurrentPage] = React.useState(1);
+    const itemsPerPage = 5;
+
+    // Reset to first page when search query or total items change
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, employees.length]);
+
+    // Calculate pagination values
+    const totalPages = Math.ceil(employees.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = Math.min(startIndex + itemsPerPage, employees.length);
+    const currentEmployees = employees.slice(startIndex, endIndex);
+
+    const handlePageChange = (page: number) => {
+        setCurrentPage(page);
+    };
+
     return (
-        <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-            <div className="max-w-7xl mx-auto">
+        <div className="h-full bg-white p-4 md:p-8 flex flex-col">
+            <div className="max-w-7xl mx-auto w-full flex flex-col h-full">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 md:gap-0">
                     <h1 className="text-2xl font-bold">Employee Onboarding</h1>
                     <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3">
@@ -89,6 +111,27 @@ const CandidateList: React.FC<CandidateListProps> = ({
                     </div>
                 </div>
 
+                <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-6 w-fit">
+                    <button
+                        onClick={() => setStatusFilter('Active')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${statusFilter === 'Active' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'}`}
+                    >
+                        Active Employees
+                    </button>
+                    <button
+                        onClick={() => setStatusFilter('Inactive')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${statusFilter === 'Inactive' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'}`}
+                    >
+                        Inactive Employees
+                    </button>
+                    <button
+                        onClick={() => setStatusFilter('All')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${statusFilter === 'All' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'}`}
+                    >
+                        All Employees
+                    </button>
+                </div>
+
                 <div className="bg-white rounded-lg shadow mb-6 p-4">
                     <div className="flex flex-col md:flex-row gap-4 items-center">
                         <div className="relative flex-1 w-full">
@@ -113,8 +156,6 @@ const CandidateList: React.FC<CandidateListProps> = ({
                             >
                                 <option value="fullName-asc">Name (A-Z)</option>
                                 <option value="fullName-desc">Name (Z-A)</option>
-                                <option value="onboardingStatus-asc">Status (A-Z)</option>
-                                <option value="onboardingStatus-desc">Status (Z-A)</option>
                                 <option value="department-asc">Department (A-Z)</option>
                                 <option value="department-desc">Department (Z-A)</option>
                             </select>
@@ -123,11 +164,11 @@ const CandidateList: React.FC<CandidateListProps> = ({
                 </div>
 
                 <div className="bg-white rounded-lg shadow overflow-hidden">
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto max-h-[calc(100vh-250px)] overflow-y-auto">
                         <table className="w-full whitespace-nowrap">
-                            <thead className="bg-gray-50 border-b border-gray-200">
+                            <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                                 <tr>
-                                    <th className="px-6 py-3 text-left">
+                                    <th className="px-6 py-3 text-left bg-gray-50">
                                         <input
                                             type="checkbox"
                                             className="rounded"
@@ -135,50 +176,44 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                             onChange={onSelectAll}
                                         />
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => setSortConfig({ key: 'employeeNumber', direction: sortConfig.key === 'employeeNumber' && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => setSortConfig({ key: 'employeeNumber', direction: sortConfig.key === 'employeeNumber' && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
                                         <div className="flex items-center gap-1">
                                             Employee Number
                                             {sortConfig.key === 'employeeNumber' && (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
                                         </div>
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => setSortConfig({ key: 'fullName', direction: sortConfig.key === 'fullName' && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => setSortConfig({ key: 'fullName', direction: sortConfig.key === 'fullName' && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
                                         <div className="flex items-center gap-1">
                                             Full Name
                                             {sortConfig.key === 'fullName' && (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
                                         </div>
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                                         Email ID
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                                         Official Email
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Onboarding Status
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                                         Department
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Source of Hire
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                                         PAN card number
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    {/* <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                                         Aadhaar number
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    </th> */}
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                                         UAN number
                                     </th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th className="px-6 py-3 text-center text-xs font-medium text-black uppercase tracking-wider">
                                         Actions
                                     </th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {employees.length > 0 ? (
-                                    employees.map((employee) => (
+                                {currentEmployees.length > 0 ? (
+                                    currentEmployees.map((employee) => (
                                         <tr key={employee.id} className="hover:bg-gray-50">
                                             <td className="px-6 py-4">
                                                 <input
@@ -192,9 +227,7 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                             <td className="px-6 py-4 text-sm text-gray-900">{employee.fullName || `${employee.firstName} ${employee.lastName}`}</td>
                                             <td className="px-6 py-4 text-sm text-gray-900">{employee.emailId}</td>
                                             <td className="px-6 py-4 text-sm text-gray-900">{employee.officialEmail}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-900">{employee.onboardingStatus}</td>
                                             <td className="px-6 py-4 text-sm text-gray-900">{employee.department}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-900">{employee.sourceOfHire}</td>
                                             <td className="px-6 py-4 text-sm text-gray-900">
                                                 <div className="flex items-center gap-2">
                                                     {showPAN[employee.id] ? employee.panCard : '**********'}
@@ -256,6 +289,62 @@ const CandidateList: React.FC<CandidateListProps> = ({
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Pagination Controls */}
+                    {employees.length > 0 && (
+                        <div className="px-6 py-4 border-t border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
+                            <div className="text-sm text-gray-500">
+                                Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{endIndex}</span> of <span className="font-medium">{employees.length}</span> entries
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => handlePageChange(currentPage - 1)}
+                                    disabled={currentPage === 1}
+                                    className="p-1 px-3 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 text-sm font-medium"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                    Previous
+                                </button>
+
+                                <div className="hidden sm:flex items-center gap-1">
+                                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                        let pageNum = i + 1;
+                                        if (totalPages > 5) {
+                                            if (currentPage > 3) {
+                                                if (currentPage >= totalPages - 2) {
+                                                    pageNum = totalPages - 4 + i;
+                                                } else {
+                                                    pageNum = currentPage - 2 + i;
+                                                }
+                                            }
+                                        }
+
+                                        return (
+                                            <button
+                                                key={pageNum}
+                                                onClick={() => handlePageChange(pageNum)}
+                                                className={`min-w-[32px] h-8 rounded border text-sm flex items-center justify-center font-medium transition-colors
+                                                    ${currentPage === pageNum
+                                                        ? 'bg-blue-600 text-white border-blue-600'
+                                                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                <button
+                                    onClick={() => handlePageChange(currentPage + 1)}
+                                    disabled={currentPage === totalPages}
+                                    className="p-1 px-3 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 text-sm font-medium"
+                                >
+                                    Next
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

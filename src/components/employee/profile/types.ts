@@ -15,6 +15,21 @@ export interface FormData {
     gender: string
     maritalStatus: string
     bloodGroup: string
+    site: string
+    building: string
+    empType: string
+    employeeStatus: string
+    contractType: string
+    contractStartDate: string
+    contractEndDate: string
+    basicSalary: string
+    bankDetails: {
+        bankName: string
+        branchName: string
+        accountNumber: string
+        accountHolderName: string
+        ifscCode: string
+    }
 
     // Identity Information
     uan: string
@@ -90,6 +105,21 @@ export const initialFormData: FormData = {
     gender: "",
     maritalStatus: "",
     bloodGroup: "",
+    site: "",
+    building: "",
+    empType: "",
+    employeeStatus: "",
+    contractType: "",
+    contractStartDate: "",
+    contractEndDate: "",
+    basicSalary: "",
+    bankDetails: {
+        bankName: "",
+        branchName: "",
+        accountNumber: "",
+        accountHolderName: "",
+        ifscCode: "",
+    },
     uan: "",
     uanDocUrl: "",
     pan: "",

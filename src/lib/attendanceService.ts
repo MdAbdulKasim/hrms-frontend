@@ -1,24 +1,7 @@
-import axios from 'axios';
+import axiosInstance from './axios';
 import { getApiUrl, getAuthToken, getOrgId } from './auth';
 
-const api = axios.create({
-  baseURL: getApiUrl(),
-});
-
-// Interceptor to add auth token to every request
-api.interceptors.request.use((config) => {
-  // Get token fresh on each request to ensure it's current
-  const token = getAuthToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-    console.log(`[AttendanceService] Request to ${config.url} with token: ${token.substring(0, 20)}...`);
-  } else {
-    console.warn('No auth token found for API request:', config.url);
-  }
-  return config;
-}, (error) => {
-  return Promise.reject(error);
-});
+const api = axiosInstance;
 
 export interface AttendanceRecord {
   id?: string;

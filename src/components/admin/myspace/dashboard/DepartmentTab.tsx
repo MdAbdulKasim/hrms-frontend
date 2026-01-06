@@ -109,32 +109,57 @@ export default function DepartmentTab({
                     </div>
                 </div>
             ) : (
-                <div className="rounded-lg border border-gray-200 overflow-hidden">
-                    <div className="overflow-x-auto">
+                <div className="rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50/50">
+                            <thead className="bg-gray-50/80">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Department Name</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Code</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Location</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Department Name</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Code</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
+                            <tbody className="bg-white divide-y divide-gray-100">
                                 {departments.length > 0 ? (
                                     departments.map((dept) => (
-                                        <tr key={dept.id} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{dept.departmentName}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dept.code}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">None</td>
+                                        <tr key={dept.id} className="hover:bg-blue-50/30 transition-colors group">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{dept.departmentName}</span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-bold font-mono uppercase tracking-tight">{dept.code}</span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">None</td>
                                         </tr>
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={3} className="px-6 py-8 text-center text-sm text-gray-500">No departments found</td>
+                                        <td colSpan={3} className="px-6 py-12 text-center text-sm text-gray-400 italic font-medium">No departments found</td>
                                     </tr>
                                 )}
                             </tbody>
                         </table>
+                    </div>
+
+                    {/* Mobile Card View */}
+                    <div className="md:hidden divide-y divide-gray-100">
+                        {departments.length > 0 ? (
+                            departments.map((dept) => (
+                                <div key={dept.id} className="p-4 hover:bg-gray-50 active:bg-blue-50 transition-colors">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm font-bold text-gray-900">{dept.departmentName}</span>
+                                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-[10px] font-bold uppercase tracking-wider">{dept.code}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                        <div className="w-1 h-1 rounded-full bg-blue-400"></div>
+                                        <span>No location assigned</span>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="px-4 py-8 text-center text-sm text-gray-400 italic">No departments found</div>
+                        )}
                     </div>
                 </div>
             )}

@@ -6,18 +6,24 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import axios from "axios"
 import { Button } from "@/components/ui/button"
-import { Edit } from "lucide-react"
-import { getApiUrl, getAuthToken, getOrgId, getEmployeeId } from "@/lib/auth"
+import { Edit, ArrowLeft } from "lucide-react"
+import { getApiUrl, getAuthToken, getOrgId, getEmployeeId, getUserRole } from "@/lib/auth"
 import { CustomAlertDialog } from "@/components/ui/custom-dialogs"
 import ChangePassword from "./ChangePassword"
 import ProfileForm from "./ProfileForm"
-import { type FormData, initialFormData } from "./types"
+import { type FormData as ProfileFormData, initialFormData } from "./types"
 
-export default function EmployeeProfileForm() {
+interface Props {
+  employeeId?: string
+  onBack?: () => void
+}
+
+export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack }: Props) {
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [showPasswordChange, setShowPasswordChange] = useState(false)
-  const [formData, setFormData] = useState<FormData>(initialFormData)
+  const [formData, setFormData] = useState<ProfileFormData>(initialFormData)
+  const [userRole, setUserRole] = useState<'admin' | 'employee' | string | null>(null)
 
   // Alert State
   const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
@@ -36,7 +42,8 @@ export default function EmployeeProfileForm() {
   // Fetch employee profile data on component mount
   useEffect(() => {
     const orgId = getOrgId()
-    const employeeId = getEmployeeId()
+    const employeeId = propEmployeeId || getEmployeeId()
+    setUserRole(getUserRole())
 
     const fetchEmployeeData = async () => {
       try {
@@ -59,6 +66,7 @@ export default function EmployeeProfileForm() {
             (employee.firstName && employee.lastName
               ? `${employee.firstName} ${employee.lastName}`.trim()
               : ""),
+          employeeNumber: employee.employeeNumber || employee.employeeId || "",
           emailAddress: employee.email || "",
           mobileNumber: employee.phoneNumber || employee.mobileNumber || "",
           role: employee.role || "",
@@ -69,23 +77,41 @@ export default function EmployeeProfileForm() {
               ? `${employee.reportingTo.firstName} ${employee.reportingTo.lastName}`.trim()
               : employee.reportingTo?.name || ""),
           teamPosition: employee.teamPosition || "",
-          shift: employee.shiftType || employee.shift || "",
+          shift: employee.shiftType || employee.shift?.name || employee.shift || "",
           location: employee.location?.name || "",
+          site: employee.site?.name || employee.site || "",
+          building: employee.building?.name || employee.building || "",
           timeZone: employee.timeZone || "",
           dateOfBirth: employee.dateOfBirth ? employee.dateOfBirth.split("T")[0] : "",
           gender: employee.gender || "",
           maritalStatus: employee.maritalStatus || "",
           bloodGroup: employee.bloodGroup || "",
-          uan: employee.UAN || "",
+          empType: employee.empType || "",
+          employeeStatus: employee.employeeStatus || employee.status || "",
+          dateOfJoining: employee.dateOfJoining ? employee.dateOfJoining.split("T")[0] : "",
+          contractType: employee.contractType || "",
+          contractStartDate: employee.contractStartDate ? employee.contractStartDate.split("T")[0] : "",
+          contractEndDate: employee.contractEndDate ? employee.contractEndDate.split("T")[0] : "",
+          uan: employee.UAN || employee.uan || "",
           uanDocUrl: employee.uanDocUrl || "",
-          pan: employee.PAN || "",
+          iban: employee.iban || "",
+          ibanDocUrl: employee.ibanDocUrl || "",
+          pan: employee.PAN || employee.panCard || employee.pan || "",
           panDocUrl: employee.panDocUrl || "",
-          aadhaarNumber: employee.aadharNumber || "",
+          aadhaarNumber: employee.aadharNumber || employee.aadhaar || "",
           aadhaarDocUrl: employee.aadharDocUrl || "",
           passportNumber: employee.passportNumber || "",
           passportDocUrl: employee.passportDocUrl || "",
           drivingLicenseNumber: employee.drivingLicenseNumber || "",
           drivingLicenseDocUrl: employee.drivingLicenseDocUrl || "",
+          basicSalary: employee.basicSalary || "",
+          bankDetails: {
+            bankName: employee.bankDetails?.bankName || employee.bankName || "",
+            branchName: employee.bankDetails?.branchName || employee.branchName || "",
+            accountNumber: employee.bankDetails?.accountNumber || employee.accountNumber || "",
+            accountHolderName: employee.bankDetails?.accountHolderName || employee.accountHolderName || "",
+            ifscCode: employee.bankDetails?.ifscCode || employee.ifscCode || "",
+          },
           workExperience: (employee.experience || []).map((exp: any) => ({
             companyName: exp.companyName || "",
             jobTitle: exp.jobTitle || "",
@@ -104,17 +130,17 @@ export default function EmployeeProfileForm() {
             documentUrl: edu.documentUrl || "",
           })),
           address: {
-            addressLine1: employee.presentAddressLine1 || "",
-            addressLine2: employee.presentAddressLine2 || "",
-            city: employee.presentCity || "",
-            state: employee.presentState || "",
-            country: employee.presentCountry || "",
-            pinCode: employee.presentPinCode || "",
+            addressLine1: employee.presentAddressLine1 || employee.presentAddress?.addressLine1 || "",
+            addressLine2: employee.presentAddressLine2 || employee.presentAddress?.addressLine2 || "",
+            city: employee.presentCity || employee.presentAddress?.city || "",
+            state: employee.presentState || employee.presentAddress?.state || "",
+            country: employee.presentCountry || employee.presentAddress?.country || "",
+            pinCode: employee.presentPinCode || employee.presentAddress?.pinCode || "",
           },
           emergencyContact: {
-            contactName: employee.emergencyContactName || "",
-            relation: employee.emergencyContactRelation || "",
-            contactNumber: employee.emergencyContactNumber || "",
+            contactName: employee.emergencyContactName || employee.emergencyContact?.contactName || "",
+            relation: employee.emergencyContactRelation || employee.emergencyContact?.relation || "",
+            contactNumber: employee.emergencyContactNumber || employee.emergencyContact?.contactNumber || "",
           },
         })
 
@@ -132,15 +158,18 @@ export default function EmployeeProfileForm() {
         } else {
           setProfilePicUrl(null)
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to fetch employee data:", error)
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+          router.push('/auth/login')
+        }
       }
     }
 
     if (employeeId && orgId && employeeId !== "undefined" && orgId !== "undefined") {
       fetchEmployeeData()
     }
-  }, [])
+  }, [propEmployeeId])
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -158,6 +187,11 @@ export default function EmployeeProfileForm() {
       setFormData((prev) => ({
         ...prev,
         emergencyContact: { ...prev.emergencyContact, [field || name]: value },
+      }))
+    } else if (section === "bankDetails") {
+      setFormData((prev) => ({
+        ...prev,
+        bankDetails: { ...prev.bankDetails, [field || name]: value },
       }))
     } else {
       let finalValue = value;
@@ -292,11 +326,62 @@ export default function EmployeeProfileForm() {
       const formDataToSend = new FormData()
 
       Object.keys(formData).forEach(key => {
-        const value = formData[key as keyof FormData]
+        const value = formData[key as keyof ProfileFormData]
+
+        // Backend expects 'presentAddress' for the address fields, not 'address'
+        if (key === 'address') {
+          formDataToSend.append('presentAddress', JSON.stringify(value))
+          return
+        }
+
+        // Handle bankDetails: Send as JSON array to match backend expectation
+        if (key === 'bankDetails') {
+          // Backend expects an array of bank details
+          const bankDetailsArray = Array.isArray(value) ? value : [value];
+          formDataToSend.append('bankDetails', JSON.stringify(bankDetailsArray))
+          return
+        }
+
+        // Handle site and building mapping to match backend entity (siteId, buildingId)
+        if (key === 'site') {
+          formDataToSend.append('siteId', String(value || ''))
+          return
+        }
+        if (key === 'building') {
+          formDataToSend.append('buildingId', String(value || ''))
+          return
+        }
+
+        // Map employeeStatus -> status
+        if (key === 'employeeStatus') {
+          formDataToSend.append('status', String(value || ''))
+          return
+        }
+
+        // Exclude fields not present in backend entity to prevent 500 errors
+        if ([
+          'contractType', 'contractStartDate', 'contractEndDate',
+          'uanDocUrl', 'panDocUrl', 'aadhaarDocUrl',
+          'passportDocUrl', 'drivingLicenseDocUrl', 'ibanDocUrl',
+          'uan', 'pan', 'aadhaarNumber'
+        ].includes(key)) {
+          return
+        }
+
+        // Map employeeStatus -> status
+        if (key === 'employeeStatus') {
+          formDataToSend.append('status', String(value || ''))
+          return
+        }
+
+        // Handle numeric fields: Don't send empty strings for decimal columns
+        if ((key === 'basicSalary' || key === 'salary') && !value) {
+          return
+        }
+
         if (
           key === 'workExperience' ||
           key === 'education' ||
-          key === 'address' ||
           key === 'emergencyContact'
         ) {
           formDataToSend.append(key, JSON.stringify(value))
@@ -320,8 +405,7 @@ export default function EmployeeProfileForm() {
 
       const response = await axios.put(`${apiUrl}/org/${orgId}/employees/${employeeId}`, formDataToSend, {
         headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
+          Authorization: `Bearer ${token}`
         },
       })
 
@@ -339,6 +423,7 @@ export default function EmployeeProfileForm() {
           (refreshedEmployee.firstName && refreshedEmployee.lastName
             ? `${refreshedEmployee.firstName} ${refreshedEmployee.lastName}`.trim()
             : prev.fullName),
+        employeeNumber: refreshedEmployee.employeeNumber || refreshedEmployee.employeeId || prev.employeeNumber,
         emailAddress: refreshedEmployee.email || prev.emailAddress,
         mobileNumber: refreshedEmployee.phoneNumber || refreshedEmployee.mobileNumber || prev.mobileNumber,
         department: refreshedEmployee.department?.departmentName || refreshedEmployee.department?.name || prev.department,
@@ -348,13 +433,23 @@ export default function EmployeeProfileForm() {
             ? `${refreshedEmployee.reportingTo.firstName} ${refreshedEmployee.reportingTo.lastName}`.trim()
             : refreshedEmployee.reportingTo?.name || prev.reportingTo),
         location: refreshedEmployee.location?.name || prev.location,
+        site: refreshedEmployee.site?.name || refreshedEmployee.site || prev.site,
+        building: refreshedEmployee.building?.name || refreshedEmployee.building || prev.building,
         role: refreshedEmployee.role || prev.role,
-        shift: refreshedEmployee.shiftType || refreshedEmployee.shift || prev.shift,
+        shift: refreshedEmployee.shiftType || refreshedEmployee.shift?.name || refreshedEmployee.shift || prev.shift,
         uanDocUrl: refreshedEmployee.uanDocUrl || prev.uanDocUrl,
         panDocUrl: refreshedEmployee.panDocUrl || prev.panDocUrl,
         aadhaarDocUrl: refreshedEmployee.aadharDocUrl || prev.aadhaarDocUrl,
         passportDocUrl: refreshedEmployee.passportDocUrl || prev.passportDocUrl,
         drivingLicenseDocUrl: refreshedEmployee.drivingLicenseDocUrl || prev.drivingLicenseDocUrl,
+        basicSalary: refreshedEmployee.basicSalary || prev.basicSalary,
+        bankDetails: {
+          bankName: refreshedEmployee.bankDetails?.bankName || refreshedEmployee.bankName || prev.bankDetails.bankName,
+          branchName: refreshedEmployee.bankDetails?.branchName || refreshedEmployee.branchName || prev.bankDetails.branchName,
+          accountNumber: refreshedEmployee.bankDetails?.accountNumber || refreshedEmployee.accountNumber || prev.bankDetails.accountNumber,
+          accountHolderName: refreshedEmployee.bankDetails?.accountHolderName || refreshedEmployee.accountHolderName || prev.bankDetails.accountHolderName,
+          ifscCode: refreshedEmployee.bankDetails?.ifscCode || refreshedEmployee.ifscCode || prev.bankDetails.ifscCode,
+        },
         workExperience: (refreshedEmployee.experience || []).map((exp: any) => ({
           companyName: exp.companyName || "",
           jobTitle: exp.jobTitle || "",
@@ -372,6 +467,19 @@ export default function EmployeeProfileForm() {
           endYear: edu.dateOfCompletion || edu.endyear || edu.endYear ? new Date(edu.dateOfCompletion || edu.endyear || edu.endYear).getFullYear().toString() : "",
           documentUrl: edu.documentUrl || "",
         })),
+        address: {
+          addressLine1: refreshedEmployee.presentAddressLine1 || refreshedEmployee.presentAddress?.addressLine1 || "",
+          addressLine2: refreshedEmployee.presentAddressLine2 || refreshedEmployee.presentAddress?.addressLine2 || "",
+          city: refreshedEmployee.presentCity || refreshedEmployee.presentAddress?.city || "",
+          state: refreshedEmployee.presentState || refreshedEmployee.presentAddress?.state || "",
+          country: refreshedEmployee.presentCountry || refreshedEmployee.presentAddress?.country || "",
+          pinCode: refreshedEmployee.presentPinCode || refreshedEmployee.presentAddress?.pinCode || "",
+        },
+        emergencyContact: {
+          contactName: refreshedEmployee.emergencyContactName || refreshedEmployee.emergencyContact?.contactName || "",
+          relation: refreshedEmployee.emergencyContactRelation || refreshedEmployee.emergencyContact?.relation || "",
+          contactNumber: refreshedEmployee.emergencyContactNumber || refreshedEmployee.emergencyContact?.contactNumber || "",
+        },
       }))
 
       if (refreshedEmployee?.profilePicUrl) {
@@ -406,10 +514,20 @@ export default function EmployeeProfileForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-white p-6">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
+          {onBack && (
+            <Button
+              variant="ghost"
+              onClick={onBack}
+              className="mb-4 pl-0 hover:bg-transparent hover:text-gray-900 text-gray-600 gap-2"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Back to Dashboard
+            </Button>
+          )}
           <div className="flex justify-between items-start mb-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Complete Your Profile</h1>
@@ -432,6 +550,7 @@ export default function EmployeeProfileForm() {
         <ProfileForm
           formData={formData}
           isEditing={isEditing}
+          userRole={userRole}
           profilePicUrl={profilePicUrl}
           selectedProfilePicFile={selectedProfilePicFile}
           handleInputChange={handleInputChange}

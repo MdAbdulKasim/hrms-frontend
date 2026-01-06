@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Plus, X, Megaphone } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, Megaphone, Calendar as CalendarIcon } from 'lucide-react';
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
@@ -314,56 +314,53 @@ const Calendar: React.FC = () => {
   };
 
   return (
-    // RESPONSIVE UPDATE: Adjusted padding (p-2 on mobile, p-6 on desktop)
-    <div className="w-full max-w-7xl mx-auto p-2 sm:p-6 bg-white">
+    <div className="w-full max-w-7xl mx-auto p-3 sm:p-6 bg-slate-50/30 min-h-screen">
       {/* Page Title & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Calendar</h1>
-          <p className="text-sm text-gray-500">Manage organization events and holidays</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Calendar</h1>
+          <p className="text-sm text-gray-500 font-medium">Manage and view organization events and holidays</p>
         </div>
         <button
           onClick={() => setShowHolidayModal(true)}
-          className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-sm hover:shadow-md active:scale-95"
+          className="flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 active:scale-95 text-sm"
         >
-          <Plus className="w-5 h-5" />
+          <Plus className="w-4 h-4" />
           <span>Add Holiday</span>
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 sm:p-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-gray-600 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" strokeWidth="2" />
-              <line x1="16" y1="2" x2="16" y2="6" strokeWidth="2" />
-              <line x1="8" y1="2" x2="8" y2="6" strokeWidth="2" />
-              <line x1="3" y1="10" x2="21" y2="10" strokeWidth="2" />
-            </svg>
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 shadow-inner border border-blue-100 hidden sm:flex">
+              <CalendarIcon className="w-5 h-5" />
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
               {formatMonthYear(currentDate)}
             </h2>
-            {loading && <div className="ml-3 w-4 h-4 rounded-full border-2 border-blue-500 border-t-transparent animate-spin"></div>}
+            {loading && <div className="ml-2 w-4 h-4 rounded-full border-2 border-blue-500 border-t-transparent animate-spin"></div>}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-xl border border-gray-100 self-end sm:self-auto">
             <button
               onClick={() => setCurrentDate(new Date())}
-              className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+              className="px-4 py-1.5 text-xs font-bold text-gray-600 hover:text-blue-600 hover:bg-white rounded-lg transition-all"
             >
               Today
             </button>
+            <div className="w-px h-4 bg-gray-200"></div>
             <button
               onClick={goToPreviousMonth}
-              className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 border border-gray-200"
+              className="p-1.5 hover:bg-white hover:text-blue-600 rounded-lg transition-all text-gray-500 shadow-sm hover:shadow-xs"
               aria-label="Previous month"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
             <button
               onClick={goToNextMonth}
-              className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 border border-gray-200"
+              className="p-1.5 hover:bg-white hover:text-blue-600 rounded-lg transition-all text-gray-500 shadow-sm hover:shadow-xs"
               aria-label="Next month"
             >
               <ChevronRight className="w-5 h-5" />

@@ -34,6 +34,8 @@ const EmployeeOnboardingSystem: React.FC = () => {
     direction: 'asc'
   });
 
+  const [statusFilter, setStatusFilter] = useState('Active');
+
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateForm | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
 
@@ -98,6 +100,11 @@ const EmployeeOnboardingSystem: React.FC = () => {
       console.warn("ONBOARDING MOUNT: No OrgId found, skipping fetch.");
     }
   }, []); // Run on mount
+
+  // Fetch employees when status filter changes
+  useEffect(() => {
+    fetchEmployees();
+  }, [statusFilter]);
 
   // Refresh employees when opening add candidate form to get latest employee IDs
   useEffect(() => {
@@ -171,7 +178,17 @@ const EmployeeOnboardingSystem: React.FC = () => {
     const departmentsToUse = departmentsForLookup || departments;
 
     try {
-      const res = await axios.get(`${apiUrl}/org/${orgId}/employees`);
+      // Determine query params for status
+      const params: any = {
+        limit: 1000,
+        page: 1
+      };
+      if (statusFilter !== 'All') {
+        params.status = statusFilter;
+      }
+
+      console.log("FETCH EMPLOYEES: Fetching with params:", params);
+      const res = await axios.get(`${apiUrl}/org/${orgId}/employees`, { params });
 
       console.log("FETCH EMPLOYEES: Response status:", res.status);
       const employeeData = res.data.data || res.data || [];
@@ -339,6 +356,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
       formData.append('shiftType', candidateForm.shiftType);
       formData.append('timeZone', candidateForm.timeZone);
       formData.append('empType', candidateForm.empType);
+      formData.append('status', candidateForm.employeeStatus || 'Active');
       formData.append('buildingId', candidateForm.buildingId || '');
       formData.append('basicSalary', candidateForm.basicSalary);
       formData.append('contractStartDate', candidateForm.contractStartDate || '');
@@ -518,6 +536,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
       formData.append('shiftType', candidateForm.shiftType);
       formData.append('timeZone', candidateForm.timeZone);
       formData.append('empType', candidateForm.empType);
+      formData.append('status', candidateForm.employeeStatus || 'Active');
       formData.append('buildingId', candidateForm.buildingId || '');
       formData.append('basicSalary', candidateForm.basicSalary);
       formData.append('contractStartDate', candidateForm.contractStartDate || '');
@@ -792,17 +811,15 @@ const EmployeeOnboardingSystem: React.FC = () => {
     }
 
     const headers = [
-      'Full Name', 'Email ID', 'Official Email', 'Onboarding Status', 'Department',
-      'Source of Hire', 'PAN Card', 'Aadhaar', 'UAN'
+      'Full Name', 'Email ID', 'Official Email', 'Department',
+      'PAN Card', 'Aadhaar', 'UAN'
     ];
 
     const csvRows = employees.map(emp => [
       emp.fullName || `${emp.firstName} ${emp.lastName}`,
       emp.emailId,
       emp.officialEmail,
-      emp.onboardingStatus,
       emp.department,
-      emp.sourceOfHire,
       emp.panCard,
       emp.aadhaar,
       emp.uan
@@ -837,87 +854,97 @@ const EmployeeOnboardingSystem: React.FC = () => {
     });
 
   return (
-    <>
+    <div className="h-[calc(100vh-64px)] overflow-hidden flex flex-col bg-white">
       {currentView === 'list' && (
-        <CandidateList
-          employees={filteredEmployees}
-          selectedIds={selectedIds}
-          onSelectAll={handleSelectAll}
-          onSelectOne={handleSelectOne}
-          showPAN={showPAN}
-          setShowPAN={setShowPAN}
-          showAadhaar={showAadhaar}
-          setShowAadhaar={setShowAadhaar}
-          showUAN={showUAN}
-          setShowUAN={setShowUAN}
-          onAddCandidateClick={() => setCurrentView('addCandidate')}
-          onBulkImportClick={() => setCurrentView('bulkImport')}
-          onDelete={handleDeleteEmployee}
-          onView={handleViewEmployee}
-          onEdit={handleEditEmployee}
-          onBulkDelete={handleBulkDelete}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          onExportCSV={handleExportCSV}
-          sortConfig={sortConfig}
-          setSortConfig={setSortConfig}
-        />
+        <div className="flex-1 overflow-hidden">
+          <CandidateList
+            employees={filteredEmployees}
+            selectedIds={selectedIds}
+            onSelectAll={handleSelectAll}
+            onSelectOne={handleSelectOne}
+            showPAN={showPAN}
+            setShowPAN={setShowPAN}
+            showAadhaar={showAadhaar}
+            setShowAadhaar={setShowAadhaar}
+            showUAN={showUAN}
+            setShowUAN={setShowUAN}
+            onAddCandidateClick={() => setCurrentView('addCandidate')}
+            onBulkImportClick={() => setCurrentView('bulkImport')}
+            onDelete={handleDeleteEmployee}
+            onView={handleViewEmployee}
+            onEdit={handleEditEmployee}
+            onBulkDelete={handleBulkDelete}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            onExportCSV={handleExportCSV}
+            sortConfig={sortConfig}
+            setSortConfig={setSortConfig}
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
+          />
+        </div>
       )}
       {currentView === 'addCandidate' && (
-        <AddCandidateForm
-          candidateForm={candidateForm}
-          onInputChange={handleInputChange}
-          onAddCandidate={editingEmployeeId ? handleUpdateCandidate : handleAddCandidate}
-          onCancel={() => {
-            setEditingEmployeeId(null);
-            setCurrentView('list');
-          }}
-          onComplete={() => {
-            setEditingEmployeeId(null);
-            setCurrentView('list');
-          }}
-          departments={departments}
-          designations={designations}
-          locations={locations}
-          reportingManagers={reportingManagers}
-          shifts={shifts}
-          isLoading={isLoading}
-          isEditing={!!editingEmployeeId}
-          employees={employees}
-        />
+        <div className="flex-1 overflow-y-auto">
+          <AddCandidateForm
+            candidateForm={candidateForm}
+            onInputChange={handleInputChange}
+            onAddCandidate={editingEmployeeId ? handleUpdateCandidate : handleAddCandidate}
+            onCancel={() => {
+              setEditingEmployeeId(null);
+              setCurrentView('list');
+            }}
+            onComplete={() => {
+              setEditingEmployeeId(null);
+              setCurrentView('list');
+            }}
+            departments={departments}
+            designations={designations}
+            locations={locations}
+            reportingManagers={reportingManagers}
+            shifts={shifts}
+            isLoading={isLoading}
+            isEditing={!!editingEmployeeId}
+            employees={employees}
+          />
+        </div>
       )}
       {currentView === 'viewCandidate' && selectedCandidate && (
-        <ViewCandidate
-          candidate={selectedCandidate}
-          onClose={() => setCurrentView('list')}
-          departments={departments}
-          designations={designations}
-          locations={locations}
-          reportingManagers={reportingManagers}
-          shifts={shifts}
-        />
+        <div className="flex-1 overflow-y-auto">
+          <ViewCandidate
+            candidate={selectedCandidate}
+            onClose={() => setCurrentView('list')}
+            departments={departments}
+            designations={designations}
+            locations={locations}
+            reportingManagers={reportingManagers}
+            shifts={shifts}
+          />
+        </div>
       )}
       {currentView === 'bulkImport' && (
-        <BulkImport
-          importType={importType}
-          setImportType={setImportType}
-          uploadedFile={uploadedFile}
-          onFileUpload={handleFileUpload}
-          onCancel={() => {
-            setCurrentView('list');
-            setUploadedFile(null);
-          }}
-          departments={departments}
-          designations={designations}
-          locations={locations}
-          reportingManagers={reportingManagers}
-          shifts={shifts}
-          employees={employees}
-          onSuccess={() => {
-            fetchEmployees();
-            showAlert("Success", "Employees imported successfully!", "success");
-          }}
-        />
+        <div className="flex-1 overflow-y-auto">
+          <BulkImport
+            importType={importType}
+            setImportType={setImportType}
+            uploadedFile={uploadedFile}
+            onFileUpload={handleFileUpload}
+            onCancel={() => {
+              setCurrentView('list');
+              setUploadedFile(null);
+            }}
+            departments={departments}
+            designations={designations}
+            locations={locations}
+            reportingManagers={reportingManagers}
+            shifts={shifts}
+            employees={employees}
+            onSuccess={() => {
+              fetchEmployees();
+              showAlert("Success", "Employees imported successfully!", "success");
+            }}
+          />
+        </div>
       )}
 
 
@@ -939,7 +966,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
         description={alertState.description}
         variant={alertState.variant}
       />
-    </>
+    </div>
   );
 };
 
