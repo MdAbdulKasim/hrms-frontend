@@ -178,7 +178,7 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => setSortConfig({ key: 'employeeNumber', direction: sortConfig.key === 'employeeNumber' && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
                                         <div className="flex items-center gap-1">
-                                            Employee Number
+                                            Emp ID
                                             {sortConfig.key === 'employeeNumber' && (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
                                         </div>
                                     </th>
@@ -189,22 +189,31 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                         </div>
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
-                                        Email ID
+                                        Email
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
-                                        Official Email
+                                        Phone No
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+                                        Designation
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                                         Department
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
-                                        PAN card number
+                                        Location
                                     </th>
-                                    {/* <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
-                                        Aadhaar number
-                                    </th> */}
                                     <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
-                                        UAN number
+                                        DOJ
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+                                        PAN
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+                                        Aadhaar
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+                                        UAN
                                     </th>
                                     <th className="px-6 py-3 text-center text-xs font-medium text-black uppercase tracking-wider">
                                         Actions
@@ -225,9 +234,12 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                             </td>
                                             <td className="px-6 py-4 text-sm text-gray-900 font-medium">{employee.employeeNumber}</td>
                                             <td className="px-6 py-4 text-sm text-gray-900">{employee.fullName || `${employee.firstName} ${employee.lastName}`}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-900">{employee.emailId}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-900">{employee.officialEmail}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-900">{employee.officialEmail || employee.emailId}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-900">{employee.phoneNumber || 'N/A'}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-900">{employee.designation || 'N/A'}</td>
                                             <td className="px-6 py-4 text-sm text-gray-900">{employee.department}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-900">{employee.location || 'N/A'}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-900">{employee.dateOfJoining ? new Date(employee.dateOfJoining).toLocaleDateString() : 'N/A'}</td>
                                             <td className="px-6 py-4 text-sm text-gray-900">
                                                 <div className="flex items-center gap-2">
                                                     {showPAN[employee.id] ? employee.panCard : '**********'}
@@ -281,7 +293,7 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={11} className="px-6 py-8 text-center text-gray-500 italic">
+                                        <td colSpan={13} className="px-6 py-8 text-center text-gray-500 italic">
                                             No candidates found matching your criteria
                                         </td>
                                     </tr>
