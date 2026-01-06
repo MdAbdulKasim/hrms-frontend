@@ -88,10 +88,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
     console.log("ONBOARDING MOUNT: OrgId detected:", orgId);
     if (orgId) {
       // Fetch onboarding data first, then employees (so departments are available for lookup)
-      fetchOnboardingData().then((deptData) => {
-        // Pass departments directly to avoid state timing issues
-        if (deptData) {
-          fetchEmployees(deptData);
+      fetchOnboardingData().then((metadata) => {
+        if (metadata) {
+          fetchEmployees(metadata.departments, metadata.designations, metadata.locations);
         } else {
           fetchEmployees();
         }
@@ -149,8 +148,12 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
       console.log('FETCHED DEPARTMENTS:', deptData.length, deptData.map((d: any) => ({ id: d.id || d._id, name: d.departmentName || d.name })));
 
-      // Return departments so fetchEmployees can use them
-      return deptData;
+      // Return all data so fetchEmployees can use them immediately
+      return {
+        departments: deptData,
+        designations: desigRes.data.data || desigRes.data || [],
+        locations: locRes.data.data || locRes.data || []
+      };
     } catch (error: any) {
       console.error('Error fetching onboarding data:', error);
       if (error.response?.status === 404) {
@@ -163,7 +166,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
     }
   };
 
-  const fetchEmployees = async (departmentsForLookup?: any[]) => {
+  const fetchEmployees = async (departmentsForLookup?: any[], designationsForLookup?: any[], locationsForLookup?: any[]) => {
     const orgId = getOrgId();
     const token = getAuthToken();
     const apiUrl = getApiUrl();
@@ -174,8 +177,10 @@ const EmployeeOnboardingSystem: React.FC = () => {
       return;
     }
 
-    // Use provided departments or fall back to state
-    const departmentsToUse = departmentsForLookup || departments;
+    // Use provided lookup data or fall back to state
+    const currentDepartments = departmentsForLookup || departments;
+    const currentDesignations = designationsForLookup || designations;
+    const currentLocations = locationsForLookup || locations;
 
     try {
       // Determine query params for status
@@ -205,75 +210,57 @@ const EmployeeOnboardingSystem: React.FC = () => {
         });
       }
 
-      // Use provided departments or state for lookup
-      const currentDepartments = departmentsToUse.length > 0 ? departmentsToUse : departments;
       console.log('FORMATTING EMPLOYEES: Using departments count:', currentDepartments.length,
         'Provided:', !!departmentsForLookup, 'From state:', departments.length);
 
       const formattedEmployees = employeeList.map((emp: any) => {
-        // Extract department name with multiple fallback options
+        // Extract department name
         let departmentName = '';
-
-        // First, try to get department from the populated relation
         if (emp.department) {
-          if (typeof emp.department === 'string') {
-            departmentName = emp.department;
-          } else if (emp.department.departmentName) {
-            departmentName = emp.department.departmentName;
-          } else if (emp.department.name) {
-            departmentName = emp.department.name;
-          } else if (emp.department.id || emp.department._id) {
-            // If department object exists but no name, try lookup by ID
-            const deptId = String(emp.department.id || emp.department._id || '').trim();
-            const dept = currentDepartments.find(d => {
-              const dId = String(d.id || d._id || '').trim();
-              return dId === deptId && dId !== '';
-            });
-            if (dept) {
-              departmentName = dept.departmentName || dept.name || '';
-            }
-          }
+          if (typeof emp.department === 'string') departmentName = emp.department;
+          else departmentName = emp.department.departmentName || emp.department.name || '';
+        }
+        if (!departmentName && emp.departmentId) {
+          const dept = currentDepartments.find((d: any) => String(d.id || d._id) === String(emp.departmentId));
+          if (dept) departmentName = dept.departmentName || dept.name || '';
         }
 
-        // If department is not populated but we have departmentId, try to find it from fetched departments
-        if (!departmentName && emp.departmentId) {
-          // Try multiple ways to match department - normalize IDs for comparison
-          const empDeptId = String(emp.departmentId || '').trim();
-          const dept = currentDepartments.find(d => {
-            const deptId = String(d.id || d._id || '').trim();
-            // Compare both normalized strings
-            return deptId === empDeptId && deptId !== '';
-          });
+        // Extract designation name
+        let designationName = '';
+        if (emp.designation) {
+          if (typeof emp.designation === 'string') designationName = emp.designation;
+          else designationName = emp.designation.designationName || emp.designation.name || '';
+        }
+        if (!designationName && emp.designationId) {
+          const desig = currentDesignations.find((d: any) => String(d.id || d._id) === String(emp.designationId));
+          if (desig) designationName = desig.designationName || desig.name || '';
+        }
 
-          if (dept) {
-            departmentName = dept.departmentName || dept.name || '';
-            console.log('✓ Department found via lookup:', {
-              employee: emp.fullName,
-              departmentId: empDeptId,
-              departmentName: departmentName
-            });
-          } else if (currentDepartments.length > 0) {
-            // Additional debug - show what we're comparing
-            console.warn('✗ Department lookup failed:', {
-              employeeName: emp.fullName,
-              employeeDepartmentId: empDeptId,
-              employeeDepartmentIdType: typeof emp.departmentId,
-              availableDepartmentIds: currentDepartments.map(d => String(d.id || d._id || '').trim()),
-              departmentsCount: currentDepartments.length
-            });
-          }
+        // Extract location name
+        let locationName = '';
+        if (emp.location) {
+          if (typeof emp.location === 'string') locationName = emp.location;
+          else locationName = emp.location.name || '';
+        }
+        if (!locationName && emp.locationId) {
+          const loc = currentLocations.find((l: any) => String(l.id || l._id) === String(emp.locationId));
+          if (loc) locationName = loc.name || '';
         }
 
         return {
           id: emp.id || emp._id || String(Math.random()),
-          employeeNumber: emp.employeeNumber || emp.employeeId || '', // Use sequential ID if available, otherwise blank (avoiding UUID)
+          employeeNumber: emp.employeeNumber || emp.employeeId || '',
           fullName: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unnamed Employee',
           firstName: emp.firstName || emp.fullName?.split(' ')[0] || '',
           lastName: emp.lastName || emp.fullName?.split(' ').slice(1).join(' ') || '',
           emailId: emp.email || emp.emailId || '',
           officialEmail: emp.officialEmail || emp.email || '',
-          onboardingStatus: String(emp.onboardingStatus || emp.status || 'Active'),
+          phoneNumber: emp.phoneNumber || emp.mobileNumber || '',
+          designation: designationName || '',
           department: departmentName || '',
+          location: locationName || '',
+          dateOfJoining: emp.dateOfJoining || '',
+          onboardingStatus: String(emp.onboardingStatus || emp.status || 'Active'),
           sourceOfHire: String(emp.sourceOfHire || 'Direct'),
           panCard: emp.panCard || emp.PAN || '**********',
           aadhaar: emp.aadhaar || emp.aadharNumber || '**********',

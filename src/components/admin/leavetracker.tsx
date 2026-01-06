@@ -44,6 +44,7 @@ interface LeaveRequest {
   startDate: string;
   endDate: string;
   days: number;
+  numberOfDays?: number;
   reason: string;
   status: 'approved' | 'pending' | 'rejected';
   employeeId?: string;
@@ -150,17 +151,20 @@ const LeaveTracker = () => {
       const apiUrl = getApiUrl();
       const token = getAuthToken();
       const response = await axios.get(`${apiUrl}/org/${organizationId}/employees`, {
+        params: { limit: 1000 },
         headers: { Authorization: `Bearer ${token}` },
       });
       const employees = Array.isArray(response.data) ? response.data : (response.data.data || []);
       const mapping: { [key: string]: { name: string; email?: string } } = {};
       employees.forEach((emp: any) => {
+        const empId = emp.id || emp._id;
+        if (!empId) return;
+
         const fullName = emp.fullName ||
           `${emp.firstName || ''} ${emp.lastName || ''}`.trim() ||
           emp.name ||
-          emp.email ||
-          'Unknown';
-        mapping[emp.id] = {
+          emp.email
+        mapping[empId] = {
           name: fullName,
           email: emp.email
         };
@@ -192,22 +196,30 @@ const LeaveTracker = () => {
 
   // Helper function to enrich leave with employee name and calculate days
   const enrichLeaveWithEmployeeName = (leave: any): LeaveRequest => {
-    const employeeId = leave.employeeId || leave.employee?.id;
-    const employeeInfo = employeeMap[employeeId];
+    const employeeId = leave.employeeId || leave.employee?.id || leave.employee?._id;
+    const employeeInfo = employeeId ? employeeMap[employeeId] : null;
 
     // Calculate days if not present or invalid
-    let days = leave.days;
-    if (!days || days === 0 || isNaN(days)) {
+    let days = leave.days || leave.numberOfDays;
+    if (!days || Number(days) === 0 || isNaN(Number(days))) {
       days = calculateDays(leave.startDate, leave.endDate);
+    }
+
+    let resolvedName = leave.employeeName;
+    if (!resolvedName && leave.employee) {
+      resolvedName = leave.employee.fullName || leave.employee.name || `${leave.employee.firstName || ''} ${leave.employee.lastName || ''}`.trim();
+    }
+    if (!resolvedName) {
+      resolvedName = employeeInfo?.name;
+    }
+    if (!resolvedName) {
+      resolvedName = 'Unknown';
     }
 
     return {
       ...leave,
       employeeId: employeeId,
-      employeeName: leave.employeeName ||
-        (leave.employee && (leave.employee.fullName || leave.employee.name || `${leave.employee.firstName || ''} ${leave.employee.lastName || ''}`.trim())) ||
-        employeeInfo?.name ||
-        'Unknown',
+      employeeName: resolvedName,
       employeeEmail: leave.employeeEmail ||
         (leave.employee && leave.employee.email) ||
         employeeInfo?.email,

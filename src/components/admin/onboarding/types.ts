@@ -6,6 +6,10 @@ export interface Employee {
     officialEmail: string;
     onboardingStatus: string;
     department: string;
+    designation?: string;
+    location?: string;
+    phoneNumber?: string;
+    dateOfJoining?: string;
     sourceOfHire: string;
     panCard: string;
     aadhaar: string;
