@@ -6,6 +6,7 @@ import axios from "axios"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
+import attendanceService from "@/lib/attendanceService"
 import {
   Table,
   TableBody,
@@ -30,11 +31,12 @@ import {
   DollarSign,
   TrendingUp,
   TrendingDown,
+  Menu,
+  X,
 } from "lucide-react"
 import { getApiUrl, getAuthToken, getOrgId } from "@/lib/auth"
 import { CustomAlertDialog } from "@/components/ui/custom-dialogs"
 import WPSSIFPage from "./SIFfile"
-
 
 /* ================= TYPES ================= */
 
@@ -64,6 +66,8 @@ export interface SalaryEmployee {
   status: "Pending" | "Paid"
   selected: boolean
   paidDate?: Date
+  overtimeHours: number
+  overtimeAmount: number
 }
 
 /* ================= PAGE ================= */
@@ -76,7 +80,7 @@ export default function SalaryPage() {
   const [page, setPage] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<"Payrun" | "SIF">("Payrun")
-
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
 
   // Alert State
   const [alertState, setAlertState] = useState<{
@@ -145,6 +149,31 @@ export default function SalaryPage() {
       setDepartments(departmentsData)
       setDesignations(designationsData)
       setLocations(locationsData)
+
+      // Fetch Attendance for Overtime Calculation
+      const today = new Date();
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+
+      let attendanceRecords: any[] = [];
+      try {
+        const attRes = await attendanceService.searchAttendance(orgId, undefined, firstDay, lastDay);
+        // Handle various response structures as seen in AttendanceReportPage
+        if (attRes && typeof attRes === 'object') {
+          const responseData: any = attRes.data || attRes;
+          if (Array.isArray(responseData)) {
+            attendanceRecords = responseData;
+          } else if (responseData && typeof responseData === 'object') {
+            if (Array.isArray(responseData.records)) attendanceRecords = responseData.records;
+            else if (Array.isArray(responseData.attendance)) attendanceRecords = responseData.attendance;
+            else if (Array.isArray(responseData.items)) attendanceRecords = responseData.items;
+            else if (Array.isArray(responseData.data)) attendanceRecords = responseData.data;
+            else attendanceRecords = [responseData];
+          }
+        }
+      } catch (attErr) {
+        console.error("Failed to fetch attendance for overtime", attErr);
+      }
 
       // Create Lookups for ID -> Name
       const deptMap = new Map<string, string>(
@@ -226,18 +255,55 @@ export default function SalaryPage() {
           r.year === currentYear
         )
 
+        // Calculate Overtime
+        const basicSalary = Number(emp.basicSalary || emp.salary || emp.ctc || emp.baseSalary || 0);
+        let overtimeHours = 0;
+
+        // Filter attendance records for this employee
+        const empAttendance = attendanceRecords.filter((r: any) =>
+          r.employeeId === empId || r.employee?.id === empId || r.employee?._id === empId
+        );
+
+        empAttendance.forEach((record: any) => {
+          // Parse total hours. Assuming format "9h 30m" or just number
+          let hours = 0;
+          if (typeof record.totalHours === 'string') {
+            // Extract hours part
+            const match = record.totalHours.match(/(\d+(\.\d+)?)h?/);
+            if (match) hours = parseFloat(match[1]);
+          } else if (typeof record.totalHours === 'number') {
+            hours = record.totalHours;
+          } else if (record.hoursWorked) {
+            const match = String(record.hoursWorked).match(/(\d+(\.\d+)?)h?/);
+            if (match) hours = parseFloat(match[1]);
+          }
+
+          if (hours > 9) {
+            overtimeHours += (hours - 9);
+          }
+        });
+
+        // Calculate Overtime Amount
+        // Annual / 12 / 30 / 9 = Hourly rate (Approx)
+        // Or Basic / 30 / 9
+        const dailyRate = basicSalary / 30;
+        const hourlyRate = dailyRate / 9;
+        const overtimeAmount = overtimeHours * hourlyRate;
+
         return {
           id: empId,
           name: emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "",
           department: deptName || "N/A",
           designation: desigName || "N/A",
           location: locName || "N/A",
-          basicSalary: Number(emp.basicSalary || emp.salary || emp.ctc || emp.baseSalary || 0),
+          basicSalary,
           allowances,
           deductions,
           status: salaryRecord ? "Paid" : "Pending",
           selected: false,
-          paidDate: salaryRecord?.paidDate ? new Date(salaryRecord.paidDate) : undefined
+          paidDate: salaryRecord?.paidDate ? new Date(salaryRecord.paidDate) : undefined,
+          overtimeHours: parseFloat(overtimeHours.toFixed(2)),
+          overtimeAmount: Math.round(overtimeAmount)
         }
       })
 
@@ -266,7 +332,7 @@ export default function SalaryPage() {
       return sum + amount
     }, 0)
 
-    const grossSalary = basicSalary + totalAllowances
+    const grossSalary = basicSalary + totalAllowances + employee.overtimeAmount
 
     // Calculate deductions
     const totalDeductions = employee.deductions.reduce((sum, deduction) => {
@@ -281,6 +347,7 @@ export default function SalaryPage() {
     return {
       basicSalary,
       totalAllowances,
+      overtimeAmount: employee.overtimeAmount,
       grossSalary,
       totalDeductions,
       netSalary
@@ -385,6 +452,7 @@ export default function SalaryPage() {
         "LOCATION",
         "BASIC SALARY",
         "ALLOWANCES",
+        "OVERTIME",
         "DEDUCTIONS",
         "NET SALARY",
         "STATUS",
@@ -398,6 +466,7 @@ export default function SalaryPage() {
           e.location,
           calc.basicSalary,
           calc.totalAllowances,
+          calc.overtimeAmount,
           calc.totalDeductions,
           calc.netSalary,
           e.status,
@@ -419,12 +488,12 @@ export default function SalaryPage() {
   /* ================= UI ================= */
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-white min-h-screen">
+    <div className="p-2 xs:p-3 sm:p-4 md:p-6 lg:p-8 space-y-4 xs:space-y-6 bg-white min-h-screen max-w-full overflow-x-hidden">
       {/* TABS */}
-      <div className="flex flex-wrap gap-4 items-center">
+      <div className="flex flex-wrap gap-2 xs:gap-3 sm:gap-4 items-center">
         <button
           onClick={() => setActiveTab("Payrun")}
-          className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${activeTab === "Payrun"
+          className={`px-4 xs:px-5 sm:px-6 py-1.5 xs:py-2 rounded-full text-xs xs:text-sm font-medium transition-all ${activeTab === "Payrun"
             ? "bg-blue-600 text-white shadow-md"
             : "bg-white text-slate-700 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 shadow-sm"
             }`}
@@ -433,7 +502,7 @@ export default function SalaryPage() {
         </button>
         <button
           onClick={() => setActiveTab("SIF")}
-          className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${activeTab === "SIF"
+          className={`px-4 xs:px-5 sm:px-6 py-1.5 xs:py-2 rounded-full text-xs xs:text-sm font-medium transition-all ${activeTab === "SIF"
             ? "bg-blue-600 text-white shadow-md"
             : "bg-white text-slate-700 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 shadow-sm"
             }`}
@@ -442,302 +511,347 @@ export default function SalaryPage() {
         </button>
       </div>
 
-
       {activeTab === "Payrun" ? (
         <>
           {/* HEADER */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="space-y-1">
-              <h1 className="text-xl md:text-2xl font-bold px-2 py-1 rounded-md inline-block">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 xs:gap-4">
+            <div className="space-y-0.5 xs:space-y-1">
+              <h1 className="text-lg xs:text-xl md:text-2xl font-bold px-1.5 xs:px-2 py-0.5 xs:py-1 rounded-md inline-block">
                 PayRun Salary
               </h1>
-
-              <p className="text-sm text-slate-600">
+              <p className="text-xs xs:text-sm text-slate-600 max-w-full break-words">
                 Manage employee payroll and compensation
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2 xs:gap-3 w-full sm:w-auto mt-2 sm:mt-0">
               <Button
                 variant="outline"
                 onClick={() => router.push('/admin/salary/history')}
-                className="bg-white hover:bg-slate-50 border-slate-200 shadow-sm transition-all hover:shadow-md"
+                className="bg-white hover:bg-slate-50 border-slate-200 shadow-sm transition-all hover:shadow-md text-xs xs:text-sm h-9 xs:h-10 px-3 xs:px-4 flex-1 sm:flex-none"
               >
-                <History className="w-4 h-4 mr-2" />
-                Pay History
+                <History className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1.5 xs:mr-2" />
+                <span className="whitespace-nowrap">Pay History</span>
               </Button>
 
               <Button
                 disabled={selectedCount === 0}
                 onClick={handlePayRunClick}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed text-xs xs:text-sm h-9 xs:h-10 px-3 xs:px-4 flex-1 sm:flex-none"
               >
-                <DollarSign className="w-4 h-4 mr-2" />
-                Pay Run ({selectedCount})
+                <DollarSign className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1.5 xs:mr-2" />
+                <span className="whitespace-nowrap">Pay Run ({selectedCount})</span>
               </Button>
             </div>
           </div>
 
           {/* STATISTICS CARDS */}
-
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+          <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-2 xs:gap-3 sm:gap-4">
+            <div className="bg-white rounded-lg xs:rounded-xl p-3 xs:p-4 sm:p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow min-w-0">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-600">Total Employees</p>
-                  <p className="text-3xl font-bold text-slate-900 mt-2">{stats.total}</p>
+                <div className="min-w-0">
+                  <p className="text-xs xs:text-sm font-medium text-slate-600 truncate">Total Employees</p>
+                  <p className="text-xl xs:text-2xl sm:text-3xl font-bold text-slate-900 mt-1 xs:mt-2 truncate">{stats.total}</p>
                 </div>
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                  <Users className="w-6 h-6 text-blue-600" />
+                <div className="w-8 h-8 xs:w-10 xs:h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 ml-2">
+                  <Users className="w-4 h-4 xs:w-5 xs:h-5 sm:w-6 sm:h-6 text-blue-600" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="bg-white rounded-lg xs:rounded-xl p-3 xs:p-4 sm:p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow min-w-0">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-600">Pending Payments</p>
-                  <p className="text-3xl font-bold text-orange-600 mt-2">{stats.pending}</p>
+                <div className="min-w-0">
+                  <p className="text-xs xs:text-sm font-medium text-slate-600 truncate">Pending Payments</p>
+                  <p className="text-xl xs:text-2xl sm:text-3xl font-bold text-orange-600 mt-1 xs:mt-2 truncate">{stats.pending}</p>
                 </div>
-                <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-orange-600" />
+                <div className="w-8 h-8 xs:w-10 xs:h-10 sm:w-12 sm:h-12 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0 ml-2">
+                  <TrendingUp className="w-4 h-4 xs:w-5 xs:h-5 sm:w-6 sm:h-6 text-orange-600" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="bg-white rounded-lg xs:rounded-xl p-3 xs:p-4 sm:p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow min-w-0">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-600">Pending Amount</p>
-                  <p className="text-3xl font-bold text-green-600 mt-2">
+                <div className="min-w-0">
+                  <p className="text-xs xs:text-sm font-medium text-slate-600 truncate">Pending Amount</p>
+                  <p className="text-xl xs:text-2xl sm:text-3xl font-bold text-green-600 mt-1 xs:mt-2 truncate">
                     ₹{stats.totalPending.toLocaleString()}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                  <DollarSign className="w-6 h-6 text-green-600" />
+                <div className="w-8 h-8 xs:w-10 xs:h-10 sm:w-12 sm:h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 ml-2">
+                  <DollarSign className="w-4 h-4 xs:w-5 xs:h-5 sm:w-6 sm:h-6 text-green-600" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="bg-white rounded-lg xs:rounded-xl p-3 xs:p-4 sm:p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow min-w-0">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-600">Selected Amount</p>
-                  <p className="text-3xl font-bold text-purple-600 mt-2">
+                <div className="min-w-0">
+                  <p className="text-xs xs:text-sm font-medium text-slate-600 truncate">Selected Amount</p>
+                  <p className="text-xl xs:text-2xl sm:text-3xl font-bold text-purple-600 mt-1 xs:mt-2 truncate">
                     ₹{stats.totalSelected.toLocaleString()}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                  <TrendingDown className="w-6 h-6 text-purple-600" />
+                <div className="w-8 h-8 xs:w-10 xs:h-10 sm:w-12 sm:h-12 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 ml-2">
+                  <TrendingDown className="w-4 h-4 xs:w-5 xs:h-5 sm:w-6 sm:h-6 text-purple-600" />
                 </div>
               </div>
             </div>
           </div>
 
           {/* ACTION BAR */}
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-            <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4">
-              <div className="relative w-full lg:w-96">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <div className="bg-white rounded-lg xs:rounded-xl p-3 xs:p-4 shadow-sm border border-slate-200">
+            <div className="flex flex-col gap-3 xs:gap-4">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 xs:w-5 xs:h-5 text-slate-400" />
                 <Input
                   placeholder="Search by name or department..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10 border-slate-200 focus:border-blue-500 focus:ring-blue-500 h-11"
+                  className="pl-9 xs:pl-10 border-slate-200 focus:border-blue-500 focus:ring-blue-500 h-9 xs:h-10 text-sm xs:text-base"
                 />
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="border-slate-200 hover:bg-slate-50 h-11">
-                      <Download className="w-4 h-4 mr-2" />
-                      Export
-                      <ChevronDown className="w-4 h-4 ml-2" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem onClick={handleExportCSV}>
-                      Export CSV
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+              {/* Mobile Filters Toggle */}
+              <div className="sm:hidden">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowMobileFilters(!showMobileFilters)}
+                  className="w-full border-slate-200 hover:bg-slate-50 h-9 xs:h-10"
+                >
+                  {showMobileFilters ? (
+                    <>
+                      <X className="w-4 h-4 mr-2" />
+                      Hide Filters
+                    </>
+                  ) : (
+                    <>
+                      <Menu className="w-4 h-4 mr-2" />
+                      Show Filters ({statusFilter !== 'all' ? 1 : 0}{deptFilter !== 'all' ? 1 : 0}{desigFilter !== 'all' ? 1 : 0}{locFilter !== 'all' ? 1 : 0})
+                    </>
+                  )}
+                </Button>
+              </div>
 
-                {/* Status Filter */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="border-slate-200 hover:bg-slate-50 h-11">
-                      <Filter className="w-4 h-4 mr-2" />
-                      Status: {statusFilter === 'all' ? 'All' : statusFilter}
-                      <ChevronDown className="w-4 h-4 ml-2" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-40">
-                    <DropdownMenuItem onClick={() => setStatusFilter("all")}>
-                      All
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setStatusFilter("Paid")}>
-                      Paid
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setStatusFilter("Pending")}>
-                      Unpaid
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                {/* Department Filter */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="border-slate-200 hover:bg-slate-50 h-11">
-                      Department: {deptFilter === 'all' ? 'All' : deptFilter.length > 10 ? deptFilter.substring(0, 10) + '...' : deptFilter}
-                      <ChevronDown className="w-4 h-4 ml-2" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="max-h-64 overflow-y-auto">
-                    <DropdownMenuItem onClick={() => setDeptFilter("all")}>All</DropdownMenuItem>
-                    {departments.map((dept) => (
-                      <DropdownMenuItem
-                        key={dept.id || dept._id}
-                        onClick={() => setDeptFilter(dept.departmentName || dept.name)}
-                      >
-                        {dept.departmentName || dept.name}
+              {/* Filters Grid - Hidden on mobile unless toggled */}
+              <div className={`${showMobileFilters ? 'grid' : 'hidden sm:grid'} grid-cols-1 xs:grid-cols-2 lg:grid-cols-5 gap-2 xs:gap-3`}>
+                <div className="lg:col-span-1">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full border-slate-200 hover:bg-slate-50 h-9 xs:h-10 text-xs xs:text-sm justify-start">
+                        <Download className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1.5 xs:mr-2" />
+                        <span className="truncate">Export</span>
+                        <ChevronDown className="w-3.5 h-3.5 xs:w-4 xs:h-4 ml-auto" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-40">
+                      <DropdownMenuItem onClick={handleExportCSV}>
+                        Export CSV
                       </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
 
-                {/* Designation Filter */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="border-slate-200 hover:bg-slate-50 h-11">
-                      Designation: {desigFilter === 'all' ? 'All' : desigFilter.length > 10 ? desigFilter.substring(0, 10) + '...' : desigFilter}
-                      <ChevronDown className="w-4 h-4 ml-2" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="max-h-64 overflow-y-auto">
-                    <DropdownMenuItem onClick={() => setDesigFilter("all")}>All</DropdownMenuItem>
-                    {designations.map((desig) => (
-                      <DropdownMenuItem
-                        key={desig.id || desig._id}
-                        onClick={() => setDesigFilter(desig.designationName || desig.name)}
-                      >
-                        {desig.designationName || desig.name}
+                <div className="lg:col-span-1">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full border-slate-200 hover:bg-slate-50 h-9 xs:h-10 text-xs xs:text-sm justify-start">
+                        <Filter className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1.5 xs:mr-2" />
+                        <span className="truncate">Status: {statusFilter === 'all' ? 'All' : statusFilter}</span>
+                        <ChevronDown className="w-3.5 h-3.5 xs:w-4 xs:h-4 ml-auto" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-40">
+                      <DropdownMenuItem onClick={() => setStatusFilter("all")}>
+                        All
                       </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      <DropdownMenuItem onClick={() => setStatusFilter("Paid")}>
+                        Paid
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setStatusFilter("Pending")}>
+                        Unpaid
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
 
-                {/* Location Filter */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="border-slate-200 hover:bg-slate-50 h-11">
-                      Location: {locFilter === 'all' ? 'All' : locFilter.length > 10 ? locFilter.substring(0, 10) + '...' : locFilter}
-                      <ChevronDown className="w-4 h-4 ml-2" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="max-h-64 overflow-y-auto">
-                    <DropdownMenuItem onClick={() => setLocFilter("all")}>All</DropdownMenuItem>
-                    {locations.map((loc) => (
-                      <DropdownMenuItem
-                        key={loc.id || loc._id}
-                        onClick={() => setLocFilter(loc.locationName || loc.name)}
-                      >
-                        {loc.locationName || loc.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="lg:col-span-1">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full border-slate-200 hover:bg-slate-50 h-9 xs:h-10 text-xs xs:text-sm justify-start">
+                        <span className="truncate">Dept: {deptFilter === 'all' ? 'All' : deptFilter}</span>
+                        <ChevronDown className="w-3.5 h-3.5 xs:w-4 xs:h-4 ml-auto" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="max-h-64 overflow-y-auto w-48">
+                      <DropdownMenuItem onClick={() => setDeptFilter("all")}>All</DropdownMenuItem>
+                      {departments.map((dept) => (
+                        <DropdownMenuItem
+                          key={dept.id || dept._id}
+                          onClick={() => setDeptFilter(dept.departmentName || dept.name)}
+                        >
+                          <span className="truncate">{dept.departmentName || dept.name}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div className="lg:col-span-1">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full border-slate-200 hover:bg-slate-50 h-9 xs:h-10 text-xs xs:text-sm justify-start">
+                        <span className="truncate">Desig: {desigFilter === 'all' ? 'All' : desigFilter}</span>
+                        <ChevronDown className="w-3.5 h-3.5 xs:w-4 xs:h-4 ml-auto" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="max-h-64 overflow-y-auto w-48">
+                      <DropdownMenuItem onClick={() => setDesigFilter("all")}>All</DropdownMenuItem>
+                      {designations.map((desig) => (
+                        <DropdownMenuItem
+                          key={desig.id || desig._id}
+                          onClick={() => setDesigFilter(desig.designationName || desig.name)}
+                        >
+                          <span className="truncate">{desig.designationName || desig.name}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div className="lg:col-span-1">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full border-slate-200 hover:bg-slate-50 h-9 xs:h-10 text-xs xs:text-sm justify-start">
+                        <span className="truncate">Location: {locFilter === 'all' ? 'All' : locFilter}</span>
+                        <ChevronDown className="w-3.5 h-3.5 xs:w-4 xs:h-4 ml-auto" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="max-h-64 overflow-y-auto w-48">
+                      <DropdownMenuItem onClick={() => setLocFilter("all")}>All</DropdownMenuItem>
+                      {locations.map((loc) => (
+                        <DropdownMenuItem
+                          key={loc.id || loc._id}
+                          onClick={() => setLocFilter(loc.locationName || loc.name)}
+                        >
+                          <span className="truncate">{loc.locationName || loc.name}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* TABLE */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+          {/* TABLE CONTAINER */}
+          <div className="bg-white rounded-lg xs:rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              {isLoading ? (
+                <div className="flex items-center justify-center h-48 xs:h-64">
+                  <div className="animate-spin rounded-full h-8 w-8 xs:h-12 xs:w-12 border-b-2 border-blue-600"></div>
+                </div>
+              ) : paginatedEmployees.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-48 xs:h-64 text-slate-500 p-4">
+                  <Users className="w-12 h-12 xs:w-16 xs:h-16 mb-3 xs:mb-4 text-slate-300" />
+                  <p className="text-base xs:text-lg font-medium text-center">No employees found</p>
+                  <p className="text-xs xs:text-sm text-center mt-1">Try adjusting your filters</p>
+                </div>
+              ) : (
+                <Table className="min-w-[800px]">
+                  <TableHeader>
+                    <TableRow className="bg-slate-50 hover:bg-slate-50">
+                      <TableHead className="w-10 xs:w-12 px-2 xs:px-4">
+                        <Checkbox
+                          checked={allSelected}
+                          onCheckedChange={(v) => toggleSelectAll(Boolean(v))}
+                          className="border-slate-300"
+                        />
+                      </TableHead>
+                      <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm">NAME</TableHead>
+                      <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm hidden sm:table-cell">DEPT</TableHead>
+                      <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm hidden lg:table-cell">DESIGNATION</TableHead>
+                      <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm hidden xl:table-cell">LOCATION</TableHead>
+                      <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm">BASIC</TableHead>
+                      <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm">ALLOWANCES</TableHead>
+                      <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm">OVERTIME</TableHead>
+                      <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm">DEDUCTIONS</TableHead>
+                      <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm">NET SALARY</TableHead>
+                      <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm">STATUS</TableHead>
+                    </TableRow>
+                  </TableHeader>
 
-            {isLoading ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-              </div>
-            ) : paginatedEmployees.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-slate-500">
-                <Users className="w-16 h-16 mb-4 text-slate-300" />
-                <p className="text-lg font-medium">No employees found</p>
-                <p className="text-sm">Try adjusting your filters</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50 hover:bg-slate-50">
-                    <TableHead className="w-12">
-                      <Checkbox
-                        checked={allSelected}
-                        onCheckedChange={(v) => toggleSelectAll(Boolean(v))}
-                        className="border-slate-300"
-                      />
-                    </TableHead>
-                    <TableHead className="font-semibold text-slate-700">NAME</TableHead>
-                    <TableHead className="font-semibold text-slate-700">DEPARTMENT</TableHead>
-                    <TableHead className="font-semibold text-slate-700">DESIGNATION</TableHead>
-                    <TableHead className="font-semibold text-slate-700">LOCATION</TableHead>
-                    <TableHead className="font-semibold text-slate-700">BASIC SALARY</TableHead>
-                    <TableHead className="font-semibold text-slate-700">ALLOWANCES</TableHead>
-                    <TableHead className="font-semibold text-slate-700">DEDUCTIONS</TableHead>
-                    <TableHead className="font-semibold text-slate-700">NET SALARY</TableHead>
-                    <TableHead className="font-semibold text-slate-700">STATUS</TableHead>
-                  </TableRow>
-                </TableHeader>
-
-                <TableBody>
-                  {paginatedEmployees.map((e) => {
-                    const calc = calculateEmployeeSalary(e)
-                    return (
-                      <TableRow key={e.id} className="hover:bg-slate-50 transition-colors">
-                        <TableCell>
-                          <Checkbox
-                            checked={e.selected}
-                            onCheckedChange={(v) => toggleSelectOne(e.id, Boolean(v))}
-                            className="border-slate-300"
-                          />
-                        </TableCell>
-                        <TableCell className="font-medium text-slate-900">{e.name}</TableCell>
-                        <TableCell className="text-slate-600">{e.department}</TableCell>
-                        <TableCell className="text-slate-600">{e.designation}</TableCell>
-                        <TableCell className="text-slate-600">{e.location}</TableCell>
-                        <TableCell className="font-semibold text-slate-900">
-                          ₹{calc.basicSalary.toLocaleString()}
-                        </TableCell>
-                        <TableCell className="font-medium text-green-600">
-                          +₹{calc.totalAllowances.toLocaleString()}
-                        </TableCell>
-                        <TableCell className="font-medium text-red-600">
-                          -₹{calc.totalDeductions.toLocaleString()}
-                        </TableCell>
-                        <TableCell className="font-bold text-blue-600">
-                          ₹{calc.netSalary.toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${e.status === "Paid"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-orange-100 text-orange-700"
-                              }`}
-                          >
-                            {e.status}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            )}
+                  <TableBody>
+                    {paginatedEmployees.map((e) => {
+                      const calc = calculateEmployeeSalary(e)
+                      return (
+                        <TableRow key={e.id} className="hover:bg-slate-50 transition-colors">
+                          <TableCell className="px-2 xs:px-4">
+                            <Checkbox
+                              checked={e.selected}
+                              onCheckedChange={(v) => toggleSelectOne(e.id, Boolean(v))}
+                              className="border-slate-300"
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium text-slate-900 px-2 xs:px-4 text-xs xs:text-sm truncate max-w-[120px]">
+                            <div className="flex flex-col">
+                              <span className="truncate">{e.name}</span>
+                              <span className="text-xs text-slate-500 sm:hidden mt-0.5">
+                                {e.department} • {e.designation}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-slate-600 px-2 xs:px-4 text-xs xs:text-sm hidden sm:table-cell truncate max-w-[100px]">
+                            {e.department}
+                          </TableCell>
+                          <TableCell className="text-slate-600 px-2 xs:px-4 text-xs xs:text-sm hidden lg:table-cell truncate max-w-[120px]">
+                            {e.designation}
+                          </TableCell>
+                          <TableCell className="text-slate-600 px-2 xs:px-4 text-xs xs:text-sm hidden xl:table-cell truncate max-w-[100px]">
+                            {e.location}
+                          </TableCell>
+                          <TableCell className="font-semibold text-slate-900 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
+                            ₹{calc.basicSalary.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="font-medium text-green-600 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
+                            +₹{calc.totalAllowances.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="font-medium text-blue-600 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
+                            <div className="flex flex-col">
+                              <span>+₹{calc.overtimeAmount.toLocaleString()}</span>
+                              <span className="text-[10px] text-slate-500">{e.overtimeHours} hrs</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-medium text-red-600 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
+                            -₹{calc.totalDeductions.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="font-bold text-blue-600 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
+                            ₹{calc.netSalary.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="px-2 xs:px-4">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 xs:px-3 xs:py-1 rounded-full text-xs font-medium ${e.status === "Paid"
+                                ? "bg-green-100 text-green-700"
+                                : "bg-orange-100 text-orange-700"
+                                }`}
+                            >
+                              {e.status}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
           </div>
 
           {/* PAGINATION */}
           {!isLoading && paginatedEmployees.length > 0 && (
-            <div className="flex justify-between items-center bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-              <div className="text-sm text-slate-600">
+            <div className="flex flex-col xs:flex-row justify-between items-center gap-3 xs:gap-4 bg-white rounded-lg xs:rounded-xl p-3 xs:p-4 shadow-sm border border-slate-200">
+              <div className="text-xs xs:text-sm text-slate-600 text-center xs:text-left">
                 Showing {(page - 1) * ITEMS_PER_PAGE + 1} to {Math.min(page * ITEMS_PER_PAGE, filteredEmployees.length)} of {filteredEmployees.length} employees
               </div>
               <div className="flex items-center gap-2">
@@ -745,18 +859,18 @@ export default function SalaryPage() {
                   variant="outline"
                   disabled={page === 1}
                   onClick={() => setPage((p) => p - 1)}
-                  className="border-slate-200 hover:bg-slate-50 disabled:opacity-50"
+                  className="border-slate-200 hover:bg-slate-50 disabled:opacity-50 h-8 xs:h-9 px-3 text-xs xs:text-sm"
                 >
                   Previous
                 </Button>
-                <span className="text-sm font-medium text-slate-700 px-4">
+                <span className="text-xs xs:text-sm font-medium text-slate-700 px-2 xs:px-4 whitespace-nowrap">
                   Page {page} of {totalPages}
                 </span>
                 <Button
                   variant="outline"
                   disabled={page === totalPages}
                   onClick={() => setPage((p) => p + 1)}
-                  className="border-slate-200 hover:bg-slate-50 disabled:opacity-50"
+                  className="border-slate-200 hover:bg-slate-50 disabled:opacity-50 h-8 xs:h-9 px-3 text-xs xs:text-sm"
                 >
                   Next
                 </Button>
@@ -765,9 +879,10 @@ export default function SalaryPage() {
           )}
         </>
       ) : (
-        <WPSSIFPage />
+        <div className="w-full overflow-x-auto">
+          <WPSSIFPage />
+        </div>
       )}
-
 
       <CustomAlertDialog
         open={alertState.open}

@@ -1,5 +1,3 @@
-
-
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
@@ -24,6 +22,8 @@ import {
     Building2,
     Download,
 } from "lucide-react"
+import jsPDF from "jspdf"
+import { toPng } from 'html-to-image'
 import axiosInstance from "@/lib/axios"
 import { getOrgId, getEmployeeId, getUserRole } from "@/lib/auth"
 import { useSearchParams } from "next/navigation"
@@ -55,6 +55,8 @@ interface PayrollEmployee {
     basicSalary: number
     allowances: Allowance[]
     deductions: Deduction[]
+    overtimeHours?: number
+    overtimeAmount?: number
 }
 
 /* ================= PAGE ================= */
@@ -158,6 +160,8 @@ export default function PayrunViewPage() {
                         value: Number(d.value || 0),
                         type: d.type || "fixed"
                     })),
+                    overtimeHours: Number(salaryRecord.overtimeHours || 0),
+                    overtimeAmount: Number(salaryRecord.overtimeAmount || 0),
                 }
 
                 setEmployee(mappedEmployee)
@@ -183,12 +187,53 @@ export default function PayrunViewPage() {
         fetchSalaryData()
     }, [id, employeeIdParam])
 
+    /* ================= PDF DOWNLOAD ================= */
+
+    const handleDownloadPDF = async () => {
+        const element = document.getElementById('payslip-pdf-content'); // Changed to inner ID
+        if (!element) return;
+
+        try {
+            // High quality capture
+            const dataUrl = await toPng(element, {
+                quality: 1.0,
+                pixelRatio: 3, // Better resolution
+                backgroundColor: '#ffffff'
+            });
+
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            });
+
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+
+            // Add margins (10mm)
+            const margin = 10;
+            const contentWidth = pdfWidth - (margin * 2);
+
+            const componentWidth = element.offsetWidth;
+            const componentHeight = element.offsetHeight;
+
+            // Calculate height maintaining aspect ratio based on content width
+            const finalHeight = (componentHeight * contentWidth) / componentWidth;
+
+            pdf.addImage(dataUrl, 'PNG', margin, margin, contentWidth, finalHeight);
+            pdf.save(`payslip-${employee?.name || 'employee'}.pdf`);
+        } catch (err) {
+            console.error("PDF Export failed", err);
+        }
+    };
+
     /* ================= CALCULATIONS ================= */
 
     const salaryBreakdown = useMemo(() => {
         if (!employee) return null
 
         const basicSalary = employee.basicSalary || 0
+        const overtimeAmount = employee.overtimeAmount || 0
 
         // Calculate each allowance with its amount
         const allowancesWithAmount = (employee.allowances || []).map((allowance) => {
@@ -207,7 +252,7 @@ export default function PayrunViewPage() {
             0
         )
 
-        const grossSalary = basicSalary + totalAllowances
+        const grossSalary = basicSalary + totalAllowances + overtimeAmount
 
         // Calculate each deduction with its amount
         const deductionsWithAmount = (employee.deductions || []).map((deduction) => {
@@ -232,6 +277,7 @@ export default function PayrunViewPage() {
             basicSalary,
             allowancesWithAmount,
             totalAllowances,
+            overtimeAmount,
             grossSalary,
             deductionsWithAmount,
             totalDeductions,
@@ -278,9 +324,9 @@ export default function PayrunViewPage() {
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
                     <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">Choose Payslip Template</h1>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-               <button
-                            onClick={() => window.print()}
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <button
+                            onClick={handleDownloadPDF}
                             className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg text-xs sm:text-sm hover:bg-blue-700 transition-colors flex-1 sm:flex-initial font-medium shadow-sm"
                         >
                             <Download className="w-4 h-4" />
@@ -312,8 +358,11 @@ export default function PayrunViewPage() {
             </div>
 
             {/* Full Preview */}
-            <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-4 sm:p-8 md:p-12 print:p-0 print:shadow-none print:rounded-none">
-                <PayslipTemplate variant={activeTemplate} employee={employee} salaryBreakdown={salaryBreakdown} isPreview={true} />
+            <div id="payslip-ui-container" className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-4 sm:p-8 md:p-12 print:p-0 print:shadow-none print:rounded-none">
+                {/* Specific container for PDF capture without extra UI padding */}
+                <div id="payslip-pdf-content" className="w-full bg-white">
+                    <PayslipTemplate variant={activeTemplate} employee={employee} salaryBreakdown={salaryBreakdown} isPreview={true} />
+                </div>
             </div>
 
             {/* Print Styles */}
@@ -444,6 +493,13 @@ function CorporateTealTemplate({ employee, salaryBreakdown }: { employee: Payrol
                                     <td className="text-right px-4 py-2 border-l"></td>
                                 </tr>
                             ))}
+                            {salaryBreakdown.overtimeAmount > 0 && (
+                                <tr>
+                                    <td className="px-4 py-2">Overtime ({employee.overtimeHours} hrs)</td>
+                                    <td className="text-right px-4 py-2">₹{salaryBreakdown.overtimeAmount.toLocaleString()}</td>
+                                    <td className="text-right px-4 py-2 border-l"></td>
+                                </tr>
+                            )}
                             {salaryBreakdown.deductionsWithAmount.map((d: any, i: number) => (
                                 <tr key={i}>
                                     <td className="px-4 py-2">{d.name}</td>
@@ -558,6 +614,12 @@ function ProfessionalBrownTemplate({ employee, salaryBreakdown }: { employee: Pa
                                     <td className="py-3 text-right font-bold">₹{a.calculatedAmount.toLocaleString()}</td>
                                 </tr>
                             ))}
+                            {salaryBreakdown.overtimeAmount > 0 && (
+                                <tr>
+                                    <td className="py-3 font-medium">Overtime ({employee.overtimeHours} hrs)</td>
+                                    <td className="py-3 text-right font-bold">₹{salaryBreakdown.overtimeAmount.toLocaleString()}</td>
+                                </tr>
+                            )}
                             <tr className="bg-slate-50 font-black border-t border-slate-300">
                                 <td className="py-3 px-2">GROSS EARNINGS</td>
                                 <td className="py-3 px-2 text-right">₹{salaryBreakdown.grossSalary.toLocaleString()}</td>
@@ -677,6 +739,13 @@ function MinimalCleanTemplate({ employee, salaryBreakdown }: { employee: Payroll
                                         <td className="py-4 px-4 text-right">-</td>
                                     </tr>
                                 ))}
+                                {salaryBreakdown.overtimeAmount > 0 && (
+                                    <tr>
+                                        <td className="py-4 px-4 font-medium text-slate-600">Overtime Pay ({employee.overtimeHours} hrs)</td>
+                                        <td className="py-4 px-4 text-right font-bold text-slate-800">₹{salaryBreakdown.overtimeAmount.toLocaleString()}</td>
+                                        <td className="py-4 px-4 text-right">-</td>
+                                    </tr>
+                                )}
                                 {salaryBreakdown.deductionsWithAmount.map((d: any, i: number) => (
                                     <tr key={i}>
                                         <td className="py-4 px-4 font-medium text-slate-600">{d.name}</td>
@@ -780,6 +849,12 @@ function ModernGradientTemplate({ employee, salaryBreakdown }: { employee: Payro
                                     <span className="font-black text-slate-800">₹{a.calculatedAmount.toLocaleString()}</span>
                                 </div>
                             ))}
+                            {salaryBreakdown.overtimeAmount > 0 && (
+                                <div className="flex justify-between text-sm">
+                                    <span className="font-bold text-slate-600">Overtime ({employee.overtimeHours} hrs)</span>
+                                    <span className="font-black text-slate-800">₹{salaryBreakdown.overtimeAmount.toLocaleString()}</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div>
