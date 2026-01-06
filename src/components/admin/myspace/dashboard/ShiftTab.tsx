@@ -99,32 +99,52 @@ export default function ShiftTab({
                     </div>
                 </div>
             ) : (
-                <div className="rounded-lg border border-gray-200 overflow-hidden">
-                    <div className="overflow-x-auto">
+                <div className="rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50/50">
-                                <tr >
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Shift Name</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Start Time</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">End Time</th>
+                            <thead className="bg-gray-50/80">
+                                <tr>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Shift Name</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Start Time</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">End Time</th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
+                            <tbody className="bg-white divide-y divide-gray-100">
                                 {shifts.length > 0 ? (
                                     shifts.map((shift) => (
-                                        <tr key={shift.id} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{shift.name}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{shift.startTime}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{shift.endTime}</td>
+                                        <tr key={shift.id} className="hover:bg-blue-50/30 transition-colors group">
+                                            <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{shift.name}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-medium">{shift.startTime}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-medium">{shift.endTime}</td>
                                         </tr>
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={3} className="px-6 py-8 text-center text-sm text-gray-500">No shifts found</td>
+                                        <td colSpan={3} className="px-6 py-12 text-center text-sm text-gray-400 italic font-medium">No shifts found</td>
                                     </tr>
                                 )}
                             </tbody>
                         </table>
+                    </div>
+
+                    {/* Mobile Card View */}
+                    <div className="md:hidden divide-y divide-gray-100">
+                        {shifts.length > 0 ? (
+                            shifts.map((shift) => (
+                                <div key={shift.id} className="p-4 hover:bg-gray-50 active:bg-blue-50 transition-colors">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm font-bold text-gray-900">{shift.name}</span>
+                                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-bold uppercase tracking-wider">
+                                            <span>{shift.startTime} - {shift.endTime}</span>
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 font-medium">Regular Shift Hours</p>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="px-4 py-8 text-center text-sm text-gray-400 italic">No shifts found</div>
+                        )}
                     </div>
                 </div>
             )}

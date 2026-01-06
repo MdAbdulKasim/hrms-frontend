@@ -143,13 +143,13 @@ const AnnouncementsSection: React.FC = () => {
           const apiUrl = getApiUrl();
           const token = getAuthToken();
           const orgId = getOrgId();
-          
+
           if (orgId) {
             try {
               const response = await axios.get(`${apiUrl}/org/${orgId}/announcements`, {
                 headers: { Authorization: `Bearer ${token}` }
               });
-              
+
               const announcementData = response.data.data || response.data || [];
               const transformedAnnouncements: Announcement[] = announcementData
                 .map((item: any) => ({
@@ -169,7 +169,7 @@ const AnnouncementsSection: React.FC = () => {
                   const { createdAt, ...rest } = item;
                   return rest;
                 });
-              
+
               setAnnouncements(transformedAnnouncements);
             } catch (error) {
               console.error('Error refreshing announcements:', error);
@@ -200,20 +200,24 @@ const AnnouncementsSection: React.FC = () => {
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center shrink-0">
-              <Megaphone className="w-4 h-4 text-orange-600" />
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 lg:h-full flex flex-col">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-orange-200">
+              <Megaphone className="w-5 h-5 text-orange-600" />
             </div>
-            <h2 className="text-lg font-semibold truncate text-slate-900">Announcements</h2>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 leading-tight">Announcements</h2>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Latest Updates</p>
+            </div>
           </div>
           {!isEmployee && (
             <button
               onClick={() => setShowAnnouncementModal(true)}
-              className="text-blue-500 hover:text-blue-600 text-2xl leading-none px-2 transition-colors"
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-all border border-slate-200 hover:border-blue-200 shadow-sm"
+              title="Add Announcement"
             >
-              +
+              <Megaphone className="w-4 h-4" />
             </button>
           )}
         </div>

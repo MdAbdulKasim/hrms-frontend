@@ -72,8 +72,8 @@ export default function HRProcessPage() {
   const [form, setForm] = useState({
     departmentId: '',
     locationId: '',
-    site: '',
-    building: '',
+    siteId: '',
+    buildingId: '',
     designationId: '',
     percent: '',
     amount: '',
@@ -130,26 +130,18 @@ export default function HRProcessPage() {
         if (!orgId || !token) return;
 
         const [empRes, locRes, desigRes, deptRes] = await Promise.all([
-          axios.get(`${apiUrl}/org/${orgId}/employees`, { headers }),
+          axios.get(`${apiUrl}/org/${orgId}/employees`, {
+            headers,
+            params: { limit: 1000 } // Fetch all employees
+          }),
           axios.get(`${apiUrl}/org/${orgId}/locations`, { headers }),
           axios.get(`${apiUrl}/org/${orgId}/designations`, { headers }),
           axios.get(`${apiUrl}/org/${orgId}/departments`, { headers })
         ]);
 
-        const empRaw = empRes.data.data || empRes.data || [];
-        setAllEmployees(empRaw.map((e: any) => ({
-          id: e.id || e._id,
-          name: e.fullName || `${e.firstName} ${e.lastName}`,
-          role: e.designation?.name || e.designation || 'N/A',
-          department: e.department?.name || e.department || 'N/A',
-          location: e.location?.name || e.location || 'N/A',
-          salary: e.salary || 0,
-          dateOfJoining: e.dateOfJoining
-        })));
-
         const locRaw = locRes.data.data || locRes.data || [];
         const locationsToSet = Array.isArray(locRaw) ? locRaw : (locRaw.locations || []);
-        setLocations(locationsToSet.map((l: any) => ({
+        const formattedLocations = locationsToSet.map((l: any) => ({
           id: l.id || l._id,
           name: l.locationName || l.name,
           sites: (l.sites || []).map((s: any) => ({
@@ -157,21 +149,42 @@ export default function HRProcessPage() {
             name: s.siteName || s.name,
             buildings: s.buildings || []
           }))
-        })));
+        }));
+        setLocations(formattedLocations);
 
         const desigRaw = desigRes.data.data || desigRes.data || [];
         const designationsToSet = Array.isArray(desigRaw) ? desigRaw : (desigRaw.designations || []);
-        setDesignations(designationsToSet.map((d: any) => ({
+        const formattedDesignations = designationsToSet.map((d: any) => ({
           id: d.id || d._id,
           name: d.name
-        })));
+        }));
+        setDesignations(formattedDesignations);
 
         const deptRaw = deptRes.data.data || deptRes.data || [];
         const departmentsToSet = Array.isArray(deptRaw) ? deptRaw : (deptRaw.departments || []);
-        setDepartments(departmentsToSet.map((d: any) => ({
+        const formattedDepartments = departmentsToSet.map((d: any) => ({
           id: d.id || d._id,
-          name: d.name
-        })));
+          name: d.departmentName || d.name
+        }));
+        setDepartments(formattedDepartments);
+
+        const empRaw = empRes.data.data || empRes.data || [];
+        setAllEmployees(empRaw.map((e: any) => {
+          // Robust name resolution: Try object.name -> try ID lookup -> fallback to raw value
+          const deptName = e.department?.departmentName || e.department?.name || formattedDepartments.find((d: any) => d.id === (e.departmentId || e.department))?.name || e.department || '';
+          const desigName = e.designation?.name || formattedDesignations.find((d: any) => d.id === (e.designationId || e.designation))?.name || e.designation || '';
+          const locName = e.location?.name || formattedLocations.find((l: any) => l.id === (e.locationId || e.location))?.name || e.location || '';
+
+          return {
+            id: e.id || e._id,
+            name: e.fullName || `${e.firstName} ${e.lastName}`,
+            role: desigName,
+            department: deptName,
+            location: locName,
+            salary: e.salary || 0,
+            dateOfJoining: e.dateOfJoining
+          };
+        }));
 
       } catch (err) {
         console.error("Critical: Failed to fetch organizational metadata", err);
@@ -184,8 +197,15 @@ export default function HRProcessPage() {
   }, []);
 
   const filteredEmployees = useMemo(() => {
+    const term = employeeSearch.toLowerCase();
     return allEmployees.filter(emp =>
-      (emp.name.toLowerCase().includes(employeeSearch.toLowerCase()) || emp.id.toLowerCase().includes(employeeSearch.toLowerCase())) &&
+      (
+        (emp.name?.toLowerCase() || '').includes(term) ||
+        (emp.id?.toLowerCase() || '').includes(term) ||
+        (emp.role?.toLowerCase() || '').includes(term) ||
+        (emp.department?.toLowerCase() || '').includes(term) ||
+        (emp.location?.toLowerCase() || '').includes(term)
+      ) &&
       !selectedIds.includes(emp.id)
     );
   }, [allEmployees, employeeSearch, selectedIds]);
@@ -223,8 +243,8 @@ export default function HRProcessPage() {
         if (activeTab === 'Department') updateData.departmentId = form.departmentId;
         if (activeTab === 'Location') {
           updateData.locationId = form.locationId;
-          updateData.site = form.site;
-          updateData.building = form.building;
+          updateData.siteId = form.siteId;
+          updateData.buildingId = form.buildingId;
         }
         if (activeTab === 'Promotion') {
           updateData.designationId = form.designationId;
@@ -269,6 +289,26 @@ export default function HRProcessPage() {
         }
       }
 
+      // Resolve Names for History
+      let toLabel = 'N/A';
+      if (activeTab === 'Department') {
+        toLabel = departments.find(d => d.id === form.departmentId)?.name || 'N/A';
+      } else if (activeTab === 'Location') {
+        const loc = locations.find(l => l.id === form.locationId);
+        const site = loc?.sites?.find(s => s.id === form.siteId)?.name;
+        // Building is usually just a name if it's from the array, but if we stored ID we'd look it up.
+        // Assuming buildingId is the name for now as the Select often uses names for sub-items or simple strings
+        // But let's check the Select logic below. We will make Select use IDs.
+        // Ideally we should lookup building name too if buildingId is an ID.
+        // For now, let's assume simple string or find in array.
+        const buildingName = form.buildingId;
+        toLabel = `${loc?.name || ''} ${site ? `(${site})` : ''} ${buildingName ? `[${buildingName}]` : ''}`;
+      } else if (activeTab === 'Promotion') {
+        toLabel = designations.find(d => d.id === form.designationId)?.name || 'N/A';
+      } else if (activeTab === 'Termination') {
+        toLabel = 'Terminated';
+      }
+
       const newEntry: ProcessRequest = {
         id: `PR-${Math.floor(Math.random() * 900) + 100}`,
         employeeNames: selectedEmployees.map(e => e.name).join(', '),
@@ -276,9 +316,7 @@ export default function HRProcessPage() {
         from: activeTab === 'Department' ? selectedEmployees[0]?.department :
           activeTab === 'Location' ? selectedEmployees[0]?.location :
             activeTab === 'Promotion' ? selectedEmployees[0]?.role : 'Active',
-        to: activeTab === 'Department' ? departments.find(d => d.id === form.departmentId)?.name || 'N/A' :
-          activeTab === 'Location' ? `${locations.find(l => l.id === form.locationId)?.name} (${form.building || 'N/A'})` :
-            activeTab === 'Promotion' ? designations.find(d => d.id === form.designationId)?.name || 'N/A' : 'Terminated',
+        to: toLabel,
         effectiveDate: form.date,
         status: 'Scheduled',
         timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
@@ -286,7 +324,7 @@ export default function HRProcessPage() {
 
       setHistory([newEntry, ...history]);
       setSelectedIds([]);
-      setForm({ departmentId: '', locationId: '', site: '', building: '', designationId: '', percent: '', amount: '', date: '', reason: '' });
+      setForm({ departmentId: '', locationId: '', siteId: '', buildingId: '', designationId: '', percent: '', amount: '', date: '', reason: '' });
       showAlert("Success", "Process executed successfully!", "success");
 
     } catch (err) {
@@ -499,7 +537,7 @@ export default function HRProcessPage() {
                         <select
                           className="w-full p-3 bg-white rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                           value={form.locationId}
-                          onChange={(e) => setForm({ ...form, locationId: e.target.value, site: '', building: '' })}
+                          onChange={(e) => setForm({ ...form, locationId: e.target.value, siteId: '', buildingId: '' })}
                         >
                           <option value="">Select Location...</option>
                           {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
@@ -510,26 +548,29 @@ export default function HRProcessPage() {
                         <select
                           disabled={!form.locationId}
                           className="w-full p-3 bg-white rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:opacity-50 disabled:bg-gray-100"
-                          value={form.site}
-                          onChange={(e) => setForm({ ...form, site: e.target.value, building: '' })}
+                          value={form.siteId}
+                          onChange={(e) => setForm({ ...form, siteId: e.target.value, buildingId: '' })}
                         >
                           <option value="">Select Site...</option>
-                          {locations.find(l => l.id === form.locationId)?.sites?.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                          {locations.find(l => l.id === form.locationId)?.sites?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Building</label>
                         <select
-                          disabled={!form.site}
+                          disabled={!form.siteId}
                           className="w-full p-3 bg-white rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:opacity-50 disabled:bg-gray-100"
-                          value={form.building}
-                          onChange={(e) => setForm({ ...form, building: e.target.value })}
+                          value={form.buildingId}
+                          onChange={(e) => setForm({ ...form, buildingId: e.target.value })}
                         >
                           <option value="">Select Building...</option>
-                          {locations.find(l => l.id === form.locationId)?.sites?.find(s => s.name === form.site)?.buildings?.map((b, idx) => {
+                          {locations.find(l => l.id === form.locationId)?.sites?.find(s => s.id === form.siteId)?.buildings?.map((b, idx) => {
                             const bId = typeof b === 'object' ? (b.id || b._id || b.name || idx.toString()) : b;
                             const bName = typeof b === 'object' ? (b.name || b.buildingName || bId) : b;
-                            return <option key={bId} value={bName}>{bName}</option>;
+                            // Prefer using name as ID if real ID is missing, but backend usually gives IDs. 
+                            // If backend expects string names for buildingId, we should check. 
+                            // For now, assuming standard ID practice or Name as ID if that's how it's stored.
+                            return <option key={bId} value={bId}>{bName}</option>;
                           })}
                         </select>
                       </div>

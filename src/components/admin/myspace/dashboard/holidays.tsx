@@ -127,7 +127,7 @@ const UpcomingHolidaysSection: React.FC = () => {
           // Add new holiday, filter upcoming, sort, and keep only 4 most upcoming
           const today = new Date();
           today.setHours(0, 0, 0, 0);
-          
+
           const updatedHolidays = [...holidays, newHoliday]
             .filter((holiday) => {
               const holidayDate = new Date(holiday.date);
@@ -165,21 +165,24 @@ const UpcomingHolidaysSection: React.FC = () => {
 
   return (
     <>
-      <div className="bg-white rounded-lg shadow p-4 sm:p-5 border border-slate-100">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
-              <Calendar className="w-4 h-4 text-purple-600" />
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 lg:h-full flex flex-col">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-purple-200">
+              <Calendar className="w-5 h-5 text-purple-600" />
             </div>
-            <h2 className="text-lg font-semibold truncate text-slate-900">Upcoming Holidays</h2>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 leading-tight">Upcoming Holidays</h2>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Public Holidays</p>
+            </div>
           </div>
           {!isEmployee && (
             <button
               onClick={() => setShowHolidayModal(true)}
-              className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors bg-blue-50 px-3 py-1.5 rounded-md border border-blue-100"
+              className="flex items-center gap-2 text-xs font-bold text-blue-600 hover:text-blue-700 transition-all bg-blue-50 px-3 py-2 rounded-xl border border-blue-100/50 hover:bg-blue-100 shadow-sm"
             >
-              <Plus className="w-4 h-4" />
-              <span>Add Holiday</span>
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add</span>
             </button>
           )}
         </div>

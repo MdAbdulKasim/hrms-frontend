@@ -38,15 +38,16 @@ const Dashboard: React.FC = () => {
             let checkInTime = '---';
             let workHours = '0h 0m';
 
-            if (record.checkIn) {
-              const date = new Date(record.checkIn);
+            const hasCheckIn = record.checkInTime || record.checkIn;
+            if (hasCheckIn) {
+              const date = new Date(hasCheckIn);
               checkInTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-              // Only calculate work hours if they are not already provided by backend or if we want to do it here
-              // For now, let's use the backend value if available
-              if (record.totalHours) {
-                const hours = Math.floor(record.totalHours);
-                const minutes = Math.round((record.totalHours - hours) * 60);
+              // Handle both totalHours and hoursWorked variations
+              const hoursValue = record.totalHours || record.hoursWorked;
+              if (hoursValue) {
+                const hours = Math.floor(hoursValue);
+                const minutes = Math.round((hoursValue - hours) * 60);
                 workHours = `${hours}h ${minutes}m`;
               }
             }

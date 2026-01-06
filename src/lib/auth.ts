@@ -73,10 +73,10 @@ export const getOrgId = (): string | null => {
             payload?.organization?.orgId ||
             payload?.employee?.organization?.id ||
             payload?.organization?.id;
-        if (fromToken && String(fromToken) !== 'undefined') return String(fromToken);
+        if (fromToken && String(fromToken) !== 'undefined' && String(fromToken) !== 'null') return String(fromToken);
     }
     const fromCookie = getCookie('currentOrgId') || (typeof window !== 'undefined' ? localStorage.getItem('currentOrgId') : null);
-    return (fromCookie && fromCookie !== 'undefined') ? fromCookie : null;
+    return (fromCookie && fromCookie !== 'undefined' && fromCookie !== 'null') ? fromCookie : null;
 };
 
 export const setOrgId = (orgId: string): void => {
@@ -90,10 +90,11 @@ export const getEmployeeId = (): string | null => {
         const payload = decodeToken(token);
         // JWT uses 'sub' for subject (the employee ID)
         const fromToken = payload?.sub || payload?.employeeId || payload?.employee?.id || payload?.id;
-        if (fromToken) return String(fromToken);
+        if (fromToken && String(fromToken) !== 'undefined' && String(fromToken) !== 'null') return String(fromToken);
     }
     // Fallback to cookie from login response
-    return getCookie('hrms_user_id') || (typeof window !== 'undefined' ? localStorage.getItem('hrms_user_id') : null);
+    const fromCookie = getCookie('hrms_user_id') || (typeof window !== 'undefined' ? localStorage.getItem('hrms_user_id') : null);
+    return (fromCookie && fromCookie !== 'undefined' && fromCookie !== 'null') ? fromCookie : null;
 };
 
 export const setEmployeeId = (employeeId: string): void => {

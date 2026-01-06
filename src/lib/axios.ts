@@ -49,9 +49,9 @@ axiosInstance.interceptors.response.use(
                 const isEmployeePortal = window.location.pathname.includes('/my-space');
 
                 if (isEmployeePortal) {
-                    window.location.href = '/login';
+                    window.location.href = '/auth/login';
                 } else {
-                    window.location.href = '/login'; // Default for admins too
+                    window.location.href = '/auth/login'; // Default for admins too
                 }
             }
         }

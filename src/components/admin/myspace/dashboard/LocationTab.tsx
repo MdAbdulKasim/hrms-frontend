@@ -150,38 +150,71 @@ export default function LocationTab({
                     </div>
                 </div>
             ) : (
-                <div className="rounded-lg border border-gray-200 overflow-hidden">
-                    <div className="overflow-x-auto">
+                <div className="rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                    {/* Desktop Table View */}
+                    <div className="hidden lg:block overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50/50">
+                            <thead className="bg-gray-50/80">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Location Name</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Site</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Building/Area</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">City</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Country</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Code</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Location Name</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Site</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Building/Area</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">City</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Country</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Code</th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
+                            <tbody className="bg-white divide-y divide-gray-100">
                                 {locations.length > 0 ? (
                                     locations.map((loc) => (
-                                        <tr key={loc.id} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{loc.name}</td>
+                                        <tr key={loc.id} className="hover:bg-blue-50/30 transition-colors group">
+                                            <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{loc.name}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{loc.addressLine1 || "-"}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{loc.addressLine2 || "-"}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{loc.city}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{loc.country}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{loc.code}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{loc.city}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{loc.country}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-bold font-mono uppercase tracking-tight">{loc.code}</span>
+                                            </td>
                                         </tr>
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">No locations found</td>
+                                        <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400 italic font-medium">No locations found</td>
                                     </tr>
                                 )}
                             </tbody>
                         </table>
+                    </div>
+
+                    {/* Mobile/Tablet Card View */}
+                    <div className="lg:hidden divide-y divide-gray-100">
+                        {locations.length > 0 ? (
+                            locations.map((loc) => (
+                                <div key={loc.id} className="p-4 sm:p-6 hover:bg-gray-50 active:bg-blue-50 transition-colors">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <span className="text-sm font-bold text-gray-900">{loc.name}</span>
+                                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-[10px] font-bold uppercase tracking-wider">{loc.code}</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-4">
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Address</p>
+                                            <p className="text-xs text-gray-600">
+                                                {loc.addressLine1 || loc.addressLine2
+                                                    ? `${loc.addressLine1 || ''}${loc.addressLine1 && loc.addressLine2 ? ', ' : ''}${loc.addressLine2 || ''}`
+                                                    : 'No address details'}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Region</p>
+                                            <p className="text-xs text-gray-600">{loc.city}, {loc.country}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="px-4 py-8 text-center text-sm text-gray-400 italic">No locations found</div>
+                        )}
                     </div>
                 </div>
             )}

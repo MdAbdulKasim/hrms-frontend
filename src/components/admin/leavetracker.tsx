@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Calendar, Coffee, Gift, Clock, Heart, Users, AlertCircle, CheckCircle, XCircle, Settings, Filter, Eye } from 'lucide-react';
+import { Plus, Calendar, Coffee, Gift, Clock, Heart, Users, AlertCircle, CheckCircle, XCircle, Settings, Filter, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import ViewLeaveDetails from './ViewLeaveDetails';
 import {
   Dialog,
@@ -99,6 +99,25 @@ const LeaveTracker = () => {
 
   // Config state
   const [leaveConfigs, setLeaveConfigs] = useState<{ code: string; defaultDays: number }[]>([]);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  // Compute pagination
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStatus, filterEmployee, filterLocation, filterDepartment, viewMode]);
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentLeaves = filteredLeaves.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredLeaves.length / itemsPerPage);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
 
   // Employee mapping for names
   const [employeeMap, setEmployeeMap] = useState<{ [key: string]: { name: string; email?: string } }>({});
@@ -573,7 +592,7 @@ const LeaveTracker = () => {
         </div>
 
         {/* Filters */}
-        <div className="bg-gray-50 rounded-lg p-4 mb-6">
+        <div className="bg-white rounded-lg p-4 mb-6">
           <div className="flex flex-wrap gap-4 items-end">
             <div className="flex-1 min-w-[150px]">
               <label className="text-sm font-semibold mb-2 block">Status</label>
@@ -664,14 +683,14 @@ const LeaveTracker = () => {
             <table className="w-full min-w-[1000px] sm:min-w-full">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-gray-600 whitespace-nowrap">Employee</th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-gray-600 whitespace-nowrap">Type</th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-gray-600 whitespace-nowrap">From</th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-gray-600 whitespace-nowrap">To</th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-gray-600 whitespace-nowrap">Days</th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-gray-600 whitespace-nowrap">Reason</th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-gray-600 whitespace-nowrap">Status</th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-gray-600 whitespace-nowrap text-center">Actions</th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-black whitespace-nowrap">Employee</th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-black whitespace-nowrap">Type</th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-black whitespace-nowrap">From</th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-black whitespace-nowrap">To</th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-black whitespace-nowrap">Days</th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-black whitespace-nowrap">Reason</th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-black whitespace-nowrap">Status</th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-black whitespace-nowrap text-center">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -688,7 +707,7 @@ const LeaveTracker = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredLeaves.map((leave) => (
+                  currentLeaves.map((leave) => (
                     <tr key={leave.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-4 px-4 text-gray-900 whitespace-nowrap">
                         {leave.employeeName || leave.employeeEmail || 'Unknown'}
@@ -749,6 +768,65 @@ const LeaveTracker = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {filteredLeaves.length > 0 && (
+            <div className="px-4 py-4 mt-2 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-sm text-gray-500">
+                Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to <span className="font-medium">{Math.min(indexOfLastItem, filteredLeaves.length)}</span> of <span className="font-medium">{filteredLeaves.length}</span> results
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="px-2 sm:px-3 h-8"
+                >
+                  <ChevronLeft className="w-4 h-4 mr-1" />
+                  Previous
+                </Button>
+
+                <div className="hidden sm:flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum = i + 1;
+                    if (totalPages > 5) {
+                      if (currentPage > 3) {
+                        if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+                      }
+                    }
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`w-8 h-8 rounded-md text-sm font-medium transition-colors
+                        ${currentPage === pageNum
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'}`}
+                      >
+                        {pageNum}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="px-2 sm:px-3 h-8"
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

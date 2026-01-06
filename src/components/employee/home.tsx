@@ -7,9 +7,10 @@ import {
   Briefcase,
   X
 } from 'lucide-react';
-import ProfilePage from '../profile/ProfilePage';
-import axios from 'axios';
-import { getApiUrl, getAuthToken, getOrgId, getCookie } from '@/lib/auth';
+import ProfilePage from '../admin/profile/profilepage';
+import { isAxiosError } from 'axios';
+import axiosInstance from '@/lib/axios';
+import { getApiUrl, getAuthToken, getOrgId, getCookie, getEmployeeId } from '@/lib/auth';
 import attendanceService from '@/lib/attendanceService';
 import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 
@@ -100,6 +101,7 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, initialIsCh
           return;
         }
         setIsCheckedIn(false);
+        setIsCheckedOut(true);
         setSeconds(0);
         onCheckInStatusChange?.(false);
       } else {
@@ -299,15 +301,15 @@ export default function Dashboard() {
         const authToken = getAuthToken();
         const authOrgId = getOrgId();
         const apiUrl = getApiUrl();
-        const authEmployeeId = getCookie('hrms_user_id');
+        const authEmployeeId = getEmployeeId();
 
         console.log('=== DASHBOARD DEBUG ===');
         console.log('authToken:', authToken ? 'exists' : 'missing');
         console.log('authOrgId:', authOrgId);
         console.log('authEmployeeId:', authEmployeeId);
 
-        if (!authToken || !authOrgId || !authEmployeeId) {
-          console.error('Missing auth credentials');
+        if (!authToken || !authOrgId || !authEmployeeId || authOrgId === 'undefined' || authEmployeeId === 'undefined') {
+          console.error('Missing or invalid auth credentials');
           setLoading(false);
           return;
         }
@@ -316,67 +318,75 @@ export default function Dashboard() {
         setOrgId(authOrgId);
         setCurrentEmployeeId(authEmployeeId);
 
-        // Fetch current user data
-        const endpoint = `${apiUrl}/org/${authOrgId}/employees/${authEmployeeId}`;
-        console.log('Fetching from:', endpoint);
+        try {
+          // Fetch current user data
+          const endpoint = `${apiUrl}/org/${authOrgId}/employees/${authEmployeeId}`;
+          console.log('Fetching from:', endpoint);
 
-        const currentUserRes = await axios.get(endpoint, {
-          headers: { Authorization: `Bearer ${authToken}` }
-        });
+          const currentUserRes = await axiosInstance.get(endpoint);
 
-        console.log('API Response:', currentUserRes.data);
+          console.log('API Response:', currentUserRes.data);
 
-        const userData = currentUserRes.data.data || currentUserRes.data;
+          const userData = currentUserRes.data.data || currentUserRes.data;
 
-        // Handle name extraction - try multiple field combinations
-        let firstName = userData.firstName || '';
-        let lastName = userData.lastName || '';
-        let fullName = userData.fullName || userData.full_name || userData.name || '';
+          // Handle name extraction - try multiple field combinations
+          let firstName = userData.firstName || '';
+          let lastName = userData.lastName || '';
+          let fullName = userData.fullName || userData.full_name || userData.name || '';
 
-        // If no fullName but has firstName/lastName, construct it
-        if (!fullName && (firstName || lastName)) {
-          fullName = `${firstName} ${lastName}`.trim();
+          // If no fullName but has firstName/lastName, construct it
+          if (!fullName && (firstName || lastName)) {
+            fullName = `${firstName} ${lastName}`.trim();
+          }
+
+          // If fullName exists but no firstName/lastName, split it
+          if (fullName && !firstName && !lastName) {
+            const nameParts = fullName.split(' ');
+            firstName = nameParts[0] || '';
+            lastName = nameParts.slice(1).join(' ') || '';
+          }
+
+          console.log('Processed name:', { firstName, lastName, fullName });
+
+          setCurrentUser({
+            id: userData.id || userData._id || '',
+            employeeId: userData.employeeId || userData.id || '',
+            firstName: firstName,
+            lastName: lastName,
+            fullName: fullName,
+            designation: (typeof userData.designation === 'object' ? userData.designation?.name : userData.designation) || 'N/A',
+            profileImage: userData.profileImage
+          });
+        } catch (error) {
+          console.error('Error fetching current user profile:', error);
         }
-
-        // If fullName exists but no firstName/lastName, split it
-        if (fullName && !firstName && !lastName) {
-          const nameParts = fullName.split(' ');
-          firstName = nameParts[0] || '';
-          lastName = nameParts.slice(1).join(' ') || '';
-        }
-
-        console.log('Processed name:', { firstName, lastName, fullName });
-
-        setCurrentUser({
-          id: userData.id || userData._id || '',
-          employeeId: userData.employeeId || userData.id || '',
-          firstName: firstName,
-          lastName: lastName,
-          fullName: fullName,
-          designation: (typeof userData.designation === 'object' ? userData.designation?.name : userData.designation) || 'N/A',
-          profileImage: userData.profileImage
-        });
 
         // Fetch attendance status for synchronization
-        const today = new Date().toISOString().split('T')[0];
-        const attendanceRes = await attendanceService.getDailyAttendance(authOrgId, today);
-        const attendanceData = (attendanceRes as any).data || (Array.isArray(attendanceRes) ? attendanceRes : []);
+        try {
+          const statusRes = await attendanceService.getStatus(authOrgId);
+          if (statusRes && !statusRes.error) {
+            const record = statusRes.data as any;
+            if (record && !record.message) {
+              // The status endpoint returns the individual record
+              // Handle both checkIn/checkInTime variations
+              const hasCheckIn = !!(record.checkInTime || record.checkIn);
+              const hasCheckOut = !!(record.checkOutTime || record.checkOut);
 
-        const currentRecord = Array.isArray(attendanceData)
-          ? attendanceData.find((r: any) => r.employeeId === authEmployeeId)
-          : null;
-
-        if (currentRecord) {
-          setIsSelfCheckedIn(!!currentRecord.checkInTime && !currentRecord.checkOutTime);
-          setIsSelfCheckedOut(!!currentRecord.checkInTime && !!currentRecord.checkOutTime);
+              setIsSelfCheckedIn(hasCheckIn && !hasCheckOut);
+              setIsSelfCheckedOut(hasCheckIn && hasCheckOut);
+            } else {
+              setIsSelfCheckedIn(false);
+              setIsSelfCheckedOut(false);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching attendance status:', error);
         }
 
         // Fetch reportees
         try {
           // Try to fetch reportees - this may fail with 403 for regular employees
-          const reporteesRes = await axios.get(`${apiUrl}/org/${authOrgId}/employees/${authEmployeeId}/reportees`, {
-            headers: { Authorization: `Bearer ${authToken}` }
-          });
+          const reporteesRes = await axiosInstance.get(`${apiUrl}/org/${authOrgId}/employees/${authEmployeeId}/reportees`);
           const reporteesData = reporteesRes.data.data || reporteesRes.data || [];
           setReportees(reporteesData.slice(0, 5).map((emp: any) => ({
             id: emp.id || emp._id,
@@ -392,8 +402,13 @@ export default function Dashboard() {
         }
 
       } catch (error) {
+        if (isAxiosError(error) && error.response?.status === 401) {
+          // Session expired - redirect handled by axios interceptor
+          console.log('Session expired, redirecting...');
+          return;
+        }
         console.error('Error fetching dashboard data:', error);
-        if (axios.isAxiosError(error)) {
+        if (isAxiosError(error)) {
           console.error('API Error Response:', error.response?.data);
         }
       } finally {
@@ -412,6 +427,7 @@ export default function Dashboard() {
   const handleCloseProfile = () => {
     setShowProfile(false);
     setSelectedEmployeeId('');
+    setRefreshTrigger(prev => prev + 1);
   };
 
   if (showProfile) {

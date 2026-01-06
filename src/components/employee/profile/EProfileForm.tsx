@@ -120,7 +120,6 @@ const EProfileForm: React.FC<EProfileFormProps> = ({
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
                         <Input value={formData.role} disabled={true} />
-                        <p className="text-xs text-gray-500 mt-1">Managed by administrator</p>
                     </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 mb-4">
@@ -143,6 +142,63 @@ const EProfileForm: React.FC<EProfileFormProps> = ({
                         <Input value={formData.teamPosition} disabled={true} />
                     </div>
                 </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Shift</label>
+                        <Input value={formData.shift} disabled={true} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                        <Input value={formData.location} disabled={true} />
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Time Zone</label>
+                        <Input value={formData.timeZone} disabled={true} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Site</label>
+                        <Input value={formData.site} disabled={true} />
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Building / Area</label>
+                        <Input value={formData.building} disabled={true} />
+                    </div>
+                </div>
+
+                <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Employment Status & Type</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Employee Type</label>
+                        <Input value={formData.empType} disabled={true} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Employee Status</label>
+                        <Input value={formData.employeeStatus} disabled={true} />
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Contract Type</label>
+                        <Input value={formData.contractType} disabled={true} />
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Contract Start Date</label>
+                        <Input value={formData.contractStartDate} disabled={true} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Contract End Date</label>
+                        <Input value={formData.contractEndDate} disabled={true} />
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-3 gap-4 mb-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
@@ -233,21 +289,6 @@ const EProfileForm: React.FC<EProfileFormProps> = ({
                 </div>
                 <div className="grid grid-cols-2 gap-4 mb-6">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Aadhaar Number</label>
-                        <Input name="aadhaarNumber" value={formData.aadhaarNumber} onChange={handleInputChange} disabled={!isEditing} placeholder="12-digit Aadhaar Number" />
-                        <div className="flex items-center justify-between mt-2">
-                            <p className="text-[10px] text-gray-500">12-digit Aadhaar</p>
-                            <div className="flex items-center gap-2">
-                                <input type="file" id="aadharDoc" className="hidden" onChange={(e) => handleFileChange(e, "aadharDoc")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
-                                <label htmlFor="aadharDoc" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                    <Upload className="w-3 h-3" />
-                                    {formData.aadhaarDocUrl ? 'Change' : 'Upload Doc'}
-                                </label>
-                                {formData.aadhaarDocUrl && <span className="text-[10px] text-green-600 font-medium">✓ Uploaded</span>}
-                            </div>
-                        </div>
-                    </div>
-                    <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Passport Number</label>
                         <Input name="passportNumber" value={formData.passportNumber} onChange={handleInputChange} disabled={!isEditing} placeholder="Alphabet and numeric" />
                         <div className="flex items-center justify-between mt-2">
@@ -259,23 +300,6 @@ const EProfileForm: React.FC<EProfileFormProps> = ({
                                     {formData.passportDocUrl ? 'Change' : 'Upload Doc'}
                                 </label>
                                 {formData.passportDocUrl && <span className="text-[10px] text-green-600 font-medium">✓ Uploaded</span>}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Driving License Number</label>
-                        <Input name="drivingLicenseNumber" value={formData.drivingLicenseNumber} onChange={handleInputChange} disabled={!isEditing} placeholder="Alphabet and numeric" />
-                        <div className="flex items-center justify-between mt-2">
-                            <p className="text-[10px] text-gray-500">Alphanumeric (Optional)</p>
-                            <div className="flex items-center gap-2">
-                                <input type="file" id="drivingLicenseDoc" className="hidden" onChange={(e) => handleFileChange(e, "drivingLicenseDoc")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
-                                <label htmlFor="drivingLicenseDoc" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                    <Upload className="w-3 h-3" />
-                                    {formData.drivingLicenseDocUrl ? 'Change' : 'Upload Doc'}
-                                </label>
-                                {formData.drivingLicenseDocUrl && <span className="text-[10px] text-green-600 font-medium">✓ Uploaded</span>}
                             </div>
                         </div>
                     </div>
@@ -535,6 +559,45 @@ const EProfileForm: React.FC<EProfileFormProps> = ({
                             </div>
                         </div>
                     ))}
+                </div>
+            </Card>
+
+            {/* Salary & Bank Details Section */}
+            <Card className="mb-6 p-6">
+                <h2 className="text-xl font-bold mb-4 text-gray-900">Salary & Bank Details</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Basic Salary</label>
+                        <Input value={formData.basicSalary} disabled={true} placeholder="Basic Salary" />
+                    </div>
+                </div>
+
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Bank Account Details</h3>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Bank Name</label>
+                        <Input value={formData.bankDetails.bankName} disabled={true} placeholder="Bank Name" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Branch Name</label>
+                        <Input value={formData.bankDetails.branchName} disabled={true} placeholder="Branch Name" />
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Account Number</label>
+                        <Input value={formData.bankDetails.accountNumber} disabled={true} placeholder="Account Number" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Account Holder Name</label>
+                        <Input value={formData.bankDetails.accountHolderName} disabled={true} placeholder="Account Holder Name" />
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">IFSC Code</label>
+                        <Input value={formData.bankDetails.ifscCode} disabled={true} placeholder="IFSC Code" />
+                    </div>
                 </div>
             </Card>
 

@@ -8,10 +8,29 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Card } from "@/components/ui/card"
 import { Upload, User, Plus, Trash2 } from "lucide-react"
 import type { FormData } from "./types"
+import SearchableDropdown from "@/components/ui/SearchableDropdown"
+
+const genders = ["Male", "Female", "Other"]
+const maritalStatuses = ["Single", "Married", "Divorced", "Widowed"]
+const bloodGroups = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"]
+const employeeTypes = ["permanent", "temporary"]
+const employeeStatuses = ["Active", "Inactive", "On Leave", "Terminated"]
+const contractTypes = ["Full Time", "Part Time", "Consultant", "Freelance"]
+const countries = [
+    "India", "USA", "UK", "Canada", "Australia", "UAE", "Saudi Arabia", "Qatar", "Singapore", "Germany", "France"
+]
+const states = [
+    "California", "Texas", "New York", "Florida", // US
+    "Dubai", "Abu Dhabi", "Sharjah", // UAE
+    "London", "Manchester", // UK
+    "Maharashtra", "Karnataka", "Delhi", "Tamil Nadu", // India
+    "Ontario", "British Columbia" // Canada
+]
 
 interface ProfileFormProps {
     formData: FormData
     isEditing: boolean
+    userRole: 'admin' | 'employee' | string | null
     profilePicUrl: string | null
     selectedProfilePicFile: File | null
     handleInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, section?: string, field?: string) => void
@@ -26,15 +45,13 @@ interface ProfileFormProps {
     handleSave: () => void
 }
 
-const states = ["Select State", "California", "Texas", "New York", "Florida"]
-const countries = ["Select Country", "India", "USA", "UK", "Canada"]
-const genders = ["Select Gender", "Male", "Female", "Other"]
-const maritalStatuses = ["Select Marital Status", "Single", "Married", "Divorced", "Widowed"]
-const bloodGroups = ["Select Blood Group", "A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"]
+
+
 
 export default function ProfileForm({
     formData,
     isEditing,
+    userRole,
     profilePicUrl,
     selectedProfilePicFile,
     handleInputChange,
@@ -116,6 +133,19 @@ export default function ProfileForm({
                         />
                     </div>
                     <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Employee Number</label>
+                        <Input
+                            name="employeeNumber"
+                            value={formData.employeeNumber}
+                            onChange={handleInputChange}
+                            disabled={true}
+                            placeholder="e.g. EMP 001"
+                        />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
                         <Input
                             name="emailAddress"
@@ -125,9 +155,6 @@ export default function ProfileForm({
                             placeholder="Email Address"
                         />
                     </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Number</label>
                         <Input
@@ -138,98 +165,192 @@ export default function ProfileForm({
                             placeholder="Mobile Number"
                         />
                     </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
                         <Input
                             name="role"
                             value={formData.role}
                             onChange={handleInputChange}
-                            disabled={!isEditing}
+                            disabled={true}
                             placeholder="Role"
                         />
                     </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
                         <Input
                             name="department"
                             value={formData.department}
                             onChange={handleInputChange}
-                            disabled={!isEditing}
+                            disabled={true}
                             placeholder="Department"
                         />
                     </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Designation</label>
                         <Input
                             name="designation"
                             value={formData.designation}
                             onChange={handleInputChange}
-                            disabled={!isEditing}
+                            disabled={true}
                             placeholder="Designation"
                         />
                     </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Reporting To</label>
                         <Input
                             name="reportingTo"
                             value={formData.reportingTo}
                             onChange={handleInputChange}
-                            disabled={!isEditing}
+                            disabled={true}
                             placeholder="Reporting To"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Team Position</label>
-                        <Input
-                            name="teamPosition"
-                            value={formData.teamPosition}
-                            onChange={handleInputChange}
-                            disabled={!isEditing}
-                            placeholder="Team Position"
-                        />
-                    </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Shift</label>
-                        <Input
-                            name="shift"
-                            value={formData.shift}
-                            onChange={handleInputChange}
-                            disabled={!isEditing}
-                            placeholder="Shift"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
-                        <Input
-                            name="location"
-                            value={formData.location}
-                            onChange={handleInputChange}
-                            disabled={!isEditing}
-                            placeholder="Location"
                         />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Team Position</label>
+                        <Input
+                            name="teamPosition"
+                            value={formData.teamPosition}
+                            onChange={handleInputChange}
+                            disabled={true}
+                            placeholder="Team Position"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Shift</label>
+                        <Input
+                            name="shift"
+                            value={formData.shift}
+                            onChange={handleInputChange}
+                            disabled={true}
+                            placeholder="Shift"
+                        />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                        <Input
+                            name="location"
+                            value={formData.location}
+                            onChange={handleInputChange}
+                            disabled={true}
+                            placeholder="Location"
+                        />
+                    </div>
+                    <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Time Zone</label>
                         <Input
                             name="timeZone"
                             value={formData.timeZone}
                             onChange={handleInputChange}
-                            disabled={!isEditing}
+                            disabled={true}
                             placeholder="Time Zone"
                         />
                     </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Site</label>
+                        <Input
+                            name="site"
+                            value={formData.site}
+                            onChange={handleInputChange}
+                            disabled={true}
+                            placeholder="Site"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Building / Area</label>
+                        <Input
+                            name="building"
+                            value={formData.building}
+                            onChange={handleInputChange}
+                            disabled={true}
+                            placeholder="Building / Area"
+                        />
+                    </div>
+                </div>
+
+                <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">
+                        Employment Status & Type
+                    </h3>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Employee Type</label>
+                        <SearchableDropdown
+                            options={employeeTypes}
+                            value={formData.empType}
+                            onChange={(value) => handleInputChange({ target: { name: 'empType', value: value as string } } as any)}
+                            disabled={true}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Employee Status</label>
+                        <SearchableDropdown
+                            options={employeeStatuses}
+                            value={formData.employeeStatus}
+                            onChange={(value) => handleInputChange({ target: { name: 'employeeStatus', value: value as string } } as any)}
+                            disabled={true}
+                        />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Date of Joining</label>
+                        <Input
+                            name="dateOfJoining"
+                            type="date"
+                            value={formData.dateOfJoining}
+                            onChange={handleInputChange}
+                            disabled={true}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Contract Type</label>
+                        <SearchableDropdown
+                            options={contractTypes}
+                            value={formData.contractType}
+                            onChange={(value) => handleInputChange({ target: { name: 'contractType', value: value as string } } as any)}
+                            disabled={true}
+                        />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Contract Start Date</label>
+                        <Input
+                            name="contractStartDate"
+                            type="date"
+                            value={formData.contractStartDate}
+                            onChange={handleInputChange}
+                            disabled={true}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Contract End Date</label>
+                        <Input
+                            name="contractEndDate"
+                            type="date"
+                            value={formData.contractEndDate}
+                            onChange={handleInputChange}
+                            disabled={true}
+                        />
                     </div>
                 </div>
 
@@ -256,22 +377,11 @@ export default function ProfileForm({
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Gender <span className="text-red-500">*</span>
                         </label>
-                        <Select
+                        <SearchableDropdown
+                            options={genders}
                             value={formData.gender}
-                            onValueChange={(value) => handleSelectChange(value, "gender")}
-                            disabled={!isEditing}
-                        >
-                            <SelectTrigger disabled={!isEditing}>
-                                <SelectValue placeholder="Select Gender" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {genders.map((g) => (
-                                    <SelectItem key={g} value={g}>
-                                        {g}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            onChange={(value) => handleInputChange({ target: { name: 'gender', value: value as string } } as any)}
+                        />
                     </div>
                 </div>
 
@@ -280,41 +390,19 @@ export default function ProfileForm({
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Marital Status <span className="text-red-500">*</span>
                         </label>
-                        <Select
+                        <SearchableDropdown
+                            options={maritalStatuses}
                             value={formData.maritalStatus}
-                            onValueChange={(value) => handleSelectChange(value, "maritalStatus")}
-                            disabled={!isEditing}
-                        >
-                            <SelectTrigger disabled={!isEditing}>
-                                <SelectValue placeholder="Select Marital Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {maritalStatuses.map((m) => (
-                                    <SelectItem key={m} value={m}>
-                                        {m}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            onChange={(value) => handleInputChange({ target: { name: 'maritalStatus', value: value as string } } as any)}
+                        />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Blood Group</label>
-                        <Select
+                        <SearchableDropdown
+                            options={bloodGroups}
                             value={formData.bloodGroup}
-                            onValueChange={(value) => handleSelectChange(value, "bloodGroup")}
-                            disabled={!isEditing}
-                        >
-                            <SelectTrigger disabled={!isEditing}>
-                                <SelectValue placeholder="Select Blood Group" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {bloodGroups.map((b) => (
-                                    <SelectItem key={b} value={b}>
-                                        {b}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            onChange={(value) => handleInputChange({ target: { name: 'bloodGroup', value: value as string } } as any)}
+                        />
                     </div>
                 </div>
             </Card>
@@ -329,40 +417,40 @@ export default function ProfileForm({
                 <div className="grid grid-cols-2 gap-4 mb-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            UAN (Universal Account Number) <span className="text-red-500">*</span>
+                            IBAN <span className="text-red-500">*</span>
                         </label>
                         <Input
-                            name="uan"
-                            value={formData.uan}
+                            name="iban"
+                            value={formData.iban}
                             onChange={handleInputChange}
                             disabled={!isEditing}
-                            placeholder="e.g. 123456789012"
+                            placeholder="e.g. AE07 0331 2345 6789 0123 456"
                         />
                         <div className="flex items-center justify-between mt-2">
-                            <p className="text-xs text-gray-500">12-digit UAN</p>
+                            <p className="text-xs text-gray-500">23-digit IBAN</p>
                             <div className="flex items-center gap-2">
-                                <input type="file" id="uanDoc" className="hidden" onChange={(e) => handleFileChange(e, "uanDoc")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
-                                <label htmlFor="uanDoc" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                <input type="file" id="ibanDoc" className="hidden" onChange={(e) => handleFileChange(e, "ibanDoc")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
+                                <label htmlFor="ibanDoc" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
                                     <Upload className="w-3 h-3" />
-                                    {formData.uanDocUrl ? 'Change' : 'Upload Doc'}
+                                    {formData.ibanDocUrl ? 'Change' : 'Upload Doc'}
                                 </label>
-                                {formData.uanDocUrl && <span className="text-[10px] text-green-600 font-medium">✓ Uploaded</span>}
+                                {formData.ibanDocUrl && <span className="text-[10px] text-green-600 font-medium">✓ Uploaded</span>}
                             </div>
                         </div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            PAN (Permanent Account Number) <span className="text-red-500">*</span>
+                            MOL/MOHER <span className="text-red-500">*</span>
                         </label>
                         <Input
                             name="pan"
                             value={formData.pan}
                             onChange={handleInputChange}
                             disabled={!isEditing}
-                            placeholder="e.g. ABCDE1234F"
+                            placeholder="e.g. 5010932"
                         />
                         <div className="flex items-center justify-between mt-2">
-                            <p className="text-xs text-gray-500">10-character alphanumeric</p>
+                            <p className="text-xs text-gray-500">7 to 9 digits MOL/MOHER</p>
                             <div className="flex items-center gap-2">
                                 <input type="file" id="panDoc" className="hidden" onChange={(e) => handleFileChange(e, "panDoc")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
                                 <label htmlFor="panDoc" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
@@ -376,29 +464,6 @@ export default function ProfileForm({
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Aadhaar Number <span className="text-red-500">*</span>
-                        </label>
-                        <Input
-                            name="aadhaarNumber"
-                            value={formData.aadhaarNumber}
-                            onChange={handleInputChange}
-                            disabled={!isEditing}
-                            placeholder="e.g. 1234 5678 9012"
-                        />
-                        <div className="flex items-center justify-between mt-2">
-                            <p className="text-xs text-gray-500">12-digit Aadhaar</p>
-                            <div className="flex items-center gap-2">
-                                <input type="file" id="aadharDoc" className="hidden" onChange={(e) => handleFileChange(e, "aadharDoc")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
-                                <label htmlFor="aadharDoc" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                    <Upload className="w-3 h-3" />
-                                    {formData.aadhaarDocUrl ? 'Change' : 'Upload Doc'}
-                                </label>
-                                {formData.aadhaarDocUrl && <span className="text-[10px] text-green-600 font-medium">✓ Uploaded</span>}
-                            </div>
-                        </div>
-                    </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Passport Number</label>
                         <Input
@@ -417,30 +482,6 @@ export default function ProfileForm({
                                     {formData.passportDocUrl ? 'Change' : 'Upload Doc'}
                                 </label>
                                 {formData.passportDocUrl && <span className="text-[10px] text-green-600 font-medium">✓ Uploaded</span>}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Driving License Number</label>
-                        <Input
-                            name="drivingLicenseNumber"
-                            value={formData.drivingLicenseNumber}
-                            onChange={handleInputChange}
-                            disabled={!isEditing}
-                            placeholder="e.g. DL1420110012345"
-                        />
-                        <div className="flex items-center justify-between mt-2">
-                            <p className="text-xs text-gray-500">Alphanumeric (Optional)</p>
-                            <div className="flex items-center gap-2">
-                                <input type="file" id="drivingLicenseDoc" className="hidden" onChange={(e) => handleFileChange(e, "drivingLicenseDoc")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
-                                <label htmlFor="drivingLicenseDoc" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                    <Upload className="w-3 h-3" />
-                                    {formData.drivingLicenseDocUrl ? 'Change' : 'Upload Doc'}
-                                </label>
-                                {formData.drivingLicenseDocUrl && <span className="text-[10px] text-green-600 font-medium">✓ Uploaded</span>}
                             </div>
                         </div>
                     </div>
@@ -742,22 +783,12 @@ export default function ProfileForm({
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             State <span className="text-red-500">*</span>
                         </label>
-                        <Select
+                        <SearchableDropdown
+                            options={states}
                             value={formData.address.state}
-                            onValueChange={(value) => handleSelectChange(value, "address.state")}
-                            disabled={!isEditing}
-                        >
-                            <SelectTrigger disabled={!isEditing}>
-                                <SelectValue placeholder="Select State" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {states.map((s) => (
-                                    <SelectItem key={s} value={s}>
-                                        {s}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            onChange={(value) => handleInputChange({ target: { value: value as string } } as any, "address", "state")}
+                            placeholder="Select State"
+                        />
                     </div>
                 </div>
 
@@ -766,22 +797,12 @@ export default function ProfileForm({
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Country <span className="text-red-500">*</span>
                         </label>
-                        <Select
+                        <SearchableDropdown
+                            options={countries}
                             value={formData.address.country}
-                            onValueChange={(value) => handleSelectChange(value, "address.country")}
-                            disabled={!isEditing}
-                        >
-                            <SelectTrigger disabled={!isEditing}>
-                                <SelectValue placeholder="Select Country" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {countries.map((c) => (
-                                    <SelectItem key={c} value={c}>
-                                        {c}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            onChange={(value) => handleInputChange({ target: { value: value as string } } as any, "address", "country")}
+                            placeholder="Select Country"
+                        />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -796,7 +817,7 @@ export default function ProfileForm({
                     </div>
                 </div>
 
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Emergency Contact</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 mt-6">Emergency Contact</h3>
                 <div className="grid grid-cols-3 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -829,6 +850,77 @@ export default function ProfileForm({
                             onChange={(e) => handleInputChange(e, "emergencyContact", "contactNumber")}
                             disabled={!isEditing}
                             placeholder="Enter phone number"
+                        />
+                    </div>
+                </div>
+            </Card>
+
+            {/* Salary & Bank Details Section */}
+            <Card className="mb-6 p-6">
+                <h2 className="text-xl font-bold mb-4 text-gray-900">Salary & Bank Details</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Basic Salary</label>
+                        <Input
+                            name="basicSalary"
+                            type="number"
+                            value={formData.basicSalary}
+                            onChange={handleInputChange}
+                            disabled={true}
+                            placeholder="Enter basic salary"
+                        />
+                    </div>
+                </div>
+
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Bank Account Details</h3>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Bank Name</label>
+                        <Input
+                            value={formData.bankDetails.bankName}
+                            onChange={(e) => handleInputChange(e, "bankDetails", "bankName")}
+                            disabled={true}
+                            placeholder="Bank Name"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Branch Name</label>
+                        <Input
+                            value={formData.bankDetails.branchName}
+                            onChange={(e) => handleInputChange(e, "bankDetails", "branchName")}
+                            disabled={true}
+                            placeholder="Branch Name"
+                        />
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Account Number</label>
+                        <Input
+                            value={formData.bankDetails.accountNumber}
+                            onChange={(e) => handleInputChange(e, "bankDetails", "accountNumber")}
+                            disabled={true}
+                            placeholder="Account Number"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Account Holder Name</label>
+                        <Input
+                            value={formData.bankDetails.accountHolderName}
+                            onChange={(e) => handleInputChange(e, "bankDetails", "accountHolderName")}
+                            disabled={true}
+                            placeholder="Account Holder Name"
+                        />
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">IFSC Code</label>
+                        <Input
+                            value={formData.bankDetails.ifscCode}
+                            onChange={(e) => handleInputChange(e, "bankDetails", "ifscCode")}
+                            disabled={true}
+                            placeholder="IFSC Code"
                         />
                     </div>
                 </div>

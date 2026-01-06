@@ -23,6 +23,9 @@ type Reportee = {
   status: 'checked-in' | 'checked-out' | 'yet-to-check-in';
   employeeId: string; // Add employeeId for profile lookup
   isCheckedIn: boolean;
+  isCheckedOut: boolean;
+  checkInTime?: string;
+  checkOutTime?: string;
 };
 
 
@@ -70,6 +73,10 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, initialIsCh
   }, [initialIsCheckedIn]);
 
   useEffect(() => {
+    setIsCheckedOut(initialIsCheckedOut);
+  }, [initialIsCheckedOut]);
+
+  useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (isCheckedIn) {
       interval = setInterval(() => { setSeconds((prev) => prev + 1); }, 1000);
@@ -105,6 +112,7 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, initialIsCh
           return;
         }
         setIsCheckedIn(false);
+        setIsCheckedOut(true);
         setSeconds(0);
         onCheckInStatusChange?.(false);
       } else {
@@ -284,6 +292,16 @@ const ReporteesCard = ({
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   };
 
+  const formatTimeDisplay = (isoString?: string) => {
+    if (!isoString) return null;
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      return null;
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 flex flex-col h-full w-full">
       {/* Header */}
@@ -377,7 +395,7 @@ const ReporteesCard = ({
           return (
             <div
               key={person.id}
-              className={`flex items-center gap-3 p-2 rounded-lg transition-all ${isSelected
+              className={`flex items-center gap-3 p-2 rounded-lg transition-all ${person.isCheckedOut ? 'bg-gray-50 opacity-60' : isSelected
                 ? person.isCheckedIn
                   ? 'bg-orange-50 border-2 border-orange-400'
                   : 'bg-blue-50 border-2 border-blue-400'
@@ -386,13 +404,13 @@ const ReporteesCard = ({
             >
               {/* Selection checkbox */}
               <div
-                className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors cursor-pointer ${isSelected
+                className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${person.isCheckedOut ? 'border-gray-200 bg-gray-100 cursor-not-allowed' : 'cursor-pointer'} ${isSelected
                   ? person.isCheckedIn
                     ? 'border-orange-500 bg-orange-500'
                     : 'border-blue-500 bg-blue-500'
                   : 'border-gray-300 hover:border-gray-400'
                   }`}
-                onClick={() => onSelectReportee(person.employeeId)}
+                onClick={() => !person.isCheckedOut && onSelectReportee(person.employeeId)}
               >
                 {isSelected && <Check className="w-3 h-3 text-white" />}
               </div>
@@ -406,32 +424,48 @@ const ReporteesCard = ({
 
               {/* Info */}
               <div className="min-w-0 flex-1">
-                <p
-                  className="text-sm text-gray-700 font-medium truncate hover:text-blue-600 transition-colors cursor-pointer"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEmployeeClick(person.employeeId, person.name);
-                  }}
-                >
-                  {person.name}
-                </p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  {person.status === 'checked-in' ? (
-                    <>
-                      <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                      <span className="text-[11px] text-green-600 font-medium">Checked In</span>
-                    </>
-                  ) : person.status === 'checked-out' ? (
-                    <>
-                      <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
-                      <span className="text-[11px] text-gray-500 font-medium">Checked Out</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="w-2 h-2 bg-red-400 rounded-full"></span>
-                      <span className="text-[11px] text-red-500 font-medium">Yet to check-in</span>
-                    </>
-                  )}
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p
+                      className="text-sm text-gray-700 font-medium truncate hover:text-blue-600 transition-colors cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEmployeeClick(person.employeeId, person.name);
+                      }}
+                    >
+                      {person.name}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {person.status === 'checked-in' ? (
+                        <>
+                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                          <span className="text-[11px] text-green-600 font-medium">Checked In</span>
+                        </>
+                      ) : person.status === 'checked-out' ? (
+                        <>
+                          <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+                          <span className="text-[11px] text-gray-500 font-medium">Checked Out</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-2 h-2 bg-red-400 rounded-full"></span>
+                          <span className="text-[11px] text-red-500 font-medium">Yet to check-in</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Times Display */}
+                <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500 border-t border-gray-50 pt-1.5">
+                  <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-0.5 rounded">
+                    <span className="font-medium text-gray-600">In:</span>
+                    <span className="font-mono">{formatTimeDisplay(person.checkInTime) || '--:--'}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-0.5 rounded">
+                    <span className="font-medium text-gray-600">Out:</span>
+                    <span className="font-mono">{formatTimeDisplay(person.checkOutTime) || '--:--'}</span>
+                  </div>
                 </div>
               </div>
 
@@ -569,6 +603,8 @@ export default function Dashboard() {
         // Fetch attendance status for all employees
         let attendanceMap: Record<string, boolean> = {};
         let checkedOutMap: Record<string, boolean> = {};
+        let attendanceDetails: Record<string, { checkInTime?: string; checkOutTime?: string }> = {};
+
         try {
           const today = new Date().toISOString().split('T')[0];
           const attendanceRes = await attendanceService.getDailyAttendance(authOrgId, today);
@@ -579,6 +615,11 @@ export default function Dashboard() {
           if (Array.isArray(attendanceData)) {
             attendanceData.forEach((record: any) => {
               if (record.employeeId) {
+                attendanceDetails[record.employeeId] = {
+                  checkInTime: record.checkInTime,
+                  checkOutTime: record.checkOutTime
+                };
+
                 // If there's a check-in but no check-out, they are active
                 if (record.checkInTime && !record.checkOutTime) {
                   attendanceMap[record.employeeId] = true;
@@ -604,13 +645,18 @@ export default function Dashboard() {
           const empId = emp.id || emp._id;
           const isCheckedIn = !!attendanceMap[empId];
           const isCheckedOut = !!checkedOutMap[empId];
+          const times = attendanceDetails[empId] || {};
+
           return {
             id: empId,
             name: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.email,
             roleId: emp.employeeId || empId,
             status: isCheckedIn ? 'checked-in' : (isCheckedOut ? 'checked-out' : 'yet-to-check-in'),
             employeeId: empId,
-            isCheckedIn: isCheckedIn
+            isCheckedIn: isCheckedIn,
+            isCheckedOut: isCheckedOut,
+            checkInTime: times.checkInTime,
+            checkOutTime: times.checkOutTime
           };
         }));
 
@@ -705,8 +751,9 @@ export default function Dashboard() {
       const [hours, minutes] = globalCheckInTime.split(':');
       const checkInDate = new Date();
       checkInDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      const isoTime = checkInDate.toISOString();
 
-      const response = await attendanceService.bulkCheckIn(orgId, employeeIds, checkInDate.toISOString());
+      const response = await attendanceService.bulkCheckIn(orgId, employeeIds, isoTime);
 
       if (response.error) {
         showAlert('Bulk Check-in Failed', response.error, 'error');
@@ -722,7 +769,7 @@ export default function Dashboard() {
         if (successCount > 0) {
           setReportees(prev => prev.map(r =>
             successfulIds.includes(r.employeeId)
-              ? { ...r, isCheckedIn: true, status: 'checked-in' }
+              ? { ...r, isCheckedIn: true, status: 'checked-in', checkInTime: isoTime }
               : r
           ));
         }
@@ -736,6 +783,8 @@ export default function Dashboard() {
 
       // Clear selection
       setSelectedReporteeIds([]);
+      // Trigger refresh to ensure consistency
+      setRefreshTrigger(prev => prev + 1);
     } catch (error: any) {
       console.error('Error checking in reportees:', error);
       showAlert('Check-in Failed', 'An unexpected error occurred', 'error');
@@ -756,8 +805,9 @@ export default function Dashboard() {
       const [hours, minutes] = globalCheckOutTime.split(':');
       const checkOutDate = new Date();
       checkOutDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      const isoTime = checkOutDate.toISOString();
 
-      const response = await attendanceService.bulkCheckOut(orgId, employeeIds, checkOutDate.toISOString());
+      const response = await attendanceService.bulkCheckOut(orgId, employeeIds, isoTime);
 
       if (response.error) {
         showAlert('Bulk Check-out Failed', response.error, 'error');
@@ -773,7 +823,7 @@ export default function Dashboard() {
         if (successCount > 0) {
           setReportees(prev => prev.map(r =>
             successfulIds.includes(r.employeeId)
-              ? { ...r, isCheckedIn: false, status: 'yet-to-check-in' }
+              ? { ...r, isCheckedIn: false, isCheckedOut: true, status: 'checked-out', checkOutTime: isoTime }
               : r
           ));
         }
@@ -787,6 +837,8 @@ export default function Dashboard() {
 
       // Clear selection
       setSelectedReporteeIds([]);
+      // Trigger refresh to ensure consistency
+      setRefreshTrigger(prev => prev + 1);
     } catch (error: any) {
       console.error('Error checking out reportees:', error);
       showAlert('Check-out Failed', 'An unexpected error occurred', 'error');

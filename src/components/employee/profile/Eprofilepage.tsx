@@ -60,6 +60,21 @@ export default function EmployeeProfilePage() {
           shift: employee.shiftType || employee.shift || "",
           location: employee.location?.name || "",
           timeZone: employee.timeZone || "",
+          site: employee.site || employee.siteId || "",
+          building: employee.building || "",
+          empType: employee.employeeType || employee.empType || "",
+          employeeStatus: employee.status || employee.employeeStatus || "",
+          contractType: employee.contractType || "",
+          contractStartDate: employee.contractStartDate ? employee.contractStartDate.split("T")[0] : "",
+          contractEndDate: employee.contractEndDate ? employee.contractEndDate.split("T")[0] : "",
+          basicSalary: employee.basicSalary || "",
+          bankDetails: {
+            bankName: employee.bankDetails?.[0]?.bankName || employee.bankDetails?.bankName || "",
+            branchName: employee.bankDetails?.[0]?.branchName || employee.bankDetails?.branchName || "",
+            accountNumber: employee.bankDetails?.[0]?.accountNumber || employee.bankDetails?.accountNumber || "",
+            accountHolderName: employee.bankDetails?.[0]?.accountHolderName || employee.bankDetails?.accountHolderName || "",
+            ifscCode: employee.bankDetails?.[0]?.ifscCode || employee.bankDetails?.ifscCode || "",
+          },
           dateOfBirth: employee.dateOfBirth ? employee.dateOfBirth.split("T")[0] : "",
           gender: employee.gender || "",
           maritalStatus: employee.maritalStatus || "",
@@ -243,7 +258,12 @@ export default function EmployeeProfilePage() {
       if (!token || !orgId || !employeeId) return
 
       const formDataToSend = new FormData()
-      const readOnlyFields = ['department', 'designation', 'location', 'reportingTo', 'role']
+      const readOnlyFields = [
+        'role', 'department', 'designation', 'reportingTo', 'teamPosition',
+        'shift', 'location', 'timeZone', 'site', 'building',
+        'empType', 'employeeStatus', 'contractType', 'contractStartDate', 'contractEndDate',
+        'basicSalary', 'bankDetails'
+      ]
 
       Object.keys(formData).forEach(key => {
         if (readOnlyFields.includes(key)) return

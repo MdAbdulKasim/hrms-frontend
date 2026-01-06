@@ -48,9 +48,17 @@ const SYSTEM_FIELDS = [
     { key: 'role', label: 'Role/Designation', required: true },
     { key: 'department', label: 'Department', required: true },
     { key: 'location', label: 'Location', required: true },
+    { key: 'site', label: 'Site', required: false },
+    { key: 'building', label: 'Building / Area', required: false },
     { key: 'reportingTo', label: 'Reporting Manager', required: false },
+    { key: 'empType', label: 'Employee Type (Permanent/Temporary)', required: false },
+    { key: 'employeeStatus', label: 'Employee Status (Active/Inactive)', required: false },
     { key: 'dateOfJoining', label: 'Date of Joining', required: true },
     { key: 'shift', label: 'Shift', required: false },
+    { key: 'contractType', label: 'Contract Type', required: false },
+    { key: 'contractStartDate', label: 'Contract Start Date', required: false },
+    { key: 'contractEndDate', label: 'Contract End Date', required: false },
+    { key: 'timeZone', label: 'Time Zone', required: false },
     { key: 'basicSalary', label: 'Basic Salary', required: false },
     { key: 'employeeNumber', label: 'Employee ID (for Updates)', required: false },
     { key: 'bankName', label: 'Bank Name', required: false },
@@ -58,9 +66,6 @@ const SYSTEM_FIELDS = [
     { key: 'accountNumber', label: 'Account Number', required: false },
     { key: 'accountHolderName', label: 'Account Holder Name', required: false },
     { key: 'ifscCode', label: 'IFSC Code', required: false },
-    { key: 'pan', label: 'PAN Card', required: false },
-    { key: 'aadhaar', label: 'Aadhaar Card', required: false },
-    { key: 'uan', label: 'UAN Number', required: false },
 ];
 
 const BulkImport: React.FC<BulkImportProps> = ({
@@ -165,25 +170,30 @@ const BulkImport: React.FC<BulkImportProps> = ({
             ];
 
             rows = dummyNames.map((name, i) => [
-                `${name} ${timestamp}`, // Unique name
-                `${name.toLowerCase().replace(' ', '.')}.${timestamp}${i}@example.com`, // Unique email
-                `9876${timestamp}${i}`, // Unique mobile
-                designations[0]?.designationName || 'Software Engineer',
-                departments[0]?.departmentName || 'Engineering',
-                locations[0]?.locationName || 'Bangalore',
-                reportingManagers[0]?.fullName || '',
-                new Date().toISOString().split('T')[0],
-                shifts[0]?.shiftName || 'Morning',
-                '50000',
-                '',
-                'State Bank of India',
-                'Main Branch',
-                `12345${timestamp}${i}`,
-                `${name} ${timestamp}`,
-                'SBIN0001234',
-                'ABCDE1234F',
-                '123456789012',
-                '100123456789'
+                `${name} ${timestamp}`, // Full Name
+                `${name.toLowerCase().replace(' ', '.')}.${timestamp}${i}@example.com`, // Email Address
+                `9876${timestamp}${i}`, // Mobile Number
+                designations[0]?.designationName || 'Software Engineer', // Role
+                departments[0]?.departmentName || 'Engineering', // Department
+                locations[0]?.locationName || 'Bangalore', // Location
+                locations[0]?.sites?.[0]?.siteName || '', // Site
+                locations[0]?.sites?.[0]?.buildings?.[0]?.buildingName || '', // Building
+                reportingManagers[0]?.fullName || '', // Reporting Manager
+                'Permanent', // Employee Type
+                'Active', // Employee Status
+                new Date().toISOString().split('T')[0], // Date of Joining
+                shifts[0]?.shiftName || 'Morning', // Shift
+                'fixed-term', // Contract Type
+                new Date().toISOString().split('T')[0], // Contract Start Date
+                '', // Contract End Date
+                'Asia/Kolkata', // Time Zone
+                '50000', // Basic Salary
+                '', // Employee ID (for Updates)
+                'State Bank of India', // Bank Name
+                'Main Branch', // Branch Name
+                `12345${timestamp}${i}`, // Account Number
+                `${name} ${timestamp}`, // Account Holder Name
+                'SBIN0001234' // IFSC Code
             ]);
         } else {
             // Map existing employees
@@ -208,19 +218,24 @@ const BulkImport: React.FC<BulkImportProps> = ({
                     getDesignation(),
                     getDepartment(),
                     getLocation(),
+                    emp.siteId || '',
+                    emp.buildingId || '',
                     emp.reportingTo?.fullName || '',
+                    emp.empType || 'permanent',
+                    emp.employeeStatus || 'Active',
                     emp.dateOfJoining || '',
                     emp.shift?.shiftName || emp.shift || '',
+                    emp.contractType || '',
+                    emp.contractStartDate || '',
+                    emp.contractEndDate || '',
+                    emp.timeZone || 'Asia/Kolkata',
                     emp.basicSalary || '',
                     emp.employeeNumber || emp.employeeId || emp.id || '',
                     emp.bankDetails?.bankName || '',
                     emp.bankDetails?.branchName || '',
                     emp.bankDetails?.accountNumber || '',
                     emp.bankDetails?.accountHolderName || '',
-                    emp.bankDetails?.ifscCode || '',
-                    emp.pan || emp.panCard || '',
-                    emp.aadhaar || '',
-                    emp.uan || ''
+                    emp.bankDetails?.ifscCode || ''
                 ];
             });
         }
@@ -259,6 +274,32 @@ const BulkImport: React.FC<BulkImportProps> = ({
                     const desigId = findId('role', designations, 'designationName');
                     const deptId = findId('department', departments, 'departmentName');
                     const locId = findId('location', locations, 'locationName');
+
+                    // Specific logic for site and building
+                    let siteId;
+                    let buildingId;
+                    if (locId) {
+                        const location = locations.find(l => (l.id === locId || l._id === locId));
+                        if (location && location.sites) {
+                            const siteVal = row[columnMapping['site']];
+                            if (siteVal) {
+                                const site = location.sites.find((s: any) =>
+                                    String(s.siteName || s.name || '').toLowerCase() === String(siteVal).toLowerCase().trim()
+                                );
+                                if (site) {
+                                    siteId = site.id || site._id || site.name;
+                                    const bldgVal = row[columnMapping['building']];
+                                    if (bldgVal && site.buildings) {
+                                        const bldg = site.buildings.find((b: any) =>
+                                            String(b.buildingName || b.name || '').toLowerCase() === String(bldgVal).toLowerCase().trim()
+                                        );
+                                        if (bldg) buildingId = bldg.id || bldg._id || bldg.name;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     const repId = findId('reportingTo', reportingManagers, 'fullName');
                     const shiftId = findId('shift', shifts, 'shiftName');
 
@@ -267,9 +308,9 @@ const BulkImport: React.FC<BulkImportProps> = ({
                         email: String(row[columnMapping['email']] || '').trim().toLowerCase(),
                         organizationId: orgId,
                         role: 'employee',
-                        empType: 'permanent',
-                        timeZone: 'Asia/Kolkata',
-                        employeeStatus: 'Active',
+                        empType: String(row[columnMapping['empType']] || 'permanent').trim().toLowerCase(),
+                        timeZone: String(row[columnMapping['timeZone']] || 'Asia/Kolkata').trim(),
+                        employeeStatus: String(row[columnMapping['employeeStatus']] || 'Active').trim(),
                         accommodationAllowances: [],
                         insurances: [],
                     };
@@ -278,8 +319,15 @@ const BulkImport: React.FC<BulkImportProps> = ({
                     if (desigId) emp.designationId = desigId;
                     if (deptId) emp.departmentId = deptId;
                     if (locId) emp.locationId = locId;
+                    if (siteId) emp.siteId = siteId;
+                    if (buildingId) emp.buildingId = buildingId;
                     if (repId) emp.reportingToId = repId;
                     if (shiftId) emp.shiftType = shiftId;
+
+                    // Contract
+                    if (row[columnMapping['contractType']]) emp.contractType = String(row[columnMapping['contractType']]).trim();
+                    if (row[columnMapping['contractStartDate']]) emp.contractStartDate = String(row[columnMapping['contractStartDate']]).trim();
+                    if (row[columnMapping['contractEndDate']]) emp.contractEndDate = String(row[columnMapping['contractEndDate']]).trim();
 
                     // Only add fields if they have content
                     const phone = row[columnMapping['phoneNumber']] || row[columnMapping['mobileNumber']];
@@ -290,10 +338,6 @@ const BulkImport: React.FC<BulkImportProps> = ({
 
                     const salary = row[columnMapping['basicSalary']];
                     if (salary) emp.basicSalary = String(salary).trim();
-
-                    const pan = row[columnMapping['pan']]; if (pan) emp.pan = String(pan).trim();
-                    const aadhaar = row[columnMapping['aadhaar']]; if (aadhaar) emp.aadhaar = String(aadhaar).trim();
-                    const uan = row[columnMapping['uan']]; if (uan) emp.uan = String(uan).trim();
 
                     const bankName = row[columnMapping['bankName']];
                     const accNum = row[columnMapping['accountNumber']];
@@ -330,11 +374,11 @@ const BulkImport: React.FC<BulkImportProps> = ({
                 const response = await axios.post(
                     `${apiUrl}/org/${orgId}/employees/bulk`,
                     mappedData,
-                    { 
-                        headers: { 
+                    {
+                        headers: {
                             'Authorization': `Bearer ${token}`,
                             'Content-Type': 'application/json'
-                        } 
+                        }
                     }
                 );
 
@@ -350,7 +394,7 @@ const BulkImport: React.FC<BulkImportProps> = ({
                     message: error.message,
                 });
                 const serverError = error.response?.data?.error || error.response?.data?.message;
-                
+
                 if (String(serverError || error.message).includes('transaction is aborted')) {
                     setErrors(['Import failed: Database transaction error. This usually happens if an employee in your file already exists in the system (Duplicate Email) or has invalid IDs. Please check for existing records.']);
                 } else {
@@ -391,11 +435,55 @@ const BulkImport: React.FC<BulkImportProps> = ({
                     const deptId = findId('department', departments, 'departmentName');
                     if (deptId) updateData.departmentId = deptId;
 
+                    // Location, Site, Building for Update
                     const locId = findId('location', locations, 'locationName');
-                    if (locId) updateData.locationId = locId;
+                    if (locId) {
+                        updateData.locationId = locId;
+                        const location = locations.find(l => (l.id === locId || l._id === locId));
+                        if (location && location.sites) {
+                            const siteVal = row[columnMapping['site']];
+                            if (siteVal) {
+                                const site = location.sites.find((s: any) =>
+                                    String(s.siteName || s.name || '').toLowerCase() === String(siteVal).toLowerCase().trim()
+                                );
+                                if (site) {
+                                    updateData.siteId = site.id || site._id || site.name;
+                                    const bldgVal = row[columnMapping['building']];
+                                    if (bldgVal && site.buildings) {
+                                        const bldg = site.buildings.find((b: any) =>
+                                            String(b.buildingName || b.name || '').toLowerCase() === String(bldgVal).toLowerCase().trim()
+                                        );
+                                        if (bldg) updateData.buildingId = bldg.id || bldg._id || bldg.name;
+                                    }
+                                }
+                            }
+                        }
+                    }
 
+                    if (row[columnMapping['empType']]) updateData.empType = String(row[columnMapping['empType']]).toLowerCase().trim();
+                    if (row[columnMapping['employeeStatus']]) updateData.employeeStatus = String(row[columnMapping['employeeStatus']]).trim();
                     if (row[columnMapping['dateOfJoining']]) updateData.dateOfJoining = row[columnMapping['dateOfJoining']];
+
+                    const shiftId = findId('shift', shifts, 'shiftName');
+                    if (shiftId) updateData.shiftType = shiftId;
+
+                    if (row[columnMapping['contractType']]) updateData.contractType = String(row[columnMapping['contractType']]).trim();
+                    if (row[columnMapping['contractStartDate']]) updateData.contractStartDate = String(row[columnMapping['contractStartDate']]).trim();
+                    if (row[columnMapping['contractEndDate']]) updateData.contractEndDate = String(row[columnMapping['contractEndDate']]).trim();
+                    if (row[columnMapping['timeZone']]) updateData.timeZone = String(row[columnMapping['timeZone']]).trim();
                     if (row[columnMapping['basicSalary']]) updateData.basicSalary = row[columnMapping['basicSalary']];
+
+                    const bankName = row[columnMapping['bankName']];
+                    const accNum = row[columnMapping['accountNumber']];
+                    if (bankName || accNum) {
+                        updateData.bankDetails = {
+                            bankName: String(bankName || '').trim(),
+                            branchName: String(row[columnMapping['branchName']] || '').trim(),
+                            accountNumber: String(accNum || '').trim(),
+                            accountHolderName: String(row[columnMapping['accountHolderName']] || '').trim(),
+                            ifscCode: String(row[columnMapping['ifscCode']] || '').trim(),
+                        };
+                    }
 
                     try {
                         await axios.put(
