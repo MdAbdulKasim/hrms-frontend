@@ -277,7 +277,7 @@ export default function PayHistoryPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-600">Total Amount Paid</p>
-              <p className="text-3xl font-bold text-green-600 mt-2">₹{stats.totalAmount.toLocaleString()}</p>
+              <p className="text-3xl font-bold text-green-600 mt-2">AED {stats.totalAmount.toLocaleString()}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
               <DollarSign className="w-6 h-6 text-green-600" />
@@ -289,7 +289,7 @@ export default function PayHistoryPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-600">Average Payment</p>
-              <p className="text-3xl font-bold text-indigo-600 mt-2">₹{Math.round(stats.avgPayment).toLocaleString()}</p>
+              <p className="text-3xl font-bold text-indigo-600 mt-2">AED {Math.round(stats.avgPayment).toLocaleString()}</p>
             </div>
             <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
               <TrendingUp className="w-6 h-6 text-indigo-600" />
@@ -417,10 +417,10 @@ export default function PayHistoryPage() {
                       {r.payPeriodStart} to {r.payPeriodEnd}
                     </TableCell>
                     <TableCell className="font-semibold text-slate-900">
-                      ₹{r.grossSalary.toLocaleString()}
+                      AED {r.grossSalary.toLocaleString()}
                     </TableCell>
                     <TableCell className="text-green-600 font-bold">
-                      ₹{r.netPay.toLocaleString()}
+                      AED {r.netPay.toLocaleString()}
                     </TableCell>
                     <TableCell className="text-slate-600">
                       {r.paidDate.toLocaleDateString()}
@@ -520,15 +520,15 @@ export default function PayHistoryPage() {
                 <div className="space-y-3">
                   <div className="flex justify-between items-center pb-2 border-b border-green-200">
                     <span className="text-green-700 font-medium">Gross Salary</span>
-                    <span className="text-green-900 font-bold text-lg">₹{viewDetails.grossSalary.toLocaleString()}</span>
+                    <span className="text-green-900 font-bold text-lg">AED {viewDetails.grossSalary.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center pb-2 border-b border-green-200">
                     <span className="text-green-700 font-medium">Total Deductions</span>
-                    <span className="text-red-600 font-bold">-₹{viewDetails.totalDeductions.toLocaleString()}</span>
+                    <span className="text-red-600 font-bold">-AED {viewDetails.totalDeductions.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center pt-2">
                     <span className="text-green-700 font-semibold text-lg">Net Pay</span>
-                    <span className="text-green-700 font-bold text-2xl">₹{viewDetails.netPay.toLocaleString()}</span>
+                    <span className="text-green-700 font-bold text-2xl">AED {viewDetails.netPay.toLocaleString()}</span>
                   </div>
                 </div>
               </div>
@@ -542,19 +542,19 @@ export default function PayHistoryPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex justify-between items-center bg-white rounded-lg p-3 shadow-sm">
                     <span className="text-orange-700 text-sm font-medium">Home</span>
-                    <span className="text-orange-900 font-semibold">₹{viewDetails.deductionBreakdown.homeDeduction.toLocaleString()}</span>
+                    <span className="text-orange-900 font-semibold">AED {viewDetails.deductionBreakdown.homeDeduction.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center bg-white rounded-lg p-3 shadow-sm">
                     <span className="text-orange-700 text-sm font-medium">Food</span>
-                    <span className="text-orange-900 font-semibold">₹{viewDetails.deductionBreakdown.foodDeduction.toLocaleString()}</span>
+                    <span className="text-orange-900 font-semibold">AED {viewDetails.deductionBreakdown.foodDeduction.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center bg-white rounded-lg p-3 shadow-sm">
                     <span className="text-orange-700 text-sm font-medium">Travel</span>
-                    <span className="text-orange-900 font-semibold">₹{viewDetails.deductionBreakdown.travelDeduction.toLocaleString()}</span>
+                    <span className="text-orange-900 font-semibold">AED {viewDetails.deductionBreakdown.travelDeduction.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center bg-white rounded-lg p-3 shadow-sm">
                     <span className="text-orange-700 text-sm font-medium">Insurance</span>
-                    <span className="text-orange-900 font-semibold">₹{viewDetails.deductionBreakdown.insuranceDeduction.toLocaleString()}</span>
+                    <span className="text-orange-900 font-semibold">AED {viewDetails.deductionBreakdown.insuranceDeduction.toLocaleString()}</span>
                   </div>
                 </div>
               </div>

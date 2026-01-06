@@ -235,7 +235,7 @@ export default function PayrunViewPage() {
           <div className="flex justify-between items-center py-3 border-b border-slate-200">
             <span className="font-medium text-slate-700">Basic Salary</span>
             <span className="text-lg font-bold text-slate-900">
-              ₹{salaryBreakdown.basicSalary.toLocaleString()}
+              AED {salaryBreakdown.basicSalary.toLocaleString()}
             </span>
           </div>
 
@@ -243,7 +243,7 @@ export default function PayrunViewPage() {
           <div className="flex justify-between items-center py-3 border-b border-slate-200">
             <span className="font-medium text-green-700">Total Allowances</span>
             <span className="text-lg font-bold text-green-600">
-              +₹{salaryBreakdown.totalAllowances.toLocaleString()}
+              +AED {salaryBreakdown.totalAllowances.toLocaleString()}
             </span>
           </div>
 
@@ -251,7 +251,7 @@ export default function PayrunViewPage() {
           <div className="flex justify-between items-center py-3 border-b border-slate-200 bg-slate-50 px-4 -mx-6 rounded-lg">
             <span className="font-semibold text-slate-800">Gross Salary</span>
             <span className="text-xl font-bold text-slate-900">
-              ₹{salaryBreakdown.grossSalary.toLocaleString()}
+              AED {salaryBreakdown.grossSalary.toLocaleString()}
             </span>
           </div>
 
@@ -259,7 +259,7 @@ export default function PayrunViewPage() {
           <div className="flex justify-between items-center py-3 border-b border-slate-200">
             <span className="font-medium text-red-700">Total Deductions</span>
             <span className="text-lg font-bold text-red-600">
-              -₹{salaryBreakdown.totalDeductions.toLocaleString()}
+              -AED {salaryBreakdown.totalDeductions.toLocaleString()}
             </span>
           </div>
 
@@ -267,7 +267,7 @@ export default function PayrunViewPage() {
           <div className="flex justify-between items-center py-4 bg-gradient-to-r from-purple-50 to-blue-50 px-4 -mx-6 rounded-lg">
             <span className="font-bold text-slate-800 text-lg">Net Salary (Take Home)</span>
             <span className="text-2xl font-bold text-purple-600">
-              ₹{salaryBreakdown.netSalary.toLocaleString()}
+              AED {salaryBreakdown.netSalary.toLocaleString()}
             </span>
           </div>
         </div>
@@ -306,10 +306,10 @@ export default function PayrunViewPage() {
                     <TableCell className="text-slate-600">
                       {allowance.type === "percentage"
                         ? `${allowance.value}%`
-                        : `₹${allowance.value.toLocaleString()}`}
+                        : `AED${allowance.value.toLocaleString()}`}
                     </TableCell>
                     <TableCell className="text-right font-bold text-green-600">
-                      ₹{allowance.calculatedAmount.toLocaleString()}
+                      AED {allowance.calculatedAmount.toLocaleString()}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -318,7 +318,7 @@ export default function PayrunViewPage() {
                     TOTAL ALLOWANCES
                   </TableCell>
                   <TableCell className="text-right font-bold text-green-600 text-lg">
-                    ₹{salaryBreakdown.totalAllowances.toLocaleString()}
+                    AED {salaryBreakdown.totalAllowances.toLocaleString()}
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -360,10 +360,10 @@ export default function PayrunViewPage() {
                     <TableCell className="text-slate-600">
                       {deduction.type === "percentage"
                         ? `${deduction.value}%`
-                        : `₹${deduction.value.toLocaleString()}`}
+                        : `AED${deduction.value.toLocaleString()}`}
                     </TableCell>
                     <TableCell className="text-right font-bold text-red-600">
-                      ₹{deduction.calculatedAmount.toLocaleString()}
+                      AED {deduction.calculatedAmount.toLocaleString()}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -372,7 +372,7 @@ export default function PayrunViewPage() {
                     TOTAL DEDUCTIONS
                   </TableCell>
                   <TableCell className="text-right font-bold text-red-600 text-lg">
-                    ₹{salaryBreakdown.totalDeductions.toLocaleString()}
+                    AED {salaryBreakdown.totalDeductions.toLocaleString()}
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -437,7 +437,7 @@ function SummaryCard({
         </div>
       </div>
       <p className={`text-2xl font-bold ${highlight ? "text-purple-600" : "text-slate-900"}`}>
-        {prefix}₹{value.toLocaleString()}
+        {prefix}AED {value.toLocaleString()}
       </p>
     </div>
   )
