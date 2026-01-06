@@ -81,111 +81,147 @@ export default function PayrunViewPage() {
     /* ================= LOAD FROM STORAGE ================= */
 
     useEffect(() => {
-        const fetchSalaryData = async () => {
-            setIsLoading(true)
-            setError(null)
+        const fetchSalaryData = async (paramEmployeeId?: string) => {
+            setIsLoading(true);
+            setError(null);
+
+            const organizationId = getOrgId();
+            const activeEmployeeId = paramEmployeeId || getEmployeeId();
+
+            if (!organizationId) {
+                setError("Organization ID not found");
+                setIsLoading(false);
+                return;
+            }
+
+            // Check session storage first for preview data (Admin Flow - specifically when coming from PayRun)
+            const storedData = sessionStorage.getItem("payrun-view-employee");
+            if (storedData && !id) {
+                try {
+                    const parsedData = JSON.parse(storedData);
+                    // Verify if the stored data belongs to the requested employee if we have an ID context
+                    if (!activeEmployeeId || parsedData.id === activeEmployeeId) {
+                        console.log("Using session storage data for preview");
+                        setEmployee(parsedData);
+                        setIsLoading(false);
+                        return;
+                    }
+                } catch (e) {
+                    console.error("Failed to parse stored salary data", e);
+                }
+            }
 
             try {
-                const orgId = getOrgId()
-                const role = getUserRole()
-                const currentEmployeeId = employeeIdParam || getEmployeeId()
+                let salaryRecord: any = null;
 
-                if (!orgId) {
-                    setError("Organization ID not found")
-                    setIsLoading(false)
-                    return
+                // Priority 1: If a specific salary ID is in the URL (admin view), fetch that specific record
+                if (id) {
+                    console.log("Fetching specific salary record:", id);
+                    try {
+                        const response = await axiosInstance.get(`/org/${organizationId}/salaries/${id}`);
+                        const data = response.data;
+                        salaryRecord = data.data || data;
+
+                        if (salaryRecord) {
+                            // Valid record found, map it
+                            const empInfo = salaryRecord.employee || {};
+                            const mappedEmployee: PayrollEmployee = {
+                                id: empInfo.id || empInfo._id || salaryRecord.employeeId || "",
+                                name: empInfo.fullName || `${empInfo.firstName || ""} ${empInfo.lastName || ""}`.trim() || salaryRecord.employeeName || "Unknown Employee",
+                                department: empInfo.department?.name || empInfo.department?.departmentName || salaryRecord.department || "N/A",
+                                designation: empInfo.designation?.name || empInfo.designation?.designationName || salaryRecord.designation || "N/A",
+                                location: empInfo.location?.name || empInfo.location?.locationName || salaryRecord.location || "N/A",
+                                basicSalary: Number(salaryRecord.basicSalary || salaryRecord.salary || 0),
+                                allowances: (salaryRecord.allowances || []).map((a: any) => ({
+                                    id: a.id || a._id || Math.random().toString(),
+                                    name: a.name || "Allowance",
+                                    value: Number(a.value || 0),
+                                    type: a.type || "fixed"
+                                })),
+                                deductions: (salaryRecord.deductions || []).map((d: any) => ({
+                                    id: d.id || d._id || Math.random().toString(),
+                                    name: d.name || "Deduction",
+                                    value: Number(d.value || 0),
+                                    type: d.type || "fixed"
+                                })),
+                                overtimeHours: Number(salaryRecord.overtimeHours || 0),
+                                overtimeAmount: Number(salaryRecord.overtimeAmount || 0),
+                            };
+                            setEmployee(mappedEmployee);
+                            setIsLoading(false);
+                            return;
+                        }
+                    } catch (err: any) {
+                        console.warn("Failed to fetch specific salary record:", err.message);
+                    }
                 }
 
-                let salaryRecord: any = null
+                // Priority 2: Fetch Employee Profile for current/estimated view
+                // This is the fallback for Employees or if specific salary record fetch failed
+                if (activeEmployeeId) {
+                    console.log("Fetching employee profile for salary structure:", activeEmployeeId);
+                    const employeeRes = await axiosInstance.get(`/org/${organizationId}/employees/${activeEmployeeId}`);
+                    const empData = employeeRes.data.data || employeeRes.data;
 
-                // ROLE BASED FETCHING
-                if (role === 'admin') {
-                    if (id) {
-                        // Admin fetching specific record
-                        const response = await axiosInstance.get(`/org/${orgId}/salaries/${id}`)
-                        salaryRecord = response.data.data || response.data
-                    } else if (currentEmployeeId) {
-                        // Admin fetching by employee ID
-                        const response = await axiosInstance.get(`/org/${orgId}/salaries/employee/${currentEmployeeId}`)
-                        const records = response.data.data || response.data
-                        salaryRecord = Array.isArray(records) ? records[0] : records
+                    if (empData) {
+                        const basic = Number(empData.basicSalary || empData.salary || 0);
+
+                        // Parse allowances
+                        const allowances: Allowance[] = (empData.accommodationAllowances || empData.allowances || []).map((a: any) => {
+                            const val = Number(a.value || a.percentage || 0);
+                            const type = a.type || (a.percentage ? "percentage" : "fixed");
+                            return {
+                                id: a.id || a._id || Math.random().toString(),
+                                name: a.name || a.type || "Allowance",
+                                value: val,
+                                type: type
+                            };
+                        });
+
+                        // Parse deductions
+                        const deductions: Deduction[] = (empData.insurances || empData.deductions || []).map((d: any) => {
+                            const val = Number(d.value || d.percentage || 0);
+                            const type = d.type || (d.percentage ? "percentage" : "fixed");
+                            return {
+                                id: d.id || d._id || Math.random().toString(),
+                                name: d.name || d.type || "Deduction",
+                                value: val,
+                                type: type
+                            };
+                        });
+
+                        // Construct a PayrollEmployee object
+                        const mappedEmployee: PayrollEmployee = {
+                            id: empData.id || empData._id || "",
+                            name: empData.fullName || `${empData.firstName || ""} ${empData.lastName || ""}`.trim() || "Unknown Employee",
+                            department: empData.department?.name || empData.department?.departmentName || "N/A",
+                            designation: empData.designation?.name || empData.designation?.designationName || "N/A",
+                            location: empData.location?.name || empData.location?.locationName || "N/A",
+                            basicSalary: basic,
+                            allowances: allowances,
+                            deductions: deductions,
+                            overtimeHours: 0,
+                            overtimeAmount: 0,
+                        };
+
+                        setEmployee(mappedEmployee);
+                    } else {
+                        throw new Error("Employee profile not found");
                     }
                 } else {
-                    // EMPLOYEE FLOW - Always use my-history to avoid 403
-                    // This endpoint must be added to the backend SalaryReportController
-                    const response = await axiosInstance.get(`/org/${orgId}/salaries/my-history`)
-                    const records = response.data.data || response.data
-
-                    if (Array.isArray(records) && records.length > 0) {
-                        if (id) {
-                            // Target specific ID if provided in URL, otherwise latest
-                            salaryRecord = records.find((r: any) => (r.id || r._id) === id) || records[0]
-                        } else {
-                            salaryRecord = records[0]
-                        }
-                    } else if (records && !Array.isArray(records)) {
-                        salaryRecord = records
-                    }
+                    throw new Error("No employee ID provided");
                 }
 
-                if (!salaryRecord) {
-                    // Fallback to session storage only if no record found via API
-                    const stored = sessionStorage.getItem("payrun-view-employee")
-                    if (stored) {
-                        setEmployee(JSON.parse(stored))
-                    } else {
-                        setError("No salary record found")
-                    }
-                    return
-                }
-
-                // Map backend record to PayrollEmployee interface
-                const empInfo = salaryRecord.employee || {}
-                const mappedEmployee: PayrollEmployee = {
-                    id: empInfo.id || empInfo._id || salaryRecord.employeeId || "",
-                    name: empInfo.fullName || `${empInfo.firstName || ""} ${empInfo.lastName || ""}`.trim() || salaryRecord.employeeName || "Unknown Employee",
-                    department: empInfo.department?.name || empInfo.department?.departmentName || salaryRecord.department || "N/A",
-                    designation: empInfo.designation?.name || empInfo.designation?.designationName || salaryRecord.designation || "N/A",
-                    location: empInfo.location?.name || empInfo.location?.locationName || salaryRecord.location || "N/A",
-                    basicSalary: Number(salaryRecord.basicSalary || salaryRecord.salary || 0),
-                    allowances: (salaryRecord.allowances || []).map((a: any) => ({
-                        id: a.id || a._id || Math.random().toString(),
-                        name: a.name || "Allowance",
-                        value: Number(a.value || 0),
-                        type: a.type || "fixed"
-                    })),
-                    deductions: (salaryRecord.deductions || []).map((d: any) => ({
-                        id: d.id || d._id || Math.random().toString(),
-                        name: d.name || "Deduction",
-                        value: Number(d.value || 0),
-                        type: d.type || "fixed"
-                    })),
-                    overtimeHours: Number(salaryRecord.overtimeHours || 0),
-                    overtimeAmount: Number(salaryRecord.overtimeAmount || 0),
-                }
-
-                setEmployee(mappedEmployee)
             } catch (err: any) {
-                console.error("Failed to fetch salary data", err)
-                setError(err.response?.data?.error || err.message || "Failed to load salary record")
-
-                // Secondary fallback to session storage
-                const stored = sessionStorage.getItem("payrun-view-employee")
-                if (stored) {
-                    try {
-                        setEmployee(JSON.parse(stored))
-                        setError(null)
-                    } catch (e) {
-                        console.error("Session storage fallback failed", e)
-                    }
-                }
+                console.error("Error fetching salary data:", err);
+                setError(err.response?.data?.error || err.message || "Failed to load salary record");
             } finally {
-                setIsLoading(false)
+                setIsLoading(false);
             }
-        }
+        };
 
-        fetchSalaryData()
-    }, [id, employeeIdParam])
+        fetchSalaryData();
+    }, [id, employeeIdParam]);
 
     /* ================= PDF DOWNLOAD ================= */
 
@@ -483,20 +519,20 @@ function CorporateTealTemplate({ employee, salaryBreakdown }: { employee: Payrol
                         <tbody className="divide-y divide-slate-200">
                             <tr>
                                 <td className="px-4 py-2">Basic Salary</td>
-                                <td className="text-right px-4 py-2">₹{salaryBreakdown.basicSalary.toLocaleString()}</td>
+                                <td className="text-right px-4 py-2">AED {salaryBreakdown.basicSalary.toLocaleString()}</td>
                                 <td className="text-right px-4 py-2 border-l"></td>
                             </tr>
                             {salaryBreakdown.allowancesWithAmount.map((a: any, i: number) => (
                                 <tr key={i}>
                                     <td className="px-4 py-2">{a.name}</td>
-                                    <td className="text-right px-4 py-2">₹{a.calculatedAmount.toLocaleString()}</td>
+                                    <td className="text-right px-4 py-2">AED {a.calculatedAmount.toLocaleString()}</td>
                                     <td className="text-right px-4 py-2 border-l"></td>
                                 </tr>
                             ))}
                             {salaryBreakdown.overtimeAmount > 0 && (
                                 <tr>
                                     <td className="px-4 py-2">Overtime ({employee.overtimeHours} hrs)</td>
-                                    <td className="text-right px-4 py-2">₹{salaryBreakdown.overtimeAmount.toLocaleString()}</td>
+                                    <td className="text-right px-4 py-2">AED {salaryBreakdown.overtimeAmount.toLocaleString()}</td>
                                     <td className="text-right px-4 py-2 border-l"></td>
                                 </tr>
                             )}
@@ -504,14 +540,14 @@ function CorporateTealTemplate({ employee, salaryBreakdown }: { employee: Payrol
                                 <tr key={i}>
                                     <td className="px-4 py-2">{d.name}</td>
                                     <td className="text-right px-4 py-2"></td>
-                                    <td className="text-right px-4 py-2 border-l">₹{d.calculatedAmount.toLocaleString()}</td>
+                                    <td className="text-right px-4 py-2 border-l">AED {d.calculatedAmount.toLocaleString()}</td>
                                 </tr>
                             ))}
                             {/* Padding rows if needed */}
                             <tr className="bg-[#1a5662] text-white font-bold">
                                 <td className="px-4 py-2 text-xs">TOTALS</td>
-                                <td className="text-right px-4 py-2">₹{salaryBreakdown.grossSalary.toLocaleString()}</td>
-                                <td className="text-right px-4 py-2 border-l-2 border-white">₹{salaryBreakdown.totalDeductions.toLocaleString()}</td>
+                                <td className="text-right px-4 py-2">AED {salaryBreakdown.grossSalary.toLocaleString()}</td>
+                                <td className="text-right px-4 py-2 border-l-2 border-white">AED {salaryBreakdown.totalDeductions.toLocaleString()}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -520,7 +556,7 @@ function CorporateTealTemplate({ employee, salaryBreakdown }: { employee: Payrol
                 {/* Summary */}
                 <div className="bg-[#1a5662] text-white p-4 flex justify-between items-center mb-8">
                     <span className="font-bold">NET PAYABLE AMOUNT</span>
-                    <span className="text-2xl font-black">₹{salaryBreakdown.netSalary.toLocaleString()}</span>
+                    <span className="text-2xl font-black">AED {salaryBreakdown.netSalary.toLocaleString()}</span>
                 </div>
 
                 {/* Footer */}
@@ -585,11 +621,11 @@ function ProfessionalBrownTemplate({ employee, salaryBreakdown }: { employee: Pa
 
                     <div className="bg-slate-50 border border-slate-200 p-6 flex flex-col justify-center items-center rounded-sm">
                         <p className="text-[10px] font-black text-slate-400 tracking-[0.3em] mb-2 uppercase">Total Net Payment</p>
-                        <p className="text-4xl font-black text-[#8B6F47]">₹{salaryBreakdown.netSalary.toLocaleString()}</p>
+                        <p className="text-4xl font-black text-[#8B6F47]">AED {salaryBreakdown.netSalary.toLocaleString()}</p>
                         <div className="w-full h-px bg-slate-200 my-4"></div>
                         <div className="text-[10px] font-bold text-slate-500 flex gap-4">
-                            <span>GROSS: ₹{salaryBreakdown.grossSalary.toLocaleString()}</span>
-                            <span className="text-red-400">DED: ₹{salaryBreakdown.totalDeductions.toLocaleString()}</span>
+                            <span>GROSS: AED {salaryBreakdown.grossSalary.toLocaleString()}</span>
+                            <span className="text-red-400">DED: AED {salaryBreakdown.totalDeductions.toLocaleString()}</span>
                         </div>
                     </div>
                 </div>
@@ -600,29 +636,29 @@ function ProfessionalBrownTemplate({ employee, salaryBreakdown }: { employee: Pa
                         <thead className="text-slate-400 border-b border-slate-200">
                             <tr>
                                 <th className="text-left py-2 font-black text-[10px] tracking-widest">DESCRIPTION</th>
-                                <th className="text-right py-2 font-black text-[10px] tracking-widest">AMOUNT (INR)</th>
+                                <th className="text-right py-2 font-black text-[10px] tracking-widest">AMOUNT (AED)</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             <tr>
                                 <td className="py-3 font-medium">Basic Component</td>
-                                <td className="py-3 text-right font-bold">₹{salaryBreakdown.basicSalary.toLocaleString()}</td>
+                                <td className="py-3 text-right font-bold">AED {salaryBreakdown.basicSalary.toLocaleString()}</td>
                             </tr>
                             {salaryBreakdown.allowancesWithAmount.map((a: any, i: number) => (
                                 <tr key={i}>
                                     <td className="py-3 font-medium">{a.name}</td>
-                                    <td className="py-3 text-right font-bold">₹{a.calculatedAmount.toLocaleString()}</td>
+                                    <td className="py-3 text-right font-bold">AED {a.calculatedAmount.toLocaleString()}</td>
                                 </tr>
                             ))}
                             {salaryBreakdown.overtimeAmount > 0 && (
                                 <tr>
                                     <td className="py-3 font-medium">Overtime ({employee.overtimeHours} hrs)</td>
-                                    <td className="py-3 text-right font-bold">₹{salaryBreakdown.overtimeAmount.toLocaleString()}</td>
+                                    <td className="py-3 text-right font-bold">AED {salaryBreakdown.overtimeAmount.toLocaleString()}</td>
                                 </tr>
                             )}
                             <tr className="bg-slate-50 font-black border-t border-slate-300">
                                 <td className="py-3 px-2">GROSS EARNINGS</td>
-                                <td className="py-3 px-2 text-right">₹{salaryBreakdown.grossSalary.toLocaleString()}</td>
+                                <td className="py-3 px-2 text-right">AED {salaryBreakdown.grossSalary.toLocaleString()}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -635,18 +671,18 @@ function ProfessionalBrownTemplate({ employee, salaryBreakdown }: { employee: Pa
                             {salaryBreakdown.deductionsWithAmount.map((d: any, i: number) => (
                                 <tr key={i}>
                                     <td className="py-3 font-medium text-slate-600">{d.name}</td>
-                                    <td className="py-3 text-right font-bold text-red-500">-₹{d.calculatedAmount.toLocaleString()}</td>
+                                    <td className="py-3 text-right font-bold text-red-500">-AED {d.calculatedAmount.toLocaleString()}</td>
                                 </tr>
                             ))}
                             {salaryBreakdown.deductionsWithAmount.length === 0 && (
                                 <tr>
                                     <td className="py-3 font-medium text-slate-400 italic">No deductions applied</td>
-                                    <td className="py-3 text-right font-bold">₹0</td>
+                                    <td className="py-3 text-right font-bold">AED 0</td>
                                 </tr>
                             )}
                             <tr className="bg-slate-50 font-black border-t border-slate-300">
                                 <td className="py-3 px-2">TOTAL DEDUCTIONS</td>
-                                <td className="py-3 px-2 text-right text-red-500">-₹{salaryBreakdown.totalDeductions.toLocaleString()}</td>
+                                <td className="py-3 px-2 text-right text-red-500">-AED {salaryBreakdown.totalDeductions.toLocaleString()}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -658,7 +694,7 @@ function ProfessionalBrownTemplate({ employee, salaryBreakdown }: { employee: Pa
                         <p className="text-[10px] font-bold opacity-60">Verified Statement - Online Payroll System</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-3xl font-black italic tracking-tight">₹{salaryBreakdown.netSalary.toLocaleString()}</p>
+                        <p className="text-3xl font-black italic tracking-tight">AED {salaryBreakdown.netSalary.toLocaleString()}</p>
                     </div>
                 </div>
 
@@ -710,8 +746,8 @@ function MinimalCleanTemplate({ employee, salaryBreakdown }: { employee: Payroll
                     <div className="space-y-4">
                         <h3 className="text-xs font-black border-l-4 border-slate-800 pl-3 uppercase tracking-widest">Calculations</h3>
                         <div className="space-y-1 text-sm">
-                            <p className="flex justify-between"><span className="text-slate-500">Gross:</span> <span className="font-bold">₹{salaryBreakdown.grossSalary.toLocaleString()}</span></p>
-                            <p className="flex justify-between"><span className="text-slate-500">Tax/Ded:</span> <span className="font-bold text-red-500">-₹{salaryBreakdown.totalDeductions.toLocaleString()}</span></p>
+                            <p className="flex justify-between"><span className="text-slate-500">Gross:</span> <span className="font-bold">AED {salaryBreakdown.grossSalary.toLocaleString()}</span></p>
+                            <p className="flex justify-between"><span className="text-slate-500">Tax/Ded:</span> <span className="font-bold text-red-500">-AED {salaryBreakdown.totalDeductions.toLocaleString()}</span></p>
                         </div>
                     </div>
                 </div>
@@ -729,20 +765,20 @@ function MinimalCleanTemplate({ employee, salaryBreakdown }: { employee: Payroll
                             <tbody className="divide-y divide-slate-50">
                                 <tr>
                                     <td className="py-4 px-4 font-bold">Standard Base Pay</td>
-                                    <td className="py-4 px-4 text-right font-bold text-slate-800">₹{salaryBreakdown.basicSalary.toLocaleString()}</td>
+                                    <td className="py-4 px-4 text-right font-bold text-slate-800">AED {salaryBreakdown.basicSalary.toLocaleString()}</td>
                                     <td className="py-4 px-4 text-right">-</td>
                                 </tr>
                                 {salaryBreakdown.allowancesWithAmount.map((a: any, i: number) => (
                                     <tr key={i}>
                                         <td className="py-4 px-4 font-medium text-slate-600">{a.name}</td>
-                                        <td className="py-4 px-4 text-right font-bold text-slate-800">₹{a.calculatedAmount.toLocaleString()}</td>
+                                        <td className="py-4 px-4 text-right font-bold text-slate-800">AED {a.calculatedAmount.toLocaleString()}</td>
                                         <td className="py-4 px-4 text-right">-</td>
                                     </tr>
                                 ))}
                                 {salaryBreakdown.overtimeAmount > 0 && (
                                     <tr>
                                         <td className="py-4 px-4 font-medium text-slate-600">Overtime Pay ({employee.overtimeHours} hrs)</td>
-                                        <td className="py-4 px-4 text-right font-bold text-slate-800">₹{salaryBreakdown.overtimeAmount.toLocaleString()}</td>
+                                        <td className="py-4 px-4 text-right font-bold text-slate-800">AED {salaryBreakdown.overtimeAmount.toLocaleString()}</td>
                                         <td className="py-4 px-4 text-right">-</td>
                                     </tr>
                                 )}
@@ -750,7 +786,7 @@ function MinimalCleanTemplate({ employee, salaryBreakdown }: { employee: Payroll
                                     <tr key={i}>
                                         <td className="py-4 px-4 font-medium text-slate-600">{d.name}</td>
                                         <td className="py-4 px-4 text-right">-</td>
-                                        <td className="py-4 px-4 text-right font-bold text-red-500">₹{d.calculatedAmount.toLocaleString()}</td>
+                                        <td className="py-4 px-4 text-right font-bold text-red-500">AED {d.calculatedAmount.toLocaleString()}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -764,7 +800,7 @@ function MinimalCleanTemplate({ employee, salaryBreakdown }: { employee: Payroll
                         <p className="text-sm font-bold opacity-80">Paid via Bank Transfer</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-4xl font-black tracking-tight">₹{salaryBreakdown.netSalary.toLocaleString()}</p>
+                        <p className="text-4xl font-black tracking-tight">AED {salaryBreakdown.netSalary.toLocaleString()}</p>
                     </div>
                 </div>
 
@@ -796,7 +832,7 @@ function ModernGradientTemplate({ employee, salaryBreakdown }: { employee: Payro
                     <div className="text-right">
                         <div className="bg-black/20 backdrop-blur-md px-4 py-3 rounded-xl border border-white/10">
                             <p className="text-[10px] font-black text-blue-200 uppercase tracking-widest mb-1">Payable Net</p>
-                            <p className="text-3xl font-black">₹{salaryBreakdown.netSalary.toLocaleString()}</p>
+                            <p className="text-3xl font-black">AED {salaryBreakdown.netSalary.toLocaleString()}</p>
                         </div>
                     </div>
                 </div>
@@ -818,16 +854,16 @@ function ModernGradientTemplate({ employee, salaryBreakdown }: { employee: Payro
                         <div className="space-y-3">
                             <div className="flex justify-between items-end">
                                 <span className="text-[10px] font-black text-slate-400 uppercase">Gross Credit</span>
-                                <span className="text-lg font-black text-slate-800">₹{salaryBreakdown.grossSalary.toLocaleString()}</span>
+                                <span className="text-lg font-black text-slate-800">AED {salaryBreakdown.grossSalary.toLocaleString()}</span>
                             </div>
                             <div className="flex justify-between items-end">
                                 <span className="text-[10px] font-black text-slate-400 uppercase">Total Debit</span>
-                                <span className="text-lg font-black text-red-500">₹{salaryBreakdown.totalDeductions.toLocaleString()}</span>
+                                <span className="text-lg font-black text-red-500">AED {salaryBreakdown.totalDeductions.toLocaleString()}</span>
                             </div>
                             <div className="h-px bg-slate-200"></div>
                             <div className="flex justify-between items-end">
                                 <span className="text-[10px] font-black text-slate-400 uppercase">Final Net</span>
-                                <span className="text-xl font-black text-blue-600">₹{salaryBreakdown.netSalary.toLocaleString()}</span>
+                                <span className="text-xl font-black text-blue-600">AED {salaryBreakdown.netSalary.toLocaleString()}</span>
                             </div>
                         </div>
                     </div>
@@ -841,18 +877,18 @@ function ModernGradientTemplate({ employee, salaryBreakdown }: { employee: Payro
                         <div className="space-y-4">
                             <div className="flex justify-between text-sm group">
                                 <span className="font-bold text-slate-600">Base Component</span>
-                                <span className="font-black text-slate-800">₹{salaryBreakdown.basicSalary.toLocaleString()}</span>
+                                <span className="font-black text-slate-800">AED {salaryBreakdown.basicSalary.toLocaleString()}</span>
                             </div>
                             {salaryBreakdown.allowancesWithAmount.map((a: any, i: number) => (
                                 <div key={i} className="flex justify-between text-sm">
                                     <span className="font-bold text-slate-600">{a.name}</span>
-                                    <span className="font-black text-slate-800">₹{a.calculatedAmount.toLocaleString()}</span>
+                                    <span className="font-black text-slate-800">AED {a.calculatedAmount.toLocaleString()}</span>
                                 </div>
                             ))}
                             {salaryBreakdown.overtimeAmount > 0 && (
                                 <div className="flex justify-between text-sm">
                                     <span className="font-bold text-slate-600">Overtime ({employee.overtimeHours} hrs)</span>
-                                    <span className="font-black text-slate-800">₹{salaryBreakdown.overtimeAmount.toLocaleString()}</span>
+                                    <span className="font-black text-slate-800">AED {salaryBreakdown.overtimeAmount.toLocaleString()}</span>
                                 </div>
                             )}
                         </div>
@@ -865,7 +901,7 @@ function ModernGradientTemplate({ employee, salaryBreakdown }: { employee: Payro
                             {salaryBreakdown.deductionsWithAmount.map((d: any, i: number) => (
                                 <div key={i} className="flex justify-between text-sm">
                                     <span className="font-bold text-slate-600">{d.name}</span>
-                                    <span className="font-black text-red-500">₹{d.calculatedAmount.toLocaleString()}</span>
+                                    <span className="font-black text-red-500">AED {d.calculatedAmount.toLocaleString()}</span>
                                 </div>
                             ))}
                             {salaryBreakdown.deductionsWithAmount.length === 0 && (
@@ -882,7 +918,7 @@ function ModernGradientTemplate({ employee, salaryBreakdown }: { employee: Payro
                             <p className="text-xs font-black tracking-widest mb-1 opacity-40 uppercase">Statement of Earnings</p>
                             <p className="text-lg font-black tracking-tight">Net Payable Amount</p>
                         </div>
-                        <p className="text-5xl font-black italic tracking-tighter">₹{salaryBreakdown.netSalary.toLocaleString()}</p>
+                        <p className="text-5xl font-black italic tracking-tighter">AED {salaryBreakdown.netSalary.toLocaleString()}</p>
                     </div>
                 </div>
 

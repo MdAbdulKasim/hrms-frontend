@@ -37,6 +37,7 @@ import {
 import { getApiUrl, getAuthToken, getOrgId } from "@/lib/auth"
 import { CustomAlertDialog } from "@/components/ui/custom-dialogs"
 import WPSSIFPage from "./SIFfile"
+import { eosbService } from "@/lib/eosbService"
 
 /* ================= TYPES ================= */
 
@@ -68,6 +69,10 @@ export interface SalaryEmployee {
   paidDate?: Date
   overtimeHours: number
   overtimeAmount: number
+  joiningDate?: string
+  employmentStatus?: string
+  exitDate?: string
+  eosbAmount?: number // Stored EOSB amount from backend
 }
 
 /* ================= PAGE ================= */
@@ -290,6 +295,10 @@ export default function SalaryPage() {
         const hourlyRate = dailyRate / 9;
         const overtimeAmount = overtimeHours * hourlyRate;
 
+        // Fetch EOSB from backend if applicable (Terminated or Resigned)
+        // We can't await inside map properly without Promise.all, so we'll do a separate pass or just fetch for all relevant ones.
+        // For simplicity and performance, we will fetch EOSB concurrently after mapping initial data.
+
         return {
           id: empId,
           name: emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "",
@@ -303,11 +312,26 @@ export default function SalaryPage() {
           selected: false,
           paidDate: salaryRecord?.paidDate ? new Date(salaryRecord.paidDate) : undefined,
           overtimeHours: parseFloat(overtimeHours.toFixed(2)),
-          overtimeAmount: Math.round(overtimeAmount)
+          overtimeAmount: Math.round(overtimeAmount),
+          joiningDate: emp.joiningDate || emp.dateOfJoining || emp.startDate,
+          employmentStatus: emp.status || emp.employeeStatus || "Active",
+          exitDate: emp.exitDate || emp.relievingDate || emp.terminationDate || emp.resignationDate
         }
       })
 
-      setEmployees(formatted)
+      // Fetch EOSB for relevant employees
+      const employeesWithEosb = await Promise.all(formatted.map(async (emp) => {
+        const statusLower = (emp.employmentStatus || "").toLowerCase();
+        if (statusLower.includes('terminat') || statusLower.includes('resign')) {
+          const eosbRes = await eosbService.getByEmployeeId(orgId as string, emp.id);
+          if (eosbRes.data) {
+            return { ...emp, eosbAmount: eosbRes.data.amount }; // Use backend value
+          }
+        }
+        return emp;
+      }));
+
+      setEmployees(employeesWithEosb)
 
     } catch (error: any) {
       console.error("Failed to fetch data", error)
@@ -321,16 +345,79 @@ export default function SalaryPage() {
 
   /* ================= SALARY CALCULATIONS ================= */
 
+  const calculateEOSB = (employee: SalaryEmployee) => {
+    // If backend has a stored EOSB value, prioritize it
+    if (employee.eosbAmount !== undefined) {
+      return employee.eosbAmount;
+    }
+
+    const { joiningDate, exitDate, basicSalary, employmentStatus: status } = employee;
+
+    if (!joiningDate || !status) return 0;
+
+    // Only calculate for Terminated or Resigned
+    const statusLower = status.toLowerCase();
+    if (!statusLower.includes('terminat') && !statusLower.includes('resign')) return 0;
+
+    // Use current date if exit date is missing (assuming immediate processing)
+    const end = exitDate ? new Date(exitDate) : new Date();
+    const start = new Date(joiningDate);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+
+    // Calculate years of service
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const years = diffDays / 365;
+
+    if (years < 1) return 0;
+
+    // Daily basic salary (30-day month rule)
+    const dailyBasic = basicSalary / 30;
+
+    let gratuity = 0;
+
+    // Base Gratuity Calculation (Same for both, multiplier differs for resignation)
+    // First 5 years: 21 days
+    // Above 5 years: 30 days
+    let baseGratuity = 0;
+    if (years <= 5) {
+      baseGratuity = years * 21 * dailyBasic;
+    } else {
+      baseGratuity = (5 * 21 * dailyBasic) + ((years - 5) * 30 * dailyBasic);
+    }
+
+    if (statusLower.includes('terminat')) {
+      // Termination Logic: Full Gratuity
+      gratuity = baseGratuity;
+    } else if (statusLower.includes('resign')) {
+      // Resignation Logic (UAE Standard / SME Friendly)
+      // 1-3 years: 1/3
+      // 3-5 years: 2/3
+      // > 5 years: Full
+
+      if (years < 1) gratuity = 0;
+      else if (years < 3) gratuity = baseGratuity * (1 / 3);
+      else if (years < 5) gratuity = baseGratuity * (2 / 3);
+      else gratuity = baseGratuity;
+    }
+
+    return Math.round(gratuity);
+  }
+
   const calculateEmployeeSalary = (employee: SalaryEmployee) => {
     const basicSalary = employee.basicSalary
 
-    // Calculate allowances
-    const totalAllowances = employee.allowances.reduce((sum, allowance) => {
+    // Calculate Allowances
+    let totalAllowances = employee.allowances.reduce((sum, allowance) => {
       const amount = allowance.type === "percentage"
         ? (basicSalary * allowance.value) / 100
         : allowance.value
       return sum + amount
     }, 0)
+
+    const eosbAmount = calculateEOSB(employee);
+    totalAllowances += eosbAmount;
 
     const grossSalary = basicSalary + totalAllowances + employee.overtimeAmount
 
@@ -350,7 +437,8 @@ export default function SalaryPage() {
       overtimeAmount: employee.overtimeAmount,
       grossSalary,
       totalDeductions,
-      netSalary
+      netSalary,
+      eosbAmount // Exposed for potential display if needed, but aggregated into allowances as requested
     }
   }
 
@@ -576,7 +664,7 @@ export default function SalaryPage() {
                 <div className="min-w-0">
                   <p className="text-xs xs:text-sm font-medium text-slate-600 truncate">Pending Amount</p>
                   <p className="text-xl xs:text-2xl sm:text-3xl font-bold text-green-600 mt-1 xs:mt-2 truncate">
-                    ₹{stats.totalPending.toLocaleString()}
+                    AED {stats.totalPending.toLocaleString()}
                   </p>
                 </div>
                 <div className="w-8 h-8 xs:w-10 xs:h-10 sm:w-12 sm:h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 ml-2">
@@ -590,7 +678,7 @@ export default function SalaryPage() {
                 <div className="min-w-0">
                   <p className="text-xs xs:text-sm font-medium text-slate-600 truncate">Selected Amount</p>
                   <p className="text-xl xs:text-2xl sm:text-3xl font-bold text-purple-600 mt-1 xs:mt-2 truncate">
-                    ₹{stats.totalSelected.toLocaleString()}
+                    AED {stats.totalSelected.toLocaleString()}
                   </p>
                 </div>
                 <div className="w-8 h-8 xs:w-10 xs:h-10 sm:w-12 sm:h-12 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 ml-2">
@@ -812,22 +900,22 @@ export default function SalaryPage() {
                             {e.location}
                           </TableCell>
                           <TableCell className="font-semibold text-slate-900 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
-                            ₹{calc.basicSalary.toLocaleString()}
+                            AED {calc.basicSalary.toLocaleString()}
                           </TableCell>
                           <TableCell className="font-medium text-green-600 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
-                            +₹{calc.totalAllowances.toLocaleString()}
+                            +AED {calc.totalAllowances.toLocaleString()}
                           </TableCell>
                           <TableCell className="font-medium text-blue-600 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
                             <div className="flex flex-col">
-                              <span>+₹{calc.overtimeAmount.toLocaleString()}</span>
+                              <span>+AED {calc.overtimeAmount.toLocaleString()}</span>
                               <span className="text-[10px] text-slate-500">{e.overtimeHours} hrs</span>
                             </div>
                           </TableCell>
                           <TableCell className="font-medium text-red-600 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
-                            -₹{calc.totalDeductions.toLocaleString()}
+                            -AED {calc.totalDeductions.toLocaleString()}
                           </TableCell>
                           <TableCell className="font-bold text-blue-600 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
-                            ₹{calc.netSalary.toLocaleString()}
+                            AED {calc.netSalary.toLocaleString()}
                           </TableCell>
                           <TableCell className="px-2 xs:px-4">
                             <span
