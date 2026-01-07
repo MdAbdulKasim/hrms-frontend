@@ -11,6 +11,7 @@ import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 export interface SalaryRecord {
   id: string;
   employeeId: string;
+  employeeNumber?: string;
   employeeName?: string;
   month: number;
   year: number;
@@ -128,6 +129,7 @@ export default function SalaryReportPage() {
 
       // Enrich with employee names
       const enrichedSalaries = salaries.map((salary: any) => {
+        const employeeNumber = salary.employee?.employeeNumber || salary.employeeNumber || 'N/A';
         const employeeName = salary.employeeName ||
           (salary.employee && (salary.employee.fullName || salary.employee.name || `${salary.employee.firstName || ''} ${salary.employee.lastName || ''}`.trim())) ||
           employeeMap[salary.employeeId] ||
@@ -140,6 +142,7 @@ export default function SalaryReportPage() {
         return {
           id: salary.id,
           employeeId: salary.employeeId,
+          employeeNumber: employeeNumber,
           employeeName: employeeName,
           month: salary.month || date.getMonth() + 1,
           year: salary.year || date.getFullYear(),
@@ -269,6 +272,7 @@ export default function SalaryReportPage() {
       doc.text(`Total Records: ${dataToExport.length}`, 14, 36);
 
       const tableData = dataToExport.map(record => [
+        record.employeeNumber || 'N/A',
         record.employeeName || 'N/A',
         `${getMonthName(record.month)} ${record.year}`,
         `$${record.basicSalary.toFixed(2)}`,
@@ -280,7 +284,7 @@ export default function SalaryReportPage() {
 
       autoTable(doc, {
         startY: 45,
-        head: [['Employee', 'Period', 'Basic', 'Allowances', 'Deductions', 'Net Salary', 'Status']],
+        head: [['EMP ID', 'Employee', 'Period', 'Basic', 'Allowances', 'Deductions', 'Net Salary', 'Status']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
@@ -317,11 +321,12 @@ export default function SalaryReportPage() {
       return;
     }
 
-    const headers = ['Employee Name', 'Period', 'Basic Salary', 'Allowances', 'Deductions', 'Net Salary', 'Status'];
+    const headers = ['Employee ID', 'Employee Name', 'Period', 'Basic Salary', 'Allowances', 'Deductions', 'Net Salary', 'Status'];
     const csvRows = [headers.join(',')];
 
     dataToExport.forEach(record => {
       const row = [
+        `"${record.employeeNumber || 'N/A'}"`,
         `"${record.employeeName || 'N/A'}"`,
         `"${getMonthName(record.month)} ${record.year}"`,
         `"${record.basicSalary.toFixed(2)}"`,

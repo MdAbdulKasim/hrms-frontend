@@ -138,17 +138,21 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
 
         // Calculate allowances (added to salary)
         let allowanceTotal = 0;
-        candidateForm.accommodationAllowances?.forEach(allowance => {
-            const percentage = parseFloat(allowance.percentage || '0') || 0;
-            allowanceTotal += (basic * percentage) / 100;
-        });
+        if (Array.isArray(candidateForm.accommodationAllowances)) {
+            candidateForm.accommodationAllowances.forEach(allowance => {
+                const percentage = parseFloat(allowance.percentage || '0') || 0;
+                allowanceTotal += (basic * percentage) / 100;
+            });
+        }
 
         // Calculate insurance deductions (reduced from salary)
         let insuranceDeduction = 0;
-        candidateForm.insurances?.forEach(insurance => {
-            const percentage = parseFloat(insurance.percentage || '0') || 0;
-            insuranceDeduction += (basic * percentage) / 100;
-        });
+        if (Array.isArray(candidateForm.insurances)) {
+            candidateForm.insurances.forEach(insurance => {
+                const percentage = parseFloat(insurance.percentage || '0') || 0;
+                insuranceDeduction += (basic * percentage) / 100;
+            });
+        }
 
         const total = basic + allowanceTotal - insuranceDeduction;
         return {
@@ -560,7 +564,7 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                                 </div>
 
                                 <div className="space-y-3">
-                                    {candidateForm.accommodationAllowances?.map((allowance, index) => (
+                                    {Array.isArray(candidateForm.accommodationAllowances) && candidateForm.accommodationAllowances.map((allowance, index) => (
                                         <div key={index} className="flex gap-3 items-center p-4 bg-gray-50 rounded-lg">
                                             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
                                                 <Combobox
@@ -601,7 +605,7 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                                         </div>
                                     ))}
 
-                                    {(!candidateForm.accommodationAllowances || candidateForm.accommodationAllowances.length === 0) && (
+                                    {(!Array.isArray(candidateForm.accommodationAllowances) || candidateForm.accommodationAllowances.length === 0) && (
                                         <div className="text-center py-8 text-gray-400 text-sm italic">
                                             No allowances added. Click "Add More" to add one.
                                         </div>
@@ -626,7 +630,7 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                                 </div>
 
                                 <div className="space-y-3">
-                                    {candidateForm.insurances?.map((insurance, index) => (
+                                    {Array.isArray(candidateForm.insurances) && candidateForm.insurances.map((insurance, index) => (
                                         <div key={index} className="flex gap-3 items-center p-4 bg-gray-50 rounded-lg">
                                             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
                                                 <Combobox
@@ -667,7 +671,7 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                                         </div>
                                     ))}
 
-                                    {(!candidateForm.insurances || candidateForm.insurances.length === 0) && (
+                                    {(!Array.isArray(candidateForm.insurances) || candidateForm.insurances.length === 0) && (
                                         <div className="text-center py-8 text-gray-400 text-sm italic">
                                             No insurance added. Click "Add More" to add one.
                                         </div>

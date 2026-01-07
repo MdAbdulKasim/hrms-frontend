@@ -245,6 +245,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
         }
 
         return {
+          ...emp,
           id: emp.id || emp._id || String(Math.random()),
           employeeNumber: emp.employeeNumber || emp.employeeId || '',
           fullName: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unnamed Employee',
@@ -354,9 +355,18 @@ const EmployeeOnboardingSystem: React.FC = () => {
         emergencyContact: candidateForm.emergencyContact,
         passportNumber: candidateForm.passportNumber,
         drivingLicenseNumber: candidateForm.drivingLicenseNumber,
-        // Remove fields not present in backend
-        accommodationAllowances: candidateForm.accommodationAllowances || [],
-        insurances: candidateForm.insurances || []
+        // Map allowances and deductions correctly for backend
+        allowances: {
+          homeClaimed: candidateForm.accommodationAllowances?.some(a => a.type === 'house' || a.type === 'home') || false,
+          homeAllowancePercentage: parseFloat(candidateForm.accommodationAllowances?.find(a => a.type === 'house' || a.type === 'home')?.percentage || '0'),
+          foodClaimed: candidateForm.accommodationAllowances?.some(a => a.type === 'food') || false,
+          foodAllowancePercentage: parseFloat(candidateForm.accommodationAllowances?.find(a => a.type === 'food')?.percentage || '0'),
+          travelClaimed: candidateForm.accommodationAllowances?.some(a => a.type === 'travel') || false,
+          travelAllowancePercentage: parseFloat(candidateForm.accommodationAllowances?.find(a => a.type === 'travel')?.percentage || '0')
+        },
+        deductions: {
+          insuranceDeductionPercentage: candidateForm.insurances?.reduce((sum, i) => sum + parseFloat(i.percentage || '0'), 0) || 0
+        }
       };
 
       // Handle numeric fields: don't send empty strings
@@ -483,8 +493,14 @@ const EmployeeOnboardingSystem: React.FC = () => {
         contractStartDate: emp.contractStartDate ? new Date(emp.contractStartDate).toISOString().split('T')[0] : '',
         contractEndDate: emp.contractEndDate ? new Date(emp.contractEndDate).toISOString().split('T')[0] : '',
         contractType: emp.contractType || '',
-        accommodationAllowances: emp.accommodationAllowances || [],
-        insurances: emp.insurances || (emp.insuranceType ? [{ type: emp.insuranceType, percentage: emp.insurancePercentage || '' }] : []),
+        accommodationAllowances: emp.allowances ? [
+          ...(emp.allowances.homeClaimed ? [{ type: 'house', percentage: String(emp.allowances.homeAllowancePercentage || 0) }] : []),
+          ...(emp.allowances.foodClaimed ? [{ type: 'food', percentage: String(emp.allowances.foodAllowancePercentage || 0) }] : []),
+          ...(emp.allowances.travelClaimed ? [{ type: 'travel', percentage: String(emp.allowances.travelAllowancePercentage || 0) }] : [])
+        ] : (emp.accommodationAllowances || []),
+        insurances: emp.deductions ? [
+          ...(emp.deductions.insuranceDeductionPercentage > 0 ? [{ type: 'health_basic', percentage: String(emp.deductions.insuranceDeductionPercentage) }] : [])
+        ] : (emp.insurances || (emp.insuranceType ? [{ type: emp.insuranceType, percentage: emp.insurancePercentage || '' }] : [])),
         bankDetails: bankData,
         // Add Identity fields for editing
         pan: emp.PAN || emp.panCard || emp.pan || '',
@@ -582,9 +598,18 @@ const EmployeeOnboardingSystem: React.FC = () => {
         emergencyContact: candidateForm.emergencyContact,
         passportNumber: candidateForm.passportNumber,
         drivingLicenseNumber: candidateForm.drivingLicenseNumber,
-        // Remove fields not present in backend Employee entity to prevent 500 error
-        accommodationAllowances: candidateForm.accommodationAllowances || [],
-        insurances: candidateForm.insurances || []
+        // Map allowances and deductions correctly for backend
+        allowances: {
+          homeClaimed: candidateForm.accommodationAllowances?.some(a => a.type === 'house' || a.type === 'home') || false,
+          homeAllowancePercentage: parseFloat(candidateForm.accommodationAllowances?.find(a => a.type === 'house' || a.type === 'home')?.percentage || '0'),
+          foodClaimed: candidateForm.accommodationAllowances?.some(a => a.type === 'food') || false,
+          foodAllowancePercentage: parseFloat(candidateForm.accommodationAllowances?.find(a => a.type === 'food')?.percentage || '0'),
+          travelClaimed: candidateForm.accommodationAllowances?.some(a => a.type === 'travel') || false,
+          travelAllowancePercentage: parseFloat(candidateForm.accommodationAllowances?.find(a => a.type === 'travel')?.percentage || '0')
+        },
+        deductions: {
+          insuranceDeductionPercentage: candidateForm.insurances?.reduce((sum, i) => sum + parseFloat(i.percentage || '0'), 0) || 0
+        }
       };
 
       // Handle numeric fields: don't send empty strings
@@ -703,6 +728,28 @@ const EmployeeOnboardingSystem: React.FC = () => {
             ifscCode: emp.ifscCode || ''
           };
 
+      const getAllowances = () => {
+        if (emp.allowances && typeof emp.allowances === 'object' && !Array.isArray(emp.allowances)) {
+          return [
+            ...(emp.allowances.homeClaimed ? [{ type: 'house', percentage: String(emp.allowances.homeAllowancePercentage || 0) }] : []),
+            ...(emp.allowances.foodClaimed ? [{ type: 'food', percentage: String(emp.allowances.foodAllowancePercentage || 0) }] : []),
+            ...(emp.allowances.travelClaimed ? [{ type: 'travel', percentage: String(emp.allowances.travelAllowancePercentage || 0) }] : [])
+          ];
+        }
+        return Array.isArray(emp.accommodationAllowances) ? emp.accommodationAllowances : [];
+      };
+
+      const getInsurances = () => {
+        if (emp.deductions && typeof emp.deductions === 'object' && !Array.isArray(emp.deductions)) {
+          return [
+            ...(emp.deductions.insuranceDeductionPercentage > 0 ? [{ type: 'health_basic', percentage: String(emp.deductions.insuranceDeductionPercentage) }] : [])
+          ];
+        }
+        if (Array.isArray(emp.insurances)) return emp.insurances;
+        if (emp.insuranceType) return [{ type: emp.insuranceType, percentage: String(emp.insurancePercentage || '') }];
+        return [];
+      };
+
       // Map to CandidateForm
       const form: CandidateForm = {
         employeeNumber: emp.employeeNumber || emp.employeeId || '',
@@ -725,8 +772,8 @@ const EmployeeOnboardingSystem: React.FC = () => {
         contractStartDate: emp.contractStartDate ? new Date(emp.contractStartDate).toISOString().split('T')[0] : '',
         contractEndDate: emp.contractEndDate ? new Date(emp.contractEndDate).toISOString().split('T')[0] : '',
         contractType: emp.contractType || '',
-        accommodationAllowances: emp.accommodationAllowances || [],
-        insurances: emp.insurances || (emp.insuranceType ? [{ type: emp.insuranceType, percentage: emp.insurancePercentage || '' }] : []),
+        accommodationAllowances: getAllowances(),
+        insurances: getInsurances(),
         bankDetails: bankData,
         // Personal Details
         gender: emp.gender || '',
@@ -869,10 +916,11 @@ const EmployeeOnboardingSystem: React.FC = () => {
     }
 
     const headers = [
-      'Full Name', 'Email ID', 'Official Email', 'Department'
+      'Employee ID', 'Full Name', 'Email ID', 'Official Email', 'Department'
     ];
 
     const csvRows = employees.map(emp => [
+      emp.employeeNumber || 'N/A',
       emp.fullName || `${emp.firstName} ${emp.lastName}`,
       emp.emailId,
       emp.officialEmail,

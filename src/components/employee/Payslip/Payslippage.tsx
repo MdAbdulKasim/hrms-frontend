@@ -132,18 +132,36 @@ export default function PayrunViewPage() {
                                 designation: empInfo.designation?.name || empInfo.designation?.designationName || salaryRecord.designation || "N/A",
                                 location: empInfo.location?.name || empInfo.location?.locationName || salaryRecord.location || "N/A",
                                 basicSalary: Number(salaryRecord.basicSalary || salaryRecord.salary || 0),
-                                allowances: (salaryRecord.allowances || []).map((a: any) => ({
-                                    id: a.id || a._id || Math.random().toString(),
-                                    name: a.name || "Allowance",
-                                    value: Number(a.value || 0),
-                                    type: a.type || "fixed"
-                                })),
-                                deductions: (salaryRecord.deductions || []).map((d: any) => ({
-                                    id: d.id || d._id || Math.random().toString(),
-                                    name: d.name || "Deduction",
-                                    value: Number(d.value || 0),
-                                    type: d.type || "fixed"
-                                })),
+                                allowances: Array.isArray(salaryRecord.allowances)
+                                    ? salaryRecord.allowances.map((a: any) => ({
+                                        id: a.id || a._id || Math.random().toString(),
+                                        name: a.name || "Allowance",
+                                        value: Number(a.value || 0),
+                                        type: a.type || "fixed"
+                                    }))
+                                    : (salaryRecord.allowances && typeof salaryRecord.allowances === 'object'
+                                        ? Object.entries(salaryRecord.allowances).map(([key, val]: [string, any]) => ({
+                                            id: key,
+                                            name: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
+                                            value: typeof val === 'object' ? (val.percentage || val.amount || 0) : (Number(val) || 0),
+                                            type: (typeof val === 'object' && val.percentage) || (typeof val !== 'object' && String(key).includes('Percentage')) ? "percentage" : "fixed"
+                                        }))
+                                        : []),
+                                deductions: Array.isArray(salaryRecord.deductions)
+                                    ? salaryRecord.deductions.map((d: any) => ({
+                                        id: d.id || d._id || Math.random().toString(),
+                                        name: d.name || "Deduction",
+                                        value: Number(d.value || 0),
+                                        type: d.type || "fixed"
+                                    }))
+                                    : (salaryRecord.deductions && typeof salaryRecord.deductions === 'object'
+                                        ? Object.entries(salaryRecord.deductions).map(([key, val]: [string, any]) => ({
+                                            id: key,
+                                            name: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
+                                            value: typeof val === 'object' ? (val.percentage || val.amount || 0) : (Number(val) || 0),
+                                            type: (typeof val === 'object' && val.percentage) || (typeof val !== 'object' && String(key).includes('Percentage')) ? "percentage" : "fixed"
+                                        }))
+                                        : []),
                                 overtimeHours: Number(salaryRecord.overtimeHours || 0),
                                 overtimeAmount: Number(salaryRecord.overtimeAmount || 0),
                             };
@@ -167,28 +185,50 @@ export default function PayrunViewPage() {
                         const basic = Number(empData.basicSalary || empData.salary || 0);
 
                         // Parse allowances
-                        const allowances: Allowance[] = (empData.accommodationAllowances || empData.allowances || []).map((a: any) => {
-                            const val = Number(a.value || a.percentage || 0);
-                            const type = a.type || (a.percentage ? "percentage" : "fixed");
-                            return {
+                        let allowances: Allowance[] = [];
+                        if (Array.isArray(empData.accommodationAllowances)) {
+                            allowances = empData.accommodationAllowances.map((a: any) => ({
                                 id: a.id || a._id || Math.random().toString(),
                                 name: a.name || a.type || "Allowance",
-                                value: val,
-                                type: type
-                            };
-                        });
+                                value: Number(a.value || a.percentage || 0),
+                                type: a.type || (a.percentage ? "percentage" : "fixed")
+                            }));
+                        } else if (empData.allowances && typeof empData.allowances === 'object' && !Array.isArray(empData.allowances)) {
+                            const mall = empData.allowances;
+                            if (mall.homeClaimed) allowances.push({ id: 'home', name: 'Home Allowance', value: Number(mall.homeAllowancePercentage || 0), type: 'percentage' });
+                            if (mall.foodClaimed) allowances.push({ id: 'food', name: 'Food Allowance', value: Number(mall.foodAllowancePercentage || 0), type: 'percentage' });
+                            if (mall.travelClaimed) allowances.push({ id: 'travel', name: 'Travel Allowance', value: Number(mall.travelAllowancePercentage || 0), type: 'percentage' });
+                        } else if (Array.isArray(empData.allowances)) {
+                            allowances = empData.allowances.map((a: any) => ({
+                                id: a.id || a._id || Math.random().toString(),
+                                name: a.name || a.type || "Allowance",
+                                value: Number(a.value || a.percentage || 0),
+                                type: a.type || (a.percentage ? "percentage" : "fixed")
+                            }));
+                        }
 
                         // Parse deductions
-                        const deductions: Deduction[] = (empData.insurances || empData.deductions || []).map((d: any) => {
-                            const val = Number(d.value || d.percentage || 0);
-                            const type = d.type || (d.percentage ? "percentage" : "fixed");
-                            return {
+                        let deductions: Deduction[] = [];
+                        if (Array.isArray(empData.insurances)) {
+                            deductions = empData.insurances.map((d: any) => ({
                                 id: d.id || d._id || Math.random().toString(),
                                 name: d.name || d.type || "Deduction",
-                                value: val,
-                                type: type
-                            };
-                        });
+                                value: Number(d.value || d.percentage || 0),
+                                type: d.type || (d.percentage ? "percentage" : "fixed")
+                            }));
+                        } else if (empData.deductions && typeof empData.deductions === 'object' && !Array.isArray(empData.deductions)) {
+                            const mded = empData.deductions;
+                            if (Number(mded.insuranceDeductionPercentage) > 0) {
+                                deductions.push({ id: 'insurance', name: 'Insurance', value: Number(mded.insuranceDeductionPercentage), type: 'percentage' });
+                            }
+                        } else if (Array.isArray(empData.deductions)) {
+                            deductions = empData.deductions.map((d: any) => ({
+                                id: d.id || d._id || Math.random().toString(),
+                                name: d.name || d.type || "Deduction",
+                                value: Number(d.value || d.percentage || 0),
+                                type: d.type || (d.percentage ? "percentage" : "fixed")
+                            }));
+                        }
 
                         // Construct a PayrollEmployee object
                         const mappedEmployee: PayrollEmployee = {
@@ -272,7 +312,7 @@ export default function PayrunViewPage() {
         const overtimeAmount = employee.overtimeAmount || 0
 
         // Calculate each allowance with its amount
-        const allowancesWithAmount = (employee.allowances || []).map((allowance) => {
+        const allowancesWithAmount = (Array.isArray(employee.allowances) ? employee.allowances : []).map((allowance) => {
             const amount =
                 allowance.type === "percentage"
                     ? (basicSalary * allowance.value) / 100
@@ -291,7 +331,7 @@ export default function PayrunViewPage() {
         const grossSalary = basicSalary + totalAllowances + overtimeAmount
 
         // Calculate each deduction with its amount
-        const deductionsWithAmount = (employee.deductions || []).map((deduction) => {
+        const deductionsWithAmount = (Array.isArray(employee.deductions) ? employee.deductions : []).map((deduction) => {
             const amount =
                 deduction.type === "percentage"
                     ? (basicSalary * deduction.value) / 100
@@ -909,7 +949,7 @@ function ModernGradientTemplate({ employee, salaryBreakdown }: { employee: Payro
                             )}
                         </div>
                     </div>
-                </div>  
+                </div>
                 <div className="bg-slate-900 text-white p-8 rounded-3xl relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-full -mr-16 -mt-16 blur-3xl"></div>
                     <div className="relative z-10 flex justify-between items-center">
