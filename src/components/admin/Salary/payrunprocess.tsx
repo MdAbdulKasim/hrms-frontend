@@ -310,38 +310,66 @@ export default function PayRunProcess() {
     }
 
     try {
-      // We'll process each employee one by one as per the backend controller
-      // The backend has /salary-report/process which takes organizationId and body
-      // Looking at the backend code: const result = await usecase.exec({ ...req.body, organizationId });
+      // Calculate Pay Period (Current Month)
+      const now = new Date();
+      // start: 1st of current month
+      const startDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
+      // end: last day of current month
+      const endDate = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0));
 
       const headers = { Authorization: `Bearer ${token}` }
 
-      const payload = {
-        employeeIds: employees.map(emp => emp.id),
-        salaryDetails: employees.map(emp => ({
+      // Process each employee sequentially
+      for (const emp of employees) {
+        // Step 1: Process Salary (Create Record)
+        // Backend expects: employeeId, payPeriodStart, payPeriodEnd, organizationId
+        const processPayload = {
           employeeId: emp.id,
-          overtimeHours: emp.overtimeHours || 0,
-          overtimeAmount: emp.overtimeAmount || 0
-        })),
-        month: new Date().getMonth() + 1,
-        year: new Date().getFullYear(),
-      }
+          payPeriodStart: startDate.toISOString(),
+          payPeriodEnd: endDate.toISOString(),
+          organizationId: orgId
+        }
 
-      await axios.post(`${apiUrl}/org/${orgId}/salaries/process`, payload, { headers })
+        const processRes = await axios.post(
+          `${apiUrl}/org/${orgId}/salaries/process`,
+          processPayload,
+          { headers }
+        );
+
+        const salaryRecord = processRes.data;
+
+        if (salaryRecord && salaryRecord.id) {
+          // Step 2: Mark as Paid immediately
+          // Backend expects: paidDate (optional, defaults to now if handled by backend, but let's send it)
+          const markPaidPayload = {
+            paidDate: new Date().toISOString()
+          };
+
+          await axios.patch(
+            `${apiUrl}/org/${orgId}/salaries/${salaryRecord.id}/mark-paid`,
+            markPaidPayload,
+            { headers }
+          );
+        }
+      }
 
       setPaymentStatus("success")
 
       // Clear session storage after success
       sessionStorage.removeItem('payrollPreviewData')
 
-      // Redirect back after 3 seconds
+      // Redirect back after 2 seconds
       setTimeout(() => {
-        router.push("/admin/salary")
-      }, 3000)
+        router.push("/admin/salary/history")
+      }, 2000)
+
     } catch (error: any) {
       console.error("Payment processing failed", error)
+
+      const errorMessage = error.response?.data?.error || error.message || "Payment processing failed";
+      alert(`Error: ${errorMessage}`);
+
       if (error.response?.status === 401) {
-        // Handle unauthorized error - redirect to login
         router.push("/")
         return
       }
