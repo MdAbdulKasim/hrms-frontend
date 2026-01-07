@@ -64,6 +64,8 @@ interface PayHistoryRecord {
   employeeName: string
   department: string
   designation: string
+  basicSalary: number
+  totalAllowances: number
   grossSalary: number
   totalDeductions: number
   netPay: number
@@ -132,6 +134,8 @@ export default function PayHistoryPage() {
           employeeName: r.employeeName || "",
           department: r.employee?.department?.departmentName || "N/A",
           designation: r.employee?.designation?.name || "N/A",
+          basicSalary: Number(r.basicSalary || 0),
+          totalAllowances: Number(r.totalAllowances || 0),
           grossSalary: Number(r.grossSalary || 0),
           totalDeductions: Number(r.totalDeductions || 0),
           netPay: Number(r.netSalary || 0),
@@ -400,10 +404,28 @@ export default function PayHistoryPage() {
                   <TableHead className="font-semibold text-slate-700">
                     <div className="flex items-center gap-2">
                       <DollarSign className="w-4 h-4" />
+                      Basic
+                    </div>
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-700">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4" />
+                      Allowances
+                    </div>
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-700 bg-slate-50">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4" />
                       Gross
                     </div>
                   </TableHead>
                   <TableHead className="font-semibold text-slate-700">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4" />
+                      Deductions
+                    </div>
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-700 bg-blue-50/50">
                     <div className="flex items-center gap-2">
                       <DollarSign className="w-4 h-4" />
                       Net Pay
@@ -429,11 +451,20 @@ export default function PayHistoryPage() {
                     <TableCell className="text-slate-600 text-sm">
                       {r.payPeriodStart} to {r.payPeriodEnd}
                     </TableCell>
-                    <TableCell className="font-semibold text-slate-900">
-                      AED {r.grossSalary.toLocaleString()}
+                    <TableCell className="font-medium text-slate-900">
+                      AED {r.basicSalary.toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-green-600 font-bold">
-                      AED {r.netPay.toLocaleString()}
+                    <TableCell className="font-medium text-green-600">
+                      + {r.totalAllowances.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="font-bold text-slate-900 bg-slate-50">
+                      = {r.grossSalary.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="font-medium text-red-600">
+                      - {r.totalDeductions.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-blue-600 font-bold bg-blue-50/50">
+                      = AED {r.netPay.toLocaleString()}
                     </TableCell>
                     <TableCell className="text-slate-600">
                       {r.paidDate.toLocaleDateString()}
@@ -521,26 +552,24 @@ export default function PayHistoryPage() {
                 </h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center pb-2 border-b border-green-200">
-                    <span className="text-green-700 font-medium">Gross Salary</span>
-                    <span className="text-green-900 font-bold text-lg">AED {viewDetails.grossSalary.toLocaleString()}</span>
+                    <span className="text-green-700 font-medium">Basic Salary</span>
+                    <span className="text-green-900 font-bold">AED {viewDetails.basicSalary.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center pb-2 border-b border-green-200">
                     <span className="text-green-700 font-medium">Total Allowances</span>
-                    <span className="text-blue-600 font-bold">+AED {(viewDetails.grossSalary - viewDetails.grossSalary + (viewDetails.allowanceBreakdown.homeAllowance + viewDetails.allowanceBreakdown.foodAllowance + viewDetails.allowanceBreakdown.travelAllowance + viewDetails.allowanceBreakdown.overtimePay)).toLocaleString()}</span>
-                    {/* Note: Total Allowances logic might be implicitly part of Gross or separate depending on backend. SalaryReport has totalAllowances field! But we didn't map it. Let's rely on breakdown sum or add totalAllowances to model. 
-                        Wait, SalaryReport entity has `totalAllowances`. Let's assume Gross includes basic + allowances? 
-                        Usually Gross = Basic + Allowances.
-                        Net = Gross - Deductions.
-                        Let's just show breakdown.
-                    */}
+                    <span className="text-blue-600 font-bold">+ {viewDetails.totalAllowances.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center pb-2 border-b border-green-200">
+                    <span className="text-green-700 font-medium">Gross Salary</span>
+                    <span className="text-slate-900 font-bold text-lg">= {viewDetails.grossSalary.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center pb-2 border-b border-green-200">
                     <span className="text-green-700 font-medium">Total Deductions</span>
-                    <span className="text-red-600 font-bold">-AED {viewDetails.totalDeductions.toLocaleString()}</span>
+                    <span className="text-red-600 font-bold">- {viewDetails.totalDeductions.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center pt-2">
                     <span className="text-green-700 font-semibold text-lg">Net Pay</span>
-                    <span className="text-green-700 font-bold text-2xl">AED {viewDetails.netPay.toLocaleString()}</span>
+                    <span className="text-blue-700 font-bold text-2xl">= AED {viewDetails.netPay.toLocaleString()}</span>
                   </div>
                 </div>
               </div>

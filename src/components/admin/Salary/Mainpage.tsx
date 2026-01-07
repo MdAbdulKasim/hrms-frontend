@@ -140,16 +140,16 @@ export default function SalaryPage() {
       const headers = { Authorization: `Bearer ${token}` }
 
       const [empRes, deptRes, desigRes, locRes] = await Promise.all([
-        axios.get(`${apiUrl}/org/${orgId}/employees`, { headers }),
-        axios.get(`${apiUrl}/org/${orgId}/departments`, { headers }),
-        axios.get(`${apiUrl}/org/${orgId}/designations`, { headers }),
-        axios.get(`${apiUrl}/org/${orgId}/locations`, { headers })
+        axios.get(`${apiUrl}/org/${orgId}/employees?limit=1000`, { headers }).catch(err => { console.error("Emp fetch fail", err); return { data: { data: [] } } }),
+        axios.get(`${apiUrl}/org/${orgId}/departments`, { headers }).catch(err => { console.error("Dept fetch fail", err); return { data: { data: [] } } }),
+        axios.get(`${apiUrl}/org/${orgId}/designations`, { headers }).catch(err => { console.error("Desig fetch fail", err); return { data: { data: [] } } }),
+        axios.get(`${apiUrl}/org/${orgId}/locations`, { headers }).catch(err => { console.error("Loc fetch fail", err); return { data: { data: [] } } })
       ])
 
-      // Parse metadata
-      const departmentsData = deptRes.data.data || deptRes.data || []
-      const designationsData = desigRes.data.data || desigRes.data || []
-      const locationsData = locRes.data.data || locRes.data || []
+      // Parse metadata with robust array checks
+      const departmentsData = Array.isArray(deptRes.data?.data) ? deptRes.data.data : (Array.isArray(deptRes.data) ? deptRes.data : [])
+      const designationsData = Array.isArray(desigRes.data?.data) ? desigRes.data.data : (Array.isArray(desigRes.data) ? desigRes.data : [])
+      const locationsData = Array.isArray(locRes.data?.data) ? locRes.data.data : (Array.isArray(locRes.data) ? locRes.data : [])
 
       setDepartments(departmentsData)
       setDesignations(designationsData)
@@ -192,13 +192,13 @@ export default function SalaryPage() {
       )
 
       // Process Employees
-      const empData = empRes.data.data || empRes.data || []
+      const empData = Array.isArray(empRes.data?.data) ? empRes.data.data : (Array.isArray(empRes.data) ? empRes.data : [])
 
       // Fetch salary records to determine real-time status
       let salaryRecords: any[] = []
       try {
         const salaryRes = await axios.get(`${apiUrl}/org/${orgId}/salaries`, { headers })
-        salaryRecords = salaryRes.data.data || salaryRes.data || []
+        salaryRecords = Array.isArray(salaryRes.data?.data) ? salaryRes.data.data : (Array.isArray(salaryRes.data) ? salaryRes.data : [])
       } catch (err) {
         console.error("Failed to fetch salary records", err)
       }
@@ -233,32 +233,123 @@ export default function SalaryPage() {
           locName = locMap.get(id) || ""
         }
 
-        // Parse allowances and deductions from employee data
-        const allowances: Allowance[] = (emp.accommodationAllowances || emp.allowances || []).map((a: any, idx: number) => ({
-          id: a.id || a._id || `allowance-${idx}`,
-          name: a.type || a.name || "Allowance",
-          value: Number(a.percentage || a.value || 0),
-          type: a.percentage !== undefined ? "percentage" : (a.type === "percentage" ? "percentage" : "fixed")
-        }))
+        // Parse allowances and deductions from employee data (supports multiple formats)
+        const allowances: Allowance[] = [];
+        const deductions: Deduction[] = [];
+        const empAllowances = emp.allowances;
+        const empDeductions = emp.deductions;
 
-        const deductions: Deduction[] = (emp.insurances || emp.deductions || []).map((d: any, idx: number) => ({
-          id: d.id || d._id || `deduction-${idx}`,
-          name: d.type || d.name || "Deduction",
-          value: Number(d.percentage || d.value || 0),
-          type: d.percentage !== undefined ? "percentage" : (d.type === "percentage" ? "percentage" : "fixed")
-        }))
+        // 1. Handle Allowances
+        if (empAllowances && typeof empAllowances === 'object' && !Array.isArray(empAllowances)) {
+          // Handle flattened structure (from onboarding)
+          const flatMap = [
+            { key: 'homeClaimed', perc: 'homeAllowancePercentage', name: 'Home' },
+            { key: 'foodClaimed', perc: 'foodAllowancePercentage', name: 'Food' },
+            { key: 'travelClaimed', perc: 'travelAllowancePercentage', name: 'Travel' }
+          ];
+
+          flatMap.forEach(m => {
+            if (empAllowances[m.key] === true || empAllowances[m.key] === 'true') {
+              allowances.push({
+                id: `allowance-${m.name.toLowerCase()}`,
+                name: m.name,
+                value: Number(empAllowances[m.perc] || 0),
+                type: "percentage"
+              });
+            }
+          });
+
+          // Handle nested structure (if any)
+          Object.entries(empAllowances).forEach(([key, val]: [string, any]) => {
+            if (val && typeof val === 'object' && val.enabled && !allowances.some(a => a.name.toLowerCase() === key.toLowerCase())) {
+              allowances.push({
+                id: `allowance-${key}`,
+                name: key.charAt(0).toUpperCase() + key.slice(1),
+                value: Number(val.amount || val.percentage || 0),
+                type: val.percentage > 0 ? "percentage" : "fixed"
+              });
+            }
+          });
+        } else if (Array.isArray(empAllowances)) {
+          empAllowances.forEach((a: any, idx: number) => {
+            allowances.push({
+              id: a.id || `allowance-${idx}`,
+              name: a.name || a.type || "Allowance",
+              value: Number(a.value || a.amount || a.percentage || 0),
+              type: a.type === "percentage" || a.percentage > 0 ? "percentage" : "fixed"
+            });
+          });
+        }
+
+        // Final fallback for purely legacy field names
+        if (allowances.length === 0 && Array.isArray(emp.accommodationAllowances)) {
+          emp.accommodationAllowances.forEach((a: any, idx: number) => {
+            allowances.push({
+              id: a.id || `allowance-${idx}`,
+              name: a.name || a.type || "Allowance",
+              value: Number(a.value || a.amount || a.percentage || 0),
+              type: a.type === "percentage" || (a.percentage && a.percentage > 0) ? "percentage" : "fixed"
+            });
+          });
+        }
+
+        // 2. Handle Deductions
+        if (empDeductions && typeof empDeductions === 'object' && !Array.isArray(empDeductions)) {
+          // Handle flattened structure (insuranceDeductionPercentage)
+          if (empDeductions.insuranceDeductionPercentage) {
+            deductions.push({
+              id: 'deduction-insurance',
+              name: 'Insurance',
+              value: Number(empDeductions.insuranceDeductionPercentage),
+              type: 'percentage'
+            });
+          }
+
+          // Handle nested structure (if any)
+          Object.entries(empDeductions).forEach(([key, val]: [string, any]) => {
+            if (val && typeof val === 'object' && val.enabled && !deductions.some(d => d.name.toLowerCase() === key.toLowerCase())) {
+              deductions.push({
+                id: `deduction-${key}`,
+                name: key.charAt(0).toUpperCase() + key.slice(1),
+                value: Number(val.amount || val.percentage || 0),
+                type: val.percentage > 0 ? "percentage" : "fixed"
+              });
+            }
+          });
+        } else if (Array.isArray(empDeductions)) {
+          empDeductions.forEach((d: any, idx: number) => {
+            deductions.push({
+              id: d.id || `deduction-${idx}`,
+              name: d.name || d.type || "Deduction",
+              value: Number(d.value || d.amount || d.percentage || 0),
+              type: d.type === "percentage" || d.percentage > 0 ? "percentage" : "fixed"
+            });
+          });
+        }
+
+        if (deductions.length === 0 && Array.isArray(emp.insurances)) {
+          emp.insurances.forEach((d: any, idx: number) => {
+            deductions.push({
+              id: d.id || `deduction-${idx}`,
+              name: d.name || d.type || "Deduction",
+              value: Number(d.value || d.amount || d.percentage || 0),
+              type: d.type === "percentage" || (d.percentage && d.percentage > 0) ? "percentage" : "fixed"
+            });
+          });
+        }
 
         // Determine status from salary records (real-time)
         // Check if there's a record for this employee marked as paid in the current month/year
         const currentMonth = new Date().getMonth() + 1
         const currentYear = new Date().getFullYear()
 
-        const salaryRecord = salaryRecords.find((r: any) =>
-          (r.employeeId === empId || r.employee?.id === empId || r.employee?._id === empId) &&
-          r.status?.toLowerCase() === "paid" &&
-          r.month === currentMonth &&
-          r.year === currentYear
-        )
+        const salaryRecord = salaryRecords.find((r: any) => {
+          const isSameEmployee = r.employeeId === empId || r.employee?.id === empId || r.employee?._id === empId
+          const isPaid = r.status?.toLowerCase() === "paid"
+          const payDate = new Date(r.payPeriodEnd || r.paidDate)
+          const isSameMonth = payDate.getMonth() + 1 === currentMonth && payDate.getFullYear() === currentYear
+          return isSameEmployee && isPaid && isSameMonth
+        })
 
         // Calculate Overtime
         const basicSalary = Number(emp.basicSalary || emp.salary || emp.ctc || emp.baseSalary || 0);
@@ -319,19 +410,30 @@ export default function SalaryPage() {
         }
       })
 
-      // Fetch EOSB for relevant employees
-      const employeesWithEosb = await Promise.all(formatted.map(async (emp) => {
+      // Set employees immediately to show the list
+      setEmployees(formatted)
+
+      // Fetch EOSB in the background so it doesn't block the UI if the backend has errors
+      Promise.all(formatted.map(async (emp) => {
         const statusLower = (emp.employmentStatus || "").toLowerCase();
         if (statusLower.includes('terminat') || statusLower.includes('resign')) {
-          const eosbRes = await eosbService.getByEmployeeId(orgId as string, emp.id);
-          if (eosbRes.data) {
-            return { ...emp, eosbAmount: eosbRes.data.amount }; // Use backend value
+          try {
+            const eosbRes = await eosbService.getByEmployeeId(orgId as string, emp.id);
+            if (eosbRes.data) return { id: emp.id, amount: eosbRes.data.amount };
+          } catch (e) {
+            console.warn(`Failed to fetch EOSB for ${emp.name}`, e);
           }
         }
-        return emp;
-      }));
-
-      setEmployees(employeesWithEosb)
+        return null;
+      })).then(results => {
+        const updates = results.filter((r): r is { id: string, amount: number } => r !== null);
+        if (updates.length > 0) {
+          setEmployees(prev => prev.map(e => {
+            const up = updates.find(u => u.id === e.id);
+            return up ? { ...e, eosbAmount: up.amount } : e;
+          }));
+        }
+      });
 
     } catch (error: any) {
       console.error("Failed to fetch data", error)
@@ -864,8 +966,9 @@ export default function SalaryPage() {
                       <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm">BASIC</TableHead>
                       <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm">ALLOWANCES</TableHead>
                       <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm">OVERTIME</TableHead>
+                      <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm bg-slate-100/50">GROSS SALARY</TableHead>
                       <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm">DEDUCTIONS</TableHead>
-                      <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm">NET SALARY</TableHead>
+                      <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm bg-blue-50/50">NET SALARY</TableHead>
                       <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm">STATUS</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -903,19 +1006,25 @@ export default function SalaryPage() {
                             AED {calc.basicSalary.toLocaleString()}
                           </TableCell>
                           <TableCell className="font-medium text-green-600 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
-                            +AED {calc.totalAllowances.toLocaleString()}
+                            + {calc.totalAllowances.toLocaleString()}
                           </TableCell>
                           <TableCell className="font-medium text-blue-600 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
-                            <div className="flex flex-col">
-                              <span>+AED {calc.overtimeAmount.toLocaleString()}</span>
-                              <span className="text-[10px] text-slate-500">{e.overtimeHours} hrs</span>
+                            <div className="flex items-center gap-1">
+                              <span>+</span>
+                              <div className="flex flex-col">
+                                <span>{calc.overtimeAmount.toLocaleString()}</span>
+                                <span className="text-[10px] text-slate-500">{e.overtimeHours} hrs</span>
+                              </div>
                             </div>
                           </TableCell>
-                          <TableCell className="font-medium text-red-600 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
-                            -AED {calc.totalDeductions.toLocaleString()}
+                          <TableCell className="font-bold text-slate-900 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap bg-slate-100/30">
+                            = {calc.grossSalary.toLocaleString()}
                           </TableCell>
-                          <TableCell className="font-bold text-blue-600 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
-                            AED {calc.netSalary.toLocaleString()}
+                          <TableCell className="font-medium text-red-600 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
+                            - {calc.totalDeductions.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="font-bold text-blue-600 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap bg-blue-50/30">
+                            = AED {calc.netSalary.toLocaleString()}
                           </TableCell>
                           <TableCell className="px-2 xs:px-4">
                             <span

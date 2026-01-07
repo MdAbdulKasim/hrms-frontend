@@ -17,6 +17,7 @@ export interface SalaryRecord {
   year: number;
   basicSalary: number;
   allowances?: number;
+  overtimeAmount?: number;
   deductions?: number;
   netSalary: number;
   status: string; // 'paid' or 'unpaid'
@@ -147,7 +148,8 @@ export default function SalaryReportPage() {
           month: salary.month || date.getMonth() + 1,
           year: salary.year || date.getFullYear(),
           basicSalary: parseFloat(salary.basicSalary || salary.grossSalary || 0),
-          allowances: parseFloat(salary.allowances || 0),
+          allowances: parseFloat(salary.allowances || salary.totalAllowances || 0),
+          overtimeAmount: parseFloat(salary.overtimeAmount || 0),
           deductions: parseFloat(salary.deductions || salary.totalDeductions || 0),
           netSalary: parseFloat(salary.netSalary || 0),
           status: salary.status || 'unpaid',
@@ -271,32 +273,39 @@ export default function SalaryReportPage() {
       doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
       doc.text(`Total Records: ${dataToExport.length}`, 14, 36);
 
-      const tableData = dataToExport.map(record => [
-        record.employeeNumber || 'N/A',
-        record.employeeName || 'N/A',
-        `${getMonthName(record.month)} ${record.year}`,
-        `$${record.basicSalary.toFixed(2)}`,
-        `$${(record.allowances || 0).toFixed(2)}`,
-        `$${(record.deductions || 0).toFixed(2)}`,
-        `$${record.netSalary.toFixed(2)}`,
-        record.status.charAt(0).toUpperCase() + record.status.slice(1)
-      ]);
+      const tableData = dataToExport.map(record => {
+        const gross = record.basicSalary + (record.allowances || 0) + (record.overtimeAmount || 0);
+        const net = gross - (record.deductions || 0);
+        return [
+          record.employeeNumber || 'N/A',
+          record.employeeName || 'N/A',
+          `${getMonthName(record.month)} ${record.year}`,
+          `AED ${record.basicSalary.toFixed(2)}`,
+          `+ ${(record.allowances || 0).toFixed(2)}`,
+          `+ ${(record.overtimeAmount || 0).toFixed(2)}`,
+          `= ${gross.toFixed(2)}`,
+          `- ${(record.deductions || 0).toFixed(2)}`,
+          `= AED ${net.toFixed(2)}`,
+          record.status.charAt(0).toUpperCase() + record.status.slice(1)
+        ];
+      });
 
       autoTable(doc, {
         startY: 45,
-        head: [['EMP ID', 'Employee', 'Period', 'Basic', 'Allowances', 'Deductions', 'Net Salary', 'Status']],
+        head: [['EMP ID', 'Employee', 'Period', 'Basic', 'Allowances', 'Overtime', 'Gross Salary', 'Deductions', 'Net Salary', 'Status']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
         styles: { fontSize: 8, cellPadding: 2 },
         columnStyles: {
-          0: { cellWidth: 35 },
+          0: { cellWidth: 25 },
           1: { cellWidth: 25 },
           2: { cellWidth: 20 },
           3: { cellWidth: 25 },
           4: { cellWidth: 25 },
           5: { cellWidth: 25 },
-          6: { cellWidth: 20 }
+          6: { cellWidth: 25 },
+          7: { cellWidth: 25 }
         }
       });
 
@@ -321,18 +330,22 @@ export default function SalaryReportPage() {
       return;
     }
 
-    const headers = ['Employee ID', 'Employee Name', 'Period', 'Basic Salary', 'Allowances', 'Deductions', 'Net Salary', 'Status'];
+    const headers = ['Employee ID', 'Employee Name', 'Period', 'Basic Salary', 'Allowances', 'Overtime', 'Gross Salary', 'Deductions', 'Net Salary', 'Status'];
     const csvRows = [headers.join(',')];
 
     dataToExport.forEach(record => {
+      const gross = record.basicSalary + (record.allowances || 0) + (record.overtimeAmount || 0);
+      const net = gross - (record.deductions || 0);
       const row = [
         `"${record.employeeNumber || 'N/A'}"`,
         `"${record.employeeName || 'N/A'}"`,
         `"${getMonthName(record.month)} ${record.year}"`,
         `"${record.basicSalary.toFixed(2)}"`,
         `"${(record.allowances || 0).toFixed(2)}"`,
+        `"${(record.overtimeAmount || 0).toFixed(2)}"`,
+        `"${gross.toFixed(2)}"`,
         `"${(record.deductions || 0).toFixed(2)}"`,
-        `"${record.netSalary.toFixed(2)}"`,
+        `"${net.toFixed(2)}"`,
         `"${record.status.charAt(0).toUpperCase() + record.status.slice(1)}"`
       ];
       csvRows.push(row.join(','));
@@ -558,9 +571,15 @@ export default function SalaryReportPage() {
                       Allowances
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Deductions
+                      Overtime
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-slate-50">
+                      Gross Salary
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Deductions
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-blue-50/50">
                       Net Salary
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -607,18 +626,32 @@ export default function SalaryReportPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {getMonthName(salary.month)} {salary.year}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          ${salary.basicSalary.toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          ${(salary.allowances || 0).toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
-                          ${(salary.deductions || 0).toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                          ${salary.netSalary.toFixed(2)}
-                        </td>
+                        {(() => {
+                          const gross = salary.basicSalary + (salary.allowances || 0) + (salary.overtimeAmount || 0);
+                          const net = gross - (salary.deductions || 0);
+                          return (
+                            <>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                                AED {salary.basicSalary.toLocaleString()}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
+                                + {(salary.allowances || 0).toLocaleString()}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-medium">
+                                + {(salary.overtimeAmount || 0).toLocaleString()}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold bg-slate-50">
+                                = {gross.toLocaleString()}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
+                                - {(salary.deductions || 0).toLocaleString()}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-600 bg-blue-50/50">
+                                = AED {net.toLocaleString()}
+                              </td>
+                            </>
+                          );
+                        })()}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
                             className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
