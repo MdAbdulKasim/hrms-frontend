@@ -28,7 +28,7 @@ export const eosbService = {
             // backend might not have this endpoint yet, so we fail safe
             try {
                 const response = await axios.get(
-                    `${apiUrl}/org/${orgId}/employees/${employeeId}/eosb`,
+                    `${apiUrl}/org/${orgId}/eosb/${employeeId}`,
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
                 return { data: response.data };

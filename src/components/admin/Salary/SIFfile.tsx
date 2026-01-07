@@ -12,6 +12,7 @@ interface SIFEmployee {
   iban: string
   basic: number
   allowances: number
+  overtimeAmount: number
   deductions: number
 }
 
@@ -60,23 +61,24 @@ export default function WPSSIFPage() {
       const empData = empRes.data.data || empRes.data || []
       const salaryRecords = salaryRes.data.data || salaryRes.data || []
 
-      // Identify current month and year
+      // Identify current month and year for display
       const now = new Date()
       const currentMonth = now.getMonth() + 1
       const currentYear = now.getFullYear()
 
-      // Set Summary
+      // Set Summary from organization data
+      const orgData = empData[0]?.organization
       setSummary({
-        payrollMonth: `${currentMonth}-${currentYear}`,
-        companyMolCode: (empData[0]?.organization?.molCode || "12345"), // Fallback if not in data
+        payrollMonth: `${String(currentMonth).padStart(2, '0')}-${currentYear}`,
+        companyMolCode: orgData?.molCode || "12345",
       })
 
       // Filter salary records for current month/year and "Paid" status
-      const currentSalaries = salaryRecords.filter((r: any) =>
-        r.month === currentMonth &&
-        r.year === currentYear &&
-        r.status?.toLowerCase() === "paid"
-      )
+      const currentSalaries = salaryRecords.filter((r: any) => {
+        if (r.status?.toLowerCase() !== "paid") return false
+        const payDate = new Date(r.payPeriodEnd || r.paidDate)
+        return payDate.getMonth() + 1 === currentMonth && payDate.getFullYear() === currentYear
+      })
 
       // Merge Employee details with Salary records
       const mergedData: SIFEmployee[] = currentSalaries.map((record: any) => {
@@ -88,8 +90,9 @@ export default function WPSSIFPage() {
           molId: employee?.molId || "N/A",
           iban: employee?.iban || "N/A",
           basic: Number(record.basicSalary || 0),
-          allowances: Number(record.allowanceTotal || record.totalAllowances || 0),
-          deductions: Number(record.deductionTotal || record.totalDeductions || 0),
+          allowances: Number(record.totalAllowances || 0),
+          overtimeAmount: Number(record.overtimeAmount || 0),
+          deductions: Number(record.totalDeductions || 0),
         }
       })
 
@@ -102,29 +105,17 @@ export default function WPSSIFPage() {
     }
   }
 
-
-  /* ================= CSV EXPORT ================= */
+  /* ================= CSV EXPORT (Frontend Generation) ================= */
 
   const exportSIFCSV = () => {
-    if (!summary) return
+    if (employees.length === 0 || !summary) return
 
-    const headers = [
-      "Company MOL Code",
-      "Employee MOL ID",
-      "Employee Name",
-      "IBAN",
-      "Basic",
-      "Allowances",
-      "Gross",
-      "Deductions",
-      "Net",
-      "Payroll Month",
-    ]
+    // Header: Company,Employee,Employee,IBAN,Basic,Allowance,Overtime,Gross,Deduction,Net,Payroll Month
+    const header = "Company,Employee,Employee,IBAN,Basic,Allowance,Overtime,Gross,Deduction,Net,Payroll Month\n"
 
     const rows = employees.map(emp => {
-      const gross = emp.basic + emp.allowances
+      const gross = emp.basic + emp.allowances + emp.overtimeAmount
       const net = gross - emp.deductions
-
       return [
         summary.companyMolCode,
         emp.molId,
@@ -132,25 +123,24 @@ export default function WPSSIFPage() {
         emp.iban,
         emp.basic,
         emp.allowances,
+        emp.overtimeAmount,
         gross,
         emp.deductions,
         net,
-        summary.payrollMonth,
-      ]
-    })
+        summary.payrollMonth
+      ].join(",")
+    }).join("\n")
 
-    const csvContent =
-      [headers, ...rows].map(row => row.join(",")).join("\n")
-
+    const csvContent = header + rows
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
     const url = URL.createObjectURL(blob)
-
     const link = document.createElement("a")
     link.href = url
     link.download = `WPS_SIF_${summary.payrollMonth}.csv`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    URL.revokeObjectURL(url)
   }
 
   if (loading) {
@@ -186,7 +176,7 @@ export default function WPSSIFPage() {
         <button
           disabled={employees.length === 0}
           onClick={exportSIFCSV}
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2 rounded-lg hover:from-blue-700 hover:to-indigo-700 shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto justify-center"
+          className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto justify-center"
         >
           <Download size={18} />
           Export SIF CSV
@@ -196,8 +186,8 @@ export default function WPSSIFPage() {
 
       {/* SUMMARY */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <SummaryCard label="Company MOL Code" value={summary?.companyMolCode} icon="Code" />
-        <SummaryCard label="Payroll Month" value={summary?.payrollMonth} icon="Calendar" />
+        <SummaryCard label="Company MOL Code" value={summary?.companyMolCode} />
+        <SummaryCard label="Payroll Month" value={summary?.payrollMonth} />
       </div>
 
       {/* TABLE PREVIEW */}
@@ -215,16 +205,17 @@ export default function WPSSIFPage() {
                 <th className="px-6 py-4 text-left font-semibold text-slate-700">Employee</th>
                 <th className="px-6 py-4 text-left font-semibold text-slate-700">MOL ID</th>
                 <th className="px-6 py-4 text-left font-semibold text-slate-700">IBAN</th>
-                <th className="px-6 py-4 text-right font-semibold text-slate-700">Basic</th>
-                <th className="px-6 py-4 text-right font-semibold text-slate-700">Allowances</th>
-                <th className="px-6 py-4 text-right font-semibold text-slate-700">Gross</th>
-                <th className="px-6 py-4 text-right font-semibold text-slate-700">Deductions</th>
-                <th className="px-6 py-4 text-right font-semibold text-slate-700">Net</th>
+                <th className="px-6 py-4 text-center font-semibold text-slate-700">Basic</th>
+                <th className="px-6 py-4 text-center font-semibold text-slate-700">Allowances</th>
+                <th className="px-6 py-4 text-center font-semibold text-slate-700">Overtime</th>
+                <th className="px-6 py-4 text-center font-semibold text-slate-700 bg-slate-100/50">Gross</th>
+                <th className="px-6 py-4 text-center font-semibold text-slate-700">Deductions</th>
+                <th className="px-6 py-4 text-center font-semibold text-slate-700 bg-blue-50/50">Net</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {employees.map((emp, index) => {
-                const gross = emp.basic + emp.allowances
+                const gross = emp.basic + emp.allowances + emp.overtimeAmount
                 const net = gross - emp.deductions
 
                 return (
@@ -232,11 +223,12 @@ export default function WPSSIFPage() {
                     <td className="px-6 py-4 font-medium text-slate-900">{emp.employeeName}</td>
                     <td className="px-6 py-4 text-slate-600">{emp.molId}</td>
                     <td className="px-6 py-4 text-slate-600 font-mono text-xs">{emp.iban}</td>
-                    <td className="px-6 py-4 text-right text-slate-900">₹{emp.basic.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-right text-green-600">+₹{emp.allowances.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-right font-semibold text-slate-900">₹{gross.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-right text-red-600">-₹{emp.deductions.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-right font-bold text-blue-600">₹{net.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-center text-slate-900">AED {emp.basic.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-center text-green-600 font-medium">+ {emp.allowances.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-center text-blue-600 font-medium">+ {emp.overtimeAmount.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-center text-slate-900 font-bold bg-slate-100/30">= {gross.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-center text-red-600 font-medium">- {emp.deductions.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-center font-bold text-blue-600 bg-blue-50/30">= {net.toLocaleString()}</td>
                   </tr>
                 )
               })}
@@ -250,17 +242,11 @@ export default function WPSSIFPage() {
 
 /* ================= COMPONENT ================= */
 
-function SummaryCard({ label, value, icon }: { label: string; value?: string; icon: "Code" | "Calendar" }) {
+function SummaryCard({ label, value }: { label: string; value?: string }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-6 flex items-center gap-4 hover:shadow-md transition-shadow">
-      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${icon === "Code" ? "bg-blue-100 text-blue-600" : "bg-purple-100 text-purple-600"
-        }`}>
-        {icon === "Code" ? <AlertCircle size={24} /> : <Loader2 size={24} className={icon === "Calendar" ? "" : "animate-spin"} />}
-      </div>
-      <div>
-        <p className="text-sm font-medium text-slate-500 uppercase tracking-wider">{label}</p>
-        <p className="text-xl font-bold text-slate-900 mt-0.5">{value || "N/A"}</p>
-      </div>
+    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+      <p className="text-sm font-medium text-slate-400 mb-2">{label}</p>
+      <p className="text-2xl font-bold text-slate-900">{value || "N/A"}</p>
     </div>
   )
 }

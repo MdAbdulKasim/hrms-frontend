@@ -49,6 +49,8 @@ interface PayrollEmployee {
   basicSalary: number
   allowances: Allowance[]
   deductions: Deduction[]
+  overtimeAmount?: number
+  overtimeHours?: number
 }
 
 /* ================= PAGE ================= */
@@ -119,13 +121,18 @@ export default function PayrunViewPage() {
       0
     )
 
-    const netSalary = grossSalary - totalDeductions
+    const overtimeAmount = employee.overtimeAmount || 0
+    const overtimeHours = employee.overtimeHours || 0
+
+    const netSalary = grossSalary + overtimeAmount - totalDeductions
 
     return {
       basicSalary,
       allowancesWithAmount,
       totalAllowances,
-      grossSalary,
+      overtimeAmount,
+      overtimeHours,
+      grossSalary: basicSalary + totalAllowances + overtimeAmount,
       deductionsWithAmount,
       totalDeductions,
       netSalary,
@@ -206,6 +213,14 @@ export default function PayrunViewPage() {
           prefix="+"
         />
         <SummaryCard
+          title="Total Overtime"
+          value={salaryBreakdown.overtimeAmount}
+          icon={<TrendingUp className="w-5 h-5" />}
+          bgColor="bg-blue-100"
+          iconColor="text-blue-600"
+          prefix="+"
+        />
+        <SummaryCard
           title="Total Deductions"
           value={salaryBreakdown.totalDeductions}
           icon={<TrendingDown className="w-5 h-5" />}
@@ -220,6 +235,7 @@ export default function PayrunViewPage() {
           bgColor="bg-purple-100"
           iconColor="text-purple-600"
           highlight
+          prefix="="
         />
       </div>
 
@@ -243,7 +259,18 @@ export default function PayrunViewPage() {
           <div className="flex justify-between items-center py-3 border-b border-slate-200">
             <span className="font-medium text-green-700">Total Allowances</span>
             <span className="text-lg font-bold text-green-600">
-              +AED {salaryBreakdown.totalAllowances.toLocaleString()}
+              + {salaryBreakdown.totalAllowances.toLocaleString()}
+            </span>
+          </div>
+
+          {/* Overtime Total */}
+          <div className="flex justify-between items-center py-3 border-b border-slate-200">
+            <div className="flex flex-col">
+              <span className="font-medium text-blue-700">Total Overtime</span>
+              <span className="text-[10px] text-slate-500">{salaryBreakdown.overtimeHours} hrs</span>
+            </div>
+            <span className="text-lg font-bold text-blue-600">
+              + {salaryBreakdown.overtimeAmount.toLocaleString()}
             </span>
           </div>
 
@@ -251,7 +278,7 @@ export default function PayrunViewPage() {
           <div className="flex justify-between items-center py-3 border-b border-slate-200 bg-slate-50 px-4 -mx-6 rounded-lg">
             <span className="font-semibold text-slate-800">Gross Salary</span>
             <span className="text-xl font-bold text-slate-900">
-              AED {salaryBreakdown.grossSalary.toLocaleString()}
+              = {salaryBreakdown.grossSalary.toLocaleString()}
             </span>
           </div>
 
@@ -259,7 +286,7 @@ export default function PayrunViewPage() {
           <div className="flex justify-between items-center py-3 border-b border-slate-200">
             <span className="font-medium text-red-700">Total Deductions</span>
             <span className="text-lg font-bold text-red-600">
-              -AED {salaryBreakdown.totalDeductions.toLocaleString()}
+              - {salaryBreakdown.totalDeductions.toLocaleString()}
             </span>
           </div>
 
@@ -267,7 +294,7 @@ export default function PayrunViewPage() {
           <div className="flex justify-between items-center py-4 bg-gradient-to-r from-purple-50 to-blue-50 px-4 -mx-6 rounded-lg">
             <span className="font-bold text-slate-800 text-lg">Net Salary (Take Home)</span>
             <span className="text-2xl font-bold text-purple-600">
-              AED {salaryBreakdown.netSalary.toLocaleString()}
+              = AED {salaryBreakdown.netSalary.toLocaleString()}
             </span>
           </div>
         </div>

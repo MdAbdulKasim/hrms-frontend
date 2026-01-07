@@ -116,32 +116,134 @@ export default function PayRunProcess() {
         const empRes = await axios.get(`${apiUrl}/org/${orgId}/employees`, { headers })
         const empData = empRes.data.data || empRes.data || []
 
-        const formatted: PayrollEmployee[] = empData.map((emp: any) => ({
-          id: emp.id || emp._id,
-          name: emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "",
-          department: emp.department?.departmentName || emp.department?.name || "N/A",
-          designation: emp.designation?.designationName || emp.designation?.name || "N/A",
-          location: emp.location?.locationName || emp.location?.name || "N/A",
-          basicSalary: Number(emp.basicSalary || emp.salary || emp.ctc || emp.baseSalary || 0),
-          allowances: (emp.accommodationAllowances || emp.allowances || []).map((a: any, idx: number) => ({
-            id: a.id || a._id || `allowance-${idx}`,
-            name: a.type || a.name || "Allowance",
-            value: Number(a.percentage || a.value || 0),
-            type: a.percentage !== undefined ? "percentage" : (a.type === "percentage" ? "percentage" : "fixed")
-          })),
-          deductions: (emp.insurances || emp.deductions || []).map((d: any, idx: number) => ({
-            id: d.id || d._id || `deduction-${idx}`,
-            name: d.type || d.name || "Deduction",
-            value: Number(d.percentage || d.value || 0),
-            type: d.percentage !== undefined ? "percentage" : (d.type === "percentage" ? "percentage" : "fixed")
-          })),
-          overtimeHours: 0, // Default for fresh fetch, as overtime calculation is complex and done in Mainpage
-          overtimeAmount: 0,
-          joiningDate: emp.joiningDate || emp.dateOfJoining || emp.startDate,
-          employmentStatus: emp.status || emp.employeeStatus || "Active",
-          exitDate: emp.exitDate || emp.relievingDate || emp.terminationDate || emp.resignationDate,
-          eosbAmount: emp.eosbAmount // Preserve if passed from preview page
-        }))
+        const formatted: PayrollEmployee[] = empData.map((emp: any) => {
+          // Parse allowances and deductions from employee data (Object Format)
+          const parseAllowances = (emp: any): Allowance[] => {
+            const allowances: Allowance[] = [];
+            const empAllowances = emp.allowances;
+
+            if (empAllowances && typeof empAllowances === 'object' && !Array.isArray(empAllowances)) {
+              // Handle flattened structure (from onboarding)
+              const flatMap = [
+                { key: 'homeClaimed', perc: 'homeAllowancePercentage', name: 'Home' },
+                { key: 'foodClaimed', perc: 'foodAllowancePercentage', name: 'Food' },
+                { key: 'travelClaimed', perc: 'travelAllowancePercentage', name: 'Travel' }
+              ];
+
+              flatMap.forEach(m => {
+                if (empAllowances[m.key] === true || empAllowances[m.key] === 'true') {
+                  allowances.push({
+                    id: `allowance-${m.name.toLowerCase()}`,
+                    name: m.name,
+                    value: Number(empAllowances[m.perc] || 0),
+                    type: "percentage"
+                  });
+                }
+              });
+
+              // Handle nested structure (fallback)
+              Object.entries(empAllowances).forEach(([key, val]: [string, any]) => {
+                if (val && typeof val === 'object' && val.enabled && !allowances.some(a => a.name.toLowerCase() === key.toLowerCase())) {
+                  allowances.push({
+                    id: `allowance-${key}`,
+                    name: key.charAt(0).toUpperCase() + key.slice(1),
+                    value: Number(val.amount || val.percentage || 0),
+                    type: val.percentage > 0 ? "percentage" : "fixed"
+                  });
+                }
+              });
+            } else if (Array.isArray(empAllowances)) {
+              empAllowances.forEach((a: any, idx: number) => {
+                allowances.push({
+                  id: a.id || `allowance-${idx}`,
+                  name: a.name || a.type || "Allowance",
+                  value: Number(a.value || a.amount || a.percentage || 0),
+                  type: a.type === "percentage" || a.percentage > 0 ? "percentage" : "fixed"
+                });
+              });
+            }
+
+            // Final fallback for legacy field names
+            if (allowances.length === 0 && Array.isArray(emp.accommodationAllowances)) {
+              emp.accommodationAllowances.forEach((a: any, idx: number) => {
+                allowances.push({
+                  id: a.id || `allowance-${idx}`,
+                  name: a.name || a.type || "Allowance",
+                  value: Number(a.value || a.amount || a.percentage || 0),
+                  type: a.type === "percentage" || (a.percentage && a.percentage > 0) ? "percentage" : "fixed"
+                });
+              });
+            }
+            return allowances;
+          };
+
+          const parseDeductions = (emp: any): Deduction[] => {
+            const deductions: Deduction[] = [];
+            const empDeductions = emp.deductions;
+
+            if (empDeductions && typeof empDeductions === 'object' && !Array.isArray(empDeductions)) {
+              // Handle flattened structure (insuranceDeductionPercentage)
+              if (empDeductions.insuranceDeductionPercentage) {
+                deductions.push({
+                  id: 'deduction-insurance',
+                  name: 'Insurance',
+                  value: Number(empDeductions.insuranceDeductionPercentage),
+                  type: 'percentage'
+                });
+              }
+
+              // Handle nested structure (fallback)
+              Object.entries(empDeductions).forEach(([key, val]: [string, any]) => {
+                if (val && typeof val === 'object' && val.enabled && !deductions.some(d => d.name.toLowerCase() === key.toLowerCase())) {
+                  deductions.push({
+                    id: `deduction-${key}`,
+                    name: key.charAt(0).toUpperCase() + key.slice(1),
+                    value: Number(val.amount || val.percentage || 0),
+                    type: val.percentage > 0 ? "percentage" : "fixed"
+                  });
+                }
+              });
+            } else if (Array.isArray(empDeductions)) {
+              empDeductions.forEach((d: any, idx: number) => {
+                deductions.push({
+                  id: d.id || `deduction-${idx}`,
+                  name: d.name || d.type || "Deduction",
+                  value: Number(d.value || d.amount || d.percentage || 0),
+                  type: d.type === "percentage" || d.percentage > 0 ? "percentage" : "fixed"
+                });
+              });
+            }
+
+            if (deductions.length === 0 && Array.isArray(emp.insurances)) {
+              emp.insurances.forEach((d: any, idx: number) => {
+                deductions.push({
+                  id: d.id || `deduction-${idx}`,
+                  name: d.name || d.type || "Deduction",
+                  value: Number(d.value || d.amount || d.percentage || 0),
+                  type: d.type === "percentage" || (d.percentage && d.percentage > 0) ? "percentage" : "fixed"
+                });
+              });
+            }
+            return deductions;
+          };
+
+          return {
+            id: emp.id || emp._id,
+            name: emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "",
+            department: emp.department?.departmentName || emp.department?.name || "N/A",
+            designation: emp.designation?.designationName || emp.designation?.name || "N/A",
+            location: emp.location?.locationName || emp.location?.name || "N/A",
+            basicSalary: Number(emp.basicSalary || emp.salary || emp.ctc || emp.baseSalary || 0),
+            allowances: parseAllowances(emp.allowances),
+            deductions: parseDeductions(emp.deductions),
+            overtimeHours: 0, // Default for fresh fetch, as overtime calculation is complex and done in Mainpage
+            overtimeAmount: 0,
+            joiningDate: emp.joiningDate || emp.dateOfJoining || emp.startDate,
+            employmentStatus: emp.status || emp.employeeStatus || "Active",
+            exitDate: emp.exitDate || emp.relievingDate || emp.terminationDate || emp.resignationDate,
+            eosbAmount: emp.eosbAmount // Preserve if passed from preview page
+          }
+        })
 
         // Fetch EOSB for relevant employees if not already present (fresh fetch scenario)
         const employeesWithEosb = await Promise.all(formatted.map(async (emp) => {
@@ -288,7 +390,9 @@ export default function PayRunProcess() {
       totalNet += calc.netSalary
     })
 
-    return { totalEmployees, totalBasic, totalAllowances, totalOvertime, totalDeductions, totalNet }
+    const totalGross = totalBasic + totalAllowances + totalOvertime
+
+    return { totalEmployees, totalBasic, totalAllowances, totalOvertime, totalGross, totalDeductions, totalNet }
   }, [employees])
 
   /* ================= PAYMENT PROCESSING ================= */
@@ -319,50 +423,73 @@ export default function PayRunProcess() {
 
       const headers = { Authorization: `Bearer ${token}` }
 
-      // Process each employee sequentially
+      const successes: string[] = []
+      const failures: { id: string; name: string; message: string }[] = []
+
+      // Process each employee sequentially but continue on failure so one bad record doesn't stop the rest.
       for (const emp of employees) {
-        // Step 1: Process Salary (Create Record)
-        // Backend expects: employeeId, payPeriodStart, payPeriodEnd, organizationId
-        const processPayload = {
-          employeeId: emp.id,
-          payPeriodStart: startDate.toISOString(),
-          payPeriodEnd: endDate.toISOString(),
-          organizationId: orgId
-        }
+        try {
+          const processPayload = {
+            employeeId: emp.id,
+            payPeriodStart: startDate.toISOString(),
+            payPeriodEnd: endDate.toISOString(),
+            organizationId: orgId
+          }
 
-        const processRes = await axios.post(
-          `${apiUrl}/org/${orgId}/salaries/process`,
-          processPayload,
-          { headers }
-        );
-
-        const salaryRecord = processRes.data;
-
-        if (salaryRecord && salaryRecord.id) {
-          // Step 2: Mark as Paid immediately
-          // Backend expects: paidDate (optional, defaults to now if handled by backend, but let's send it)
-          const markPaidPayload = {
-            paidDate: new Date().toISOString()
-          };
-
-          await axios.patch(
-            `${apiUrl}/org/${orgId}/salaries/${salaryRecord.id}/mark-paid`,
-            markPaidPayload,
+          const processRes = await axios.post(
+            `${apiUrl}/org/${orgId}/salaries/process`,
+            processPayload,
             { headers }
           );
+
+          const salaryRecord = processRes.data;
+
+          if (salaryRecord && salaryRecord.id) {
+            const markPaidPayload = {
+              paidDate: new Date().toISOString()
+            };
+
+            await axios.patch(
+              `${apiUrl}/org/${orgId}/salaries/${salaryRecord.id}/mark-paid`,
+              markPaidPayload,
+              { headers }
+            );
+          }
+
+          successes.push(emp.name)
+        } catch (err: any) {
+          const msg = err?.response?.data?.error || err?.message || "Payment processing failed"
+          failures.push({ id: emp.id, name: emp.name, message: msg })
+
+          if (err?.response?.status === 401) {
+            router.push("/")
+            return
+          }
         }
       }
 
-      setPaymentStatus("success")
-
-      // Clear session storage after success
-      sessionStorage.removeItem('payrollPreviewData')
-
-      // Redirect back after 2 seconds
-      setTimeout(() => {
-        router.push("/admin/salary/history")
-      }, 2000)
-
+      if (successes.length > 0) {
+        setPaymentStatus("success")
+        sessionStorage.removeItem('payrollPreviewData')
+        // If some failed, let the user know but still navigate after a short delay
+        if (failures.length > 0) {
+          alert(
+            `Paid: ${successes.length}. Failed for: ${failures
+              .map(f => `${f.name} (${f.message})`)
+              .join("; ")}`
+          )
+        }
+        setTimeout(() => {
+          router.push("/admin/salary/history")
+        }, 1500)
+      } else {
+        setPaymentStatus("error")
+        alert(
+          `No payments processed. Errors: ${failures
+            .map(f => `${f.name} (${f.message})`)
+            .join("; ")}`
+        )
+      }
     } catch (error: any) {
       console.error("Payment processing failed", error)
 
@@ -428,7 +555,7 @@ export default function PayRunProcess() {
       </div>
 
       {/* SUMMARY CARDS - Ultra Responsive Grid */}
-      <div className="grid grid-cols-2 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6 gap-1.5 xs:gap-2 sm:gap-3 md:gap-4">
+      <div className="grid grid-cols-2 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-1.5 xs:gap-2 sm:gap-3 md:gap-4">
         {/* Total Employees Card */}
         <div className="bg-white rounded-lg xs:rounded-lg sm:rounded-xl p-2 xs:p-3 sm:p-4 md:p-5 shadow-sm border border-slate-200 hover:shadow-md transition-shadow min-w-0 overflow-hidden">
           <div className="flex items-center justify-between">
@@ -485,6 +612,21 @@ export default function PayRunProcess() {
             </div>
             <div className="w-6 h-6 xs:w-7 xs:h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-blue-50 rounded-full flex items-center justify-center flex-shrink-0 ml-1 xs:ml-2">
               <TrendingUp className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-500" />
+            </div>
+          </div>
+        </div>
+
+        {/* Gross Salary Card */}
+        <div className="bg-slate-50 rounded-lg xs:rounded-lg sm:rounded-xl p-2 xs:p-3 sm:p-4 md:p-5 shadow-sm border border-slate-300 hover:shadow-md transition-shadow min-w-0 overflow-hidden">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] xs:text-xs sm:text-sm font-medium text-slate-600 truncate">Total Gross</p>
+              <p className="text-base xs:text-lg sm:text-xl md:text-2xl font-bold text-slate-900 mt-0.5 xs:mt-1 truncate">
+                AED {(stats.totalGross).toLocaleString()}
+              </p>
+            </div>
+            <div className="w-6 h-6 xs:w-7 xs:h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-slate-200 rounded-full flex items-center justify-center flex-shrink-0 ml-1 xs:ml-2">
+              <Wallet className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-slate-700" />
             </div>
           </div>
         </div>
@@ -601,11 +743,12 @@ export default function PayRunProcess() {
                   <TableHead className="font-semibold text-slate-700 py-4 px-4 min-w-[120px]">DEPARTMENT</TableHead>
                   <TableHead className="font-semibold text-slate-700 py-4 px-4 min-w-[120px]">DESIGNATION</TableHead>
                   <TableHead className="font-semibold text-slate-700 py-4 px-4 min-w-[120px]">LOCATION</TableHead>
-                  <TableHead className="font-semibold text-slate-700 py-4 px-4 min-w-[130px]">BASIC SALARY</TableHead>
-                  <TableHead className="font-semibold text-slate-700 py-4 px-4 min-w-[130px]">ALLOWANCES</TableHead>
-                  <TableHead className="font-semibold text-slate-700 py-4 px-4 min-w-[130px]">OVERTIME</TableHead>
-                  <TableHead className="font-semibold text-slate-700 py-4 px-4 min-w-[130px]">DEDUCTIONS</TableHead>
-                  <TableHead className="font-semibold text-slate-700 py-4 px-4 min-w-[130px]">NET SALARY</TableHead>
+                  <TableHead className="py-4 px-4 font-semibold text-slate-700 text-xs xs:text-sm">BASIC</TableHead>
+                  <TableHead className="py-4 px-4 font-semibold text-slate-700 text-xs xs:text-sm">ALLOWANCES</TableHead>
+                  <TableHead className="py-4 px-4 font-semibold text-slate-700 text-xs xs:text-sm">OVERTIME</TableHead>
+                  <TableHead className="py-4 px-4 font-semibold text-slate-700 text-xs xs:text-sm bg-slate-100/50">GROSS SALARY</TableHead>
+                  <TableHead className="py-4 px-4 font-semibold text-slate-700 text-xs xs:text-sm">DEDUCTIONS</TableHead>
+                  <TableHead className="py-4 px-4 font-semibold text-slate-700 text-xs xs:text-sm bg-blue-50/50">NET SALARY</TableHead>
                   <TableHead className="font-semibold text-slate-700 py-4 px-4 text-right min-w-[100px]">ACTION</TableHead>
                 </TableRow>
               </TableHeader>
@@ -622,19 +765,25 @@ export default function PayRunProcess() {
                         AED {calc.basicSalary.toLocaleString()}
                       </TableCell>
                       <TableCell className="py-4 px-4 font-medium text-green-600 truncate">
-                        +AED {calc.totalAllowances.toLocaleString()}
+                        + {calc.totalAllowances.toLocaleString()}
                       </TableCell>
                       <TableCell className="py-4 px-4">
-                        <div className="flex flex-col">
-                          <span className="font-medium text-blue-600">+AED {calc.overtimeAmount.toLocaleString()}</span>
-                          <span className="text-[10px] text-slate-500">{emp.overtimeHours} hrs</span>
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium text-blue-600">+</span>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-blue-600">{calc.overtimeAmount.toLocaleString()}</span>
+                            <span className="text-[10px] text-slate-500">{emp.overtimeHours} hrs</span>
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell className="py-4 px-4 font-medium text-red-600 truncate">
-                        -AED {calc.totalDeductions.toLocaleString()}
+                      <TableCell className="py-4 px-4 font-bold text-slate-900 truncate bg-slate-100/30">
+                        = {calc.grossSalary.toLocaleString()}
                       </TableCell>
-                      <TableCell className="py-4 px-4 font-bold text-blue-600 truncate">
-                        AED {calc.netSalary.toLocaleString()}
+                      <TableCell className="py-4 px-4 font-medium text-red-600 truncate">
+                        - {calc.totalDeductions.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="py-4 px-4 font-bold text-blue-600 truncate bg-blue-50/30">
+                        = AED {calc.netSalary.toLocaleString()}
                       </TableCell>
                       <TableCell className="py-4 px-4 text-right">
                         <Button
