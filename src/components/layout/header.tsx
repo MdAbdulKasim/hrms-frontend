@@ -359,9 +359,9 @@ export default function NavigationHeader({
 
         {/* Right Section - Icons */}
         <div className="flex items-center gap-2 md:gap-4 shrink-0">
-          <button className="p-2.5 text-gray-500 hover:bg-gray-50 hover:text-blue-600 rounded-xl transition-all active:scale-95 relative">
+          {/* <button className="p-2.5 text-gray-500 hover:bg-gray-50 hover:text-blue-600 rounded-xl transition-all active:scale-95 relative">
             <Bell className="w-5 h-5" />
-          </button>
+          </button> */}
 
           {/* {userRole === 'admin' && (
             <Link href="/admin/settings/permissions" className="hidden sm:block">
