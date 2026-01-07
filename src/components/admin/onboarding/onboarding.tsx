@@ -11,9 +11,6 @@ import { ConfirmDialog, CustomAlertDialog } from '@/components/ui/custom-dialogs
 
 const EmployeeOnboardingSystem: React.FC = () => {
   const [currentView, setCurrentView] = useState<OnboardingView>('list');
-  const [showPAN, setShowPAN] = useState<{ [key: string]: boolean }>({});
-  const [showAadhaar, setShowAadhaar] = useState<{ [key: string]: boolean }>({});
-  const [showUAN, setShowUAN] = useState<{ [key: string]: boolean }>({});
   const [importType, setImportType] = useState('new');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -261,10 +258,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
           location: locationName || '',
           dateOfJoining: emp.dateOfJoining || '',
           onboardingStatus: String(emp.onboardingStatus || emp.status || 'Active'),
-          sourceOfHire: String(emp.sourceOfHire || 'Direct'),
-          panCard: emp.panCard || emp.PAN || '**********',
-          aadhaar: emp.aadhaar || emp.aadharNumber || '**********',
-          uan: emp.uan || emp.UAN || '**********'
+          sourceOfHire: String(emp.sourceOfHire || 'Direct')
         };
       });
 
@@ -328,57 +322,58 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const formData = new FormData();
-      // Append top-level fields
-      formData.append('employeeNumber', candidateForm.employeeNumber || '');
-      formData.append('fullName', candidateForm.fullName);
-      formData.append('email', candidateForm.email);
-      formData.append('phoneNumber', candidateForm.phoneNumber || candidateForm.mobileNumber || '');
-      formData.append('role', "employee");
-      formData.append('departmentId', candidateForm.departmentId);
-      formData.append('designationId', candidateForm.designationId);
-      formData.append('locationId', candidateForm.locationId);
-      formData.append('reportingToId', reportingManagers.length > 0 ? (candidateForm.reportingToId || '') : '');
-      formData.append('dateOfJoining', candidateForm.dateOfJoining);
-      formData.append('shiftType', candidateForm.shiftType);
-      formData.append('timeZone', candidateForm.timeZone);
-      formData.append('empType', candidateForm.empType);
-      formData.append('status', candidateForm.employeeStatus || 'Active');
-      formData.append('buildingId', candidateForm.buildingId || '');
-      formData.append('basicSalary', candidateForm.basicSalary);
-      formData.append('contractStartDate', candidateForm.contractStartDate || '');
-      formData.append('contractEndDate', candidateForm.contractEndDate || '');
-      formData.append('contractType', candidateForm.contractType || '');
+      // Helper to handle empty strings for optional fields
+      const cleanValue = (val: any) => (val === '' ? null : val);
 
-      // Append arrays as JSON strings
-      formData.append('accommodationAllowances', JSON.stringify(candidateForm.accommodationAllowances));
-      formData.append('insurances', JSON.stringify(candidateForm.insurances));
+      const payload: any = {
+        fullName: candidateForm.fullName,
+        email: candidateForm.email,
+        phoneNumber: candidateForm.phoneNumber || candidateForm.mobileNumber || '',
+        status: candidateForm.employeeStatus || 'Active',
+        role: "employee",
+        departmentId: cleanValue(candidateForm.departmentId),
+        designationId: cleanValue(candidateForm.designationId),
+        locationId: cleanValue(candidateForm.locationId),
+        reportingToId: cleanValue(candidateForm.reportingToId),
+        siteId: cleanValue(candidateForm.siteId),
+        buildingId: cleanValue(candidateForm.buildingId),
+        dateOfJoining: cleanValue(candidateForm.dateOfJoining),
+        dateOfBirth: cleanValue(candidateForm.dateOfBirth),
+        gender: cleanValue(candidateForm.gender),
+        maritalStatus: cleanValue(candidateForm.maritalStatus),
+        bloodGroup: cleanValue(candidateForm.bloodGroup),
+        shiftType: cleanValue(candidateForm.shiftType),
+        timeZone: cleanValue(candidateForm.timeZone),
+        empType: cleanValue(candidateForm.empType),
+        employeeNumber: cleanValue(candidateForm.employeeNumber),
+        experience: candidateForm.experience || [],
+        education: candidateForm.education || [],
+        // Include address and contact details
+        presentAddress: candidateForm.presentAddress,
+        permanentAddress: candidateForm.permanentAddress,
+        emergencyContact: candidateForm.emergencyContact,
+        passportNumber: candidateForm.passportNumber,
+        drivingLicenseNumber: candidateForm.drivingLicenseNumber,
+        // Remove fields not present in backend
+        accommodationAllowances: candidateForm.accommodationAllowances || [],
+        insurances: candidateForm.insurances || []
+      };
 
-      // Append bank details
-      const bankDetails: any = { ...candidateForm.bankDetails };
-      const bankFile = bankDetails.bankPassbookFile;
-      delete bankDetails.bankPassbookFile; // Don't include file in the JSON string
-
-      formData.append('bankDetails', JSON.stringify(bankDetails));
-      if (bankFile) {
-        formData.append('bankPassbook', bankFile);
+      // Handle numeric fields: don't send empty strings
+      if (candidateForm.basicSalary && candidateForm.basicSalary !== '') {
+        payload.basicSalary = parseFloat(candidateForm.basicSalary);
       }
 
-      console.log("ONBOARDING DEBUG:", {
-        apiUrl,
-        orgId,
-        token: token ? "Token present" : "Token missing",
-        payload: Object.fromEntries(formData.entries())
-      });
+      // Handle bankDetails: backend expects an array of objects
+      if (candidateForm.bankDetails) {
+        payload.bankDetails = [candidateForm.bankDetails];
+      }
+
+      console.log("ONBOARDING DEBUG: Sending cleaned payload", payload);
 
       const response = await axios.post(
         `${apiUrl}/org/${orgId}/employees`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        }
+        payload
       );
 
       if (response.status === 200 || response.status === 201) {
@@ -450,10 +445,22 @@ const EmployeeOnboardingSystem: React.FC = () => {
     try {
       const response = await axios.get(`${apiUrl}/org/${orgId}/employees/${id}`);
       const data = response.data.data || response.data;
-      // Handle the case where the API might return an array or a single object
       const emp = Array.isArray(data) ? data[0] : data;
 
       if (!emp) throw new Error("Employee not found");
+
+      // Handle the case where the API might return an array or a single object
+      const bankData = (emp.bankDetails && Array.isArray(emp.bankDetails) && emp.bankDetails.length > 0)
+        ? emp.bankDetails[0]
+        : (typeof emp.bankDetails === 'object' && emp.bankDetails !== null && !Array.isArray(emp.bankDetails))
+          ? emp.bankDetails
+          : {
+            bankName: emp.bankName || '',
+            branchName: emp.branchName || '',
+            accountNumber: emp.accountNumber || '',
+            accountHolderName: emp.accountHolderName || '',
+            ifscCode: emp.ifscCode || ''
+          };
 
       setCandidateForm({
         employeeNumber: emp.employeeNumber || emp.employeeId || '',
@@ -461,10 +468,10 @@ const EmployeeOnboardingSystem: React.FC = () => {
         email: emp.email || emp.emailId || '',
         phoneNumber: emp.phoneNumber || emp.mobileNumber || '',
         role: "employee",
-        departmentId: emp.departmentId || emp.department?.id || emp.department?._id || emp.department || '',
-        designationId: emp.designationId || emp.designation?.id || emp.designation?._id || emp.designation || '',
-        locationId: emp.locationId || emp.location?.id || emp.location?._id || emp.location || '',
-        reportingToId: emp.reportingToId || emp.reportingTo?.id || emp.reportingTo?._id || emp.reportingTo || '',
+        departmentId: emp.departmentId || emp.department?.id || emp.department?._id || (typeof emp.department === 'string' ? emp.department : ''),
+        designationId: emp.designationId || emp.designation?.id || emp.designation?._id || (typeof emp.designation === 'string' ? emp.designation : ''),
+        locationId: emp.locationId || emp.location?.id || emp.location?._id || (typeof emp.location === 'string' ? emp.location : ''),
+        reportingToId: emp.reportingToId || emp.reportingTo?.id || emp.reportingTo?._id || (typeof emp.reportingTo === 'string' ? emp.reportingTo : ''),
         dateOfJoining: emp.dateOfJoining ? new Date(emp.dateOfJoining).toISOString().split('T')[0] : '',
         shiftType: emp.shiftType || emp.shift?.id || emp.shift?._id || emp.shift || 'morning',
         timeZone: emp.timeZone || 'Asia/Kolkata',
@@ -478,13 +485,44 @@ const EmployeeOnboardingSystem: React.FC = () => {
         contractType: emp.contractType || '',
         accommodationAllowances: emp.accommodationAllowances || [],
         insurances: emp.insurances || (emp.insuranceType ? [{ type: emp.insuranceType, percentage: emp.insurancePercentage || '' }] : []),
-        bankDetails: emp.bankDetails || {
-          bankName: emp.bankName || '',
-          branchName: emp.branchName || '',
-          accountNumber: emp.accountNumber || '',
-          accountHolderName: emp.accountHolderName || '',
-          ifscCode: emp.ifscCode || ''
-        }
+        bankDetails: bankData,
+        // Add Identity fields for editing
+        pan: emp.PAN || emp.panCard || emp.pan || '',
+        aadhaar: emp.aadharNumber || emp.aadhaar || '',
+        uan: emp.UAN || emp.uan || '',
+        passportNumber: emp.passportNumber || '',
+        drivingLicenseNumber: emp.drivingLicenseNumber || '',
+        // Add Personal fields
+        gender: emp.gender || '',
+        maritalStatus: emp.maritalStatus || '',
+        dateOfBirth: emp.dateOfBirth ? new Date(emp.dateOfBirth).toISOString().split('T')[0] : '',
+        bloodGroup: emp.bloodGroup || '',
+        // Add Address fields
+        presentAddress: {
+          addressLine1: emp.presentAddressLine1 || '',
+          addressLine2: emp.presentAddressLine2 || '',
+          city: emp.presentCity || '',
+          state: emp.presentState || '',
+          country: emp.presentCountry || '',
+          pinCode: emp.presentPinCode || ''
+        },
+        permanentAddress: {
+          addressLine1: emp.permanentAddressLine1 || '',
+          addressLine2: emp.permanentAddressLine2 || '',
+          city: emp.permanentCity || '',
+          state: emp.permanentState || '',
+          country: emp.permanentCountry || '',
+          pinCode: emp.permanentPinCode || ''
+        },
+        // Add Emergency Contact
+        emergencyContact: {
+          contactName: emp.emergencyContactName || '',
+          relation: emp.emergencyContactRelation || '',
+          contactNumber: emp.emergencyContactNumber || ''
+        },
+        // Education & Experience
+        education: emp.education || [],
+        experience: emp.experience || []
       });
       setEditingEmployeeId(id);
       setCurrentView('addCandidate');
@@ -508,51 +546,75 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const formData = new FormData();
-      // Append top-level fields
-      formData.append('employeeNumber', candidateForm.employeeNumber || '');
-      formData.append('fullName', candidateForm.fullName);
-      formData.append('email', candidateForm.email);
-      formData.append('phoneNumber', candidateForm.phoneNumber || candidateForm.mobileNumber || '');
-      formData.append('role', "employee");
-      formData.append('departmentId', candidateForm.departmentId);
-      formData.append('designationId', candidateForm.designationId);
-      formData.append('locationId', candidateForm.locationId);
-      formData.append('reportingToId', candidateForm.reportingToId || '');
-      formData.append('dateOfJoining', candidateForm.dateOfJoining);
-      formData.append('shiftType', candidateForm.shiftType);
-      formData.append('timeZone', candidateForm.timeZone);
-      formData.append('empType', candidateForm.empType);
-      formData.append('status', candidateForm.employeeStatus || 'Active');
-      formData.append('buildingId', candidateForm.buildingId || '');
-      formData.append('basicSalary', candidateForm.basicSalary);
-      formData.append('contractStartDate', candidateForm.contractStartDate || '');
-      formData.append('contractEndDate', candidateForm.contractEndDate || '');
-      formData.append('contractType', candidateForm.contractType || '');
+      const orgId = getOrgId();
+      const apiUrl = getApiUrl();
 
-      // Append arrays as JSON strings
-      formData.append('accommodationAllowances', JSON.stringify(candidateForm.accommodationAllowances));
-      formData.append('insurances', JSON.stringify(candidateForm.insurances));
+      // Helper to handle empty strings for optional fields
+      const cleanValue = (val: any) => (val === '' ? null : val);
 
-      // Append bank details
-      const bankDetails: any = { ...candidateForm.bankDetails };
-      const bankFile = bankDetails.bankPassbookFile;
-      delete bankDetails.bankPassbookFile;
+      // Prepare sanitized payload following the patterns in profilepage.tsx
+      const payload: any = {
+        fullName: candidateForm.fullName,
+        email: candidateForm.email,
+        phoneNumber: candidateForm.phoneNumber || candidateForm.mobileNumber || '',
+        status: candidateForm.employeeStatus || 'Active',
+        role: "employee",
+        departmentId: cleanValue(candidateForm.departmentId),
+        designationId: cleanValue(candidateForm.designationId),
+        locationId: cleanValue(candidateForm.locationId),
+        reportingToId: cleanValue(candidateForm.reportingToId),
+        siteId: cleanValue(candidateForm.siteId),
+        buildingId: cleanValue(candidateForm.buildingId),
+        dateOfJoining: cleanValue(candidateForm.dateOfJoining),
+        dateOfBirth: cleanValue(candidateForm.dateOfBirth),
+        gender: cleanValue(candidateForm.gender),
+        maritalStatus: cleanValue(candidateForm.maritalStatus),
+        bloodGroup: cleanValue(candidateForm.bloodGroup),
+        shiftType: cleanValue(candidateForm.shiftType),
+        timeZone: cleanValue(candidateForm.timeZone),
+        empType: cleanValue(candidateForm.empType),
+        employeeNumber: cleanValue(candidateForm.employeeNumber),
+        experience: candidateForm.experience || [],
+        education: candidateForm.education || [],
+        // Include address and contact details which were missing
+        presentAddress: candidateForm.presentAddress,
+        permanentAddress: candidateForm.permanentAddress,
+        emergencyContact: candidateForm.emergencyContact,
+        passportNumber: candidateForm.passportNumber,
+        drivingLicenseNumber: candidateForm.drivingLicenseNumber,
+        // Remove fields not present in backend Employee entity to prevent 500 error
+        accommodationAllowances: candidateForm.accommodationAllowances || [],
+        insurances: candidateForm.insurances || []
+      };
 
-      formData.append('bankDetails', JSON.stringify(bankDetails));
-      if (bankFile) {
-        formData.append('bankPassbook', bankFile);
+      // Handle numeric fields: don't send empty strings
+      if (candidateForm.basicSalary && candidateForm.basicSalary !== '') {
+        payload.basicSalary = parseFloat(candidateForm.basicSalary);
       }
 
-      await axios.patch(
-        `${apiUrl}/org/${orgId}/employees/${editingEmployeeId}`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
+      // Handle bankDetails: backend expects an array of objects
+      if (candidateForm.bankDetails) {
+        payload.bankDetails = [candidateForm.bankDetails];
+      }
+
+      console.log('ONBOARDING UPDATE: Sending payload', payload);
+
+      try {
+        await axios.put(
+          `${apiUrl}/org/${orgId}/employees/${editingEmployeeId}`,
+          payload
+        );
+      } catch (putError: any) {
+        if (putError.response && putError.response.status === 404) {
+          console.warn("PUT update failed with 404, attempting PATCH fallback...");
+          await axios.patch(
+            `${apiUrl}/org/${orgId}/employees/${editingEmployeeId}`,
+            payload
+          );
+        } else {
+          throw putError;
         }
-      );
+      }
 
       showAlert("Success", "Employee details updated successfully!", "success");
       fetchEmployees();
@@ -591,7 +653,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
       setCurrentView('list');
     } catch (error: any) {
       console.error('Update ERROR:', error);
-      const errorMessage = error.response?.data?.message || error.message || "Unknown error";
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || "Unknown error";
       showAlert("Error", `Failed to update employee: ${errorMessage}`, "error");
     } finally {
       setIsLoading(false);
@@ -624,20 +686,35 @@ const EmployeeOnboardingSystem: React.FC = () => {
     setIsLoading(true);
     try {
       const response = await axios.get(`${apiUrl}/org/${orgId}/employees/${id}`);
-      const emp: any = response.data.data || response.data;
+      const data = response.data.data || response.data;
+      const emp = Array.isArray(data) ? data[0] : data;
+
+      if (!emp) throw new Error("Employee not found");
+
+      const bankData = (emp.bankDetails && Array.isArray(emp.bankDetails) && emp.bankDetails.length > 0)
+        ? emp.bankDetails[0]
+        : (typeof emp.bankDetails === 'object' && emp.bankDetails !== null && !Array.isArray(emp.bankDetails))
+          ? emp.bankDetails
+          : {
+            bankName: emp.bankName || '',
+            branchName: emp.branchName || '',
+            accountNumber: emp.accountNumber || '',
+            accountHolderName: emp.accountHolderName || '',
+            ifscCode: emp.ifscCode || ''
+          };
 
       // Map to CandidateForm
       const form: CandidateForm = {
         employeeNumber: emp.employeeNumber || emp.employeeId || '',
-        fullName: emp.fullName || `${emp.firstName} ${emp.lastName}`,
-        email: emp.email || emp.emailId,
-        phoneNumber: emp.phoneNumber || emp.mobileNumber,
+        fullName: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
+        email: emp.email || emp.emailId || '',
+        phoneNumber: emp.phoneNumber || emp.mobileNumber || '',
         role: "employee",
-        departmentId: emp.departmentId || emp.department?.id || emp.department?._id || emp.department,
-        designationId: emp.designationId || emp.designation?.id || emp.designation?._id || emp.designation,
-        locationId: emp.locationId || emp.location?.id || emp.location?._id || emp.location,
-        reportingToId: emp.reportingToId || emp.reportingTo?.id || emp.reportingTo?._id || emp.reportingTo,
-        dateOfJoining: emp.dateOfJoining || '',
+        departmentId: emp.departmentId || emp.department?.id || emp.department?._id || (typeof emp.department === 'string' ? emp.department : ''),
+        designationId: emp.designationId || emp.designation?.id || emp.designation?._id || (typeof emp.designation === 'string' ? emp.designation : ''),
+        locationId: emp.locationId || emp.location?.id || emp.location?._id || (typeof emp.location === 'string' ? emp.location : ''),
+        reportingToId: emp.reportingToId || emp.reportingTo?.id || emp.reportingTo?._id || (typeof emp.reportingTo === 'string' ? emp.reportingTo : ''),
+        dateOfJoining: emp.dateOfJoining ? new Date(emp.dateOfJoining).toISOString().split('T')[0] : '',
         shiftType: emp.shiftType || emp.shift?.id || emp.shift?._id || emp.shift || 'morning',
         timeZone: emp.timeZone || 'Asia/Kolkata',
         empType: emp.empType || 'permanent',
@@ -650,24 +727,18 @@ const EmployeeOnboardingSystem: React.FC = () => {
         contractType: emp.contractType || '',
         accommodationAllowances: emp.accommodationAllowances || [],
         insurances: emp.insurances || (emp.insuranceType ? [{ type: emp.insuranceType, percentage: emp.insurancePercentage || '' }] : []),
-        bankDetails: emp.bankDetails || {
-          bankName: emp.bankName || '',
-          branchName: emp.branchName || '',
-          accountNumber: emp.accountNumber || '',
-          accountHolderName: emp.accountHolderName || '',
-          ifscCode: emp.ifscCode || ''
-        },
+        bankDetails: bankData,
         // Personal Details
-        gender: emp.gender,
-        maritalStatus: emp.maritalStatus,
+        gender: emp.gender || '',
+        maritalStatus: emp.maritalStatus || '',
         dateOfBirth: emp.dateOfBirth ? new Date(emp.dateOfBirth).toISOString().split('T')[0] : '',
-        bloodGroup: emp.bloodGroup,
+        bloodGroup: emp.bloodGroup || '',
         // Identity Information
-        uan: emp.uan || emp.UAN,
-        pan: emp.pan || emp.PAN || emp.panCard,
-        aadhaar: emp.aadhaar || emp.aadharNumber,
-        passportNumber: emp.passportNumber,
-        drivingLicenseNumber: emp.drivingLicenseNumber,
+        uan: emp.UAN || emp.uan || '',
+        pan: emp.PAN || emp.panCard || emp.pan || '',
+        aadhaar: emp.aadhaar || emp.aadharNumber || '',
+        passportNumber: emp.passportNumber || '',
+        drivingLicenseNumber: emp.drivingLicenseNumber || '',
         // Address Information
         presentAddress: {
           addressLine1: emp.presentAddressLine1 || '',
@@ -798,18 +869,14 @@ const EmployeeOnboardingSystem: React.FC = () => {
     }
 
     const headers = [
-      'Full Name', 'Email ID', 'Official Email', 'Department',
-      'PAN Card', 'Aadhaar', 'UAN'
+      'Full Name', 'Email ID', 'Official Email', 'Department'
     ];
 
     const csvRows = employees.map(emp => [
       emp.fullName || `${emp.firstName} ${emp.lastName}`,
       emp.emailId,
       emp.officialEmail,
-      emp.department,
-      emp.panCard,
-      emp.aadhaar,
-      emp.uan
+      emp.department
     ].map(val => `"${val}"`).join(','));
 
     const csvContent = [headers.join(','), ...csvRows].join('\n');
@@ -849,12 +916,6 @@ const EmployeeOnboardingSystem: React.FC = () => {
             selectedIds={selectedIds}
             onSelectAll={handleSelectAll}
             onSelectOne={handleSelectOne}
-            showPAN={showPAN}
-            setShowPAN={setShowPAN}
-            showAadhaar={showAadhaar}
-            setShowAadhaar={setShowAadhaar}
-            showUAN={showUAN}
-            setShowUAN={setShowUAN}
             onAddCandidateClick={() => setCurrentView('addCandidate')}
             onBulkImportClick={() => setCurrentView('bulkImport')}
             onDelete={handleDeleteEmployee}

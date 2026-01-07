@@ -11,9 +11,9 @@ export interface Employee {
     phoneNumber?: string;
     dateOfJoining?: string;
     sourceOfHire: string;
-    panCard: string;
-    aadhaar: string;
-    uan: string;
+    // panCard: string;
+    // aadhaar: string;
+    // uan: string;
     fullName?: string;
     employeeNumber?: string;
 }
@@ -33,7 +33,6 @@ export interface BankDetails {
     accountNumber: string;
     accountHolderName: string;
     ifscCode: string;
-    bankPassbookFile?: File | null;
 }
 
 export interface Education {

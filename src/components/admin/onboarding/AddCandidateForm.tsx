@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { X, ChevronDown, Check, Plus, Trash2, Upload } from 'lucide-react';
+import { X, ChevronDown, Check, Plus, Trash2 } from 'lucide-react';
 import { CandidateForm, AccommodationAllowance, Insurance, BankDetails } from './types';
 import SuccessDialog from './SuccessDialog';
 
@@ -232,8 +232,7 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                 branchName: '',
                 accountNumber: '',
                 accountHolderName: '',
-                ifscCode: '',
-                bankPassbookFile: null
+                ifscCode: ''
             }),
             [field]: value
         };
@@ -785,34 +784,6 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                                 />
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Bank Passbook / Cancelled Cheque
-                                </label>
-                                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-blue-400 transition-colors cursor-pointer relative">
-                                    <div className="space-y-1 text-center">
-                                        <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                                        <div className="flex text-sm text-gray-600">
-                                            <label className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none">
-                                                <span>{candidateForm.bankDetails?.bankPassbookFile ? candidateForm.bankDetails.bankPassbookFile.name : 'Upload a file'}</span>
-                                                <input
-                                                    type="file"
-                                                    className="sr-only"
-                                                    onChange={(e) => {
-                                                        const file = e.target.files?.[0] || null;
-                                                        handleBankDetailsChange('bankPassbookFile', file);
-                                                    }}
-                                                    accept=".pdf,.jpg,.jpeg,.png"
-                                                />
-                                            </label>
-                                            {!candidateForm.bankDetails?.bankPassbookFile && <p className="pl-1">or drag and drop</p>}
-                                        </div>
-                                        <p className="text-xs text-gray-500">
-                                            PNG, JPG, PDF up to 10MB
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
 

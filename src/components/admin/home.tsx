@@ -9,7 +9,8 @@ import {
 } from 'lucide-react';
 import ProfilePage from '../profile/ProfilePage'; // Import ProfilePage from profile folder
 import axios from 'axios';
-import { getApiUrl, getAuthToken, getOrgId, getCookie, getUserRole } from '@/lib/auth';
+import { useRouter } from 'next/navigation';
+import { getApiUrl, getAuthToken, getOrgId, getCookie, getUserRole, clearSetupData } from '@/lib/auth';
 import attendanceService from '@/lib/attendanceService';
 import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 import { Check, Clock, UserCheck } from 'lucide-react';
@@ -49,11 +50,13 @@ interface ProfileCardProps {
   currentEmployeeId: string | null;
   initialIsCheckedIn?: boolean;
   initialIsCheckedOut?: boolean;
+  checkInTime?: string;
+  checkOutTime?: string;
   onCheckInStatusChange?: (isCheckedIn: boolean) => void;
   showAlert: (title: string, description: string, variant?: "success" | "error" | "info" | "warning") => void;
 }
 
-const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, initialIsCheckedIn = false, initialIsCheckedOut = false, onCheckInStatusChange, showAlert }: ProfileCardProps) => {
+const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, initialIsCheckedIn = false, initialIsCheckedOut = false, checkInTime, checkOutTime, onCheckInStatusChange, showAlert }: ProfileCardProps) => {
   const [isCheckedIn, setIsCheckedIn] = useState(initialIsCheckedIn);
   const [isCheckedOut, setIsCheckedOut] = useState(initialIsCheckedOut);
   const [seconds, setSeconds] = useState(0);
@@ -70,11 +73,23 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, initialIsCh
 
   useEffect(() => {
     setIsCheckedIn(initialIsCheckedIn);
-  }, [initialIsCheckedIn]);
+    setIsCheckedOut(initialIsCheckedOut);
+  }, [initialIsCheckedIn, initialIsCheckedOut]);
 
   useEffect(() => {
-    setIsCheckedOut(initialIsCheckedOut);
-  }, [initialIsCheckedOut]);
+    if (checkInTime && isCheckedIn) {
+      try {
+        const checkInDate = new Date(checkInTime);
+        const now = new Date();
+        const diffInSeconds = Math.max(0, Math.floor((now.getTime() - checkInDate.getTime()) / 1000));
+        setSeconds(diffInSeconds);
+      } catch (e) {
+        setSeconds(0);
+      }
+    } else {
+      setSeconds(0);
+    }
+  }, [isCheckedIn, checkInTime]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -194,7 +209,7 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, initialIsCh
       <h2 className="text-gray-800 font-medium text-sm break-all">{currentUser?.firstName ? `${currentUser.firstName}${currentUser.lastName ? ' ' + currentUser.lastName : ''}` : 'Loading...'}</h2>
       <p className="text-gray-500 text-xs mt-1">{currentUser?.designation || 'N/A'}</p>
       <p className={`text-xs font-medium mt-3 ${isCheckedOut ? 'text-gray-400' : isCheckedIn ? 'text-green-500' : 'text-red-500'}`}>
-        {isCheckedOut ? 'Shift Completed' : isCheckedIn ? 'Checked In' : 'Yet to check-in'}
+        {isCheckedOut ? 'Shift Completed' : isCheckedIn ? `Checked In ${checkInTime ? 'at ' + new Date(checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}` : 'Yet to check-in'}
       </p>
 
       {/* Login/Logout Time Input */}
@@ -237,7 +252,7 @@ interface ReporteesCardProps {
   globalCheckInTime: string;
   globalCheckOutTime: string;
   onSelectReportee: (employeeId: string) => void;
-  onSelectAll: (selectAll: boolean, forCheckOut?: boolean) => void;
+  onSelectAll: (selectAll: boolean, type?: 'checkin' | 'checkout' | 'all') => void;
   onTimeChange: (employeeId: string, time: string) => void;
   onGlobalCheckInTimeChange: (time: string) => void;
   onGlobalCheckOutTimeChange: (time: string) => void;
@@ -286,6 +301,13 @@ const ReporteesCard = ({
   const allCheckedSelected = checkedReportees.length > 0 &&
     checkedReportees.every(r => selectedReporteeIds.includes(r.employeeId));
 
+  // Get selectable reportees (not checked out)
+  const selectableReportees = reportees.filter(r => !r.isCheckedOut);
+
+  // Check if all selectable reportees are selected
+  const allSelected = selectableReportees.length > 0 &&
+    selectableReportees.every(r => selectedReporteeIds.includes(r.employeeId));
+
   // Get current time in HH:MM format
   const getCurrentTime = () => {
     const now = new Date();
@@ -303,17 +325,29 @@ const ReporteesCard = ({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 flex flex-col h-full w-full">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
-        <h3 className="text-gray-700 font-semibold text-sm">Attendance Management</h3>
-
-        {/* Action Buttons */}
+    <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 border border-gray-100 flex flex-col h-full w-full">
+      {/* Header - Stack on mobile, side-by-side on tablet/desktop */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4 pb-3 border-b border-gray-100">
         <div className="flex items-center gap-3">
+          {/* Select All Checkbox */}
+          <div
+            className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors cursor-pointer ${allSelected
+              ? 'border-blue-500 bg-blue-500'
+              : 'border-gray-300 hover:border-gray-400'
+              }`}
+            onClick={() => onSelectAll(!allSelected, 'all')}
+          >
+            {allSelected && <Check className="w-3 h-3 text-white" />}
+          </div>
+          <h3 className="text-gray-700 font-semibold text-sm">Attendance Management</h3>
+        </div>
+
+        {/* Action Buttons - Wrap on medium screens, grid or stack on small */}
+        <div className="flex flex-wrap items-center gap-3">
           {/* Check In with Global Time */}
           {selectedUncheckedReportees.length > 0 && (
-            <div className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-lg border border-green-200">
-              <label className="text-xs text-green-700 font-medium whitespace-nowrap">Login Time:</label>
+            <div className="flex flex-wrap items-center gap-2 bg-green-50 px-3 py-1.5 rounded-lg border border-green-200">
+              <label className="text-xs text-green-700 font-medium whitespace-nowrap">Login:</label>
               <input
                 type="time"
                 value={globalCheckInTime}
@@ -326,15 +360,15 @@ const ReporteesCard = ({
                 className="px-3 py-1 bg-green-500 text-white text-xs font-medium rounded-md hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
               >
                 <UserCheck className="w-3.5 h-3.5" />
-                {checkInLoading ? 'Processing...' : `Check In (${selectedUncheckedReportees.length})`}
+                <span className="truncate">{checkInLoading ? '...' : `Check In (${selectedUncheckedReportees.length})`}</span>
               </button>
             </div>
           )}
 
           {/* Check Out with Global Time */}
           {selectedCheckedReportees.length > 0 && (
-            <div className="flex items-center gap-2 bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-200">
-              <label className="text-xs text-orange-700 font-medium whitespace-nowrap">Logout Time:</label>
+            <div className="flex flex-wrap items-center gap-2 bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-200">
+              <label className="text-xs text-orange-700 font-medium whitespace-nowrap">Logout:</label>
               <input
                 type="time"
                 value={globalCheckOutTime}
@@ -347,19 +381,19 @@ const ReporteesCard = ({
                 className="px-3 py-1 bg-orange-500 text-white text-xs font-medium rounded-md hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
               >
                 <Clock className="w-3.5 h-3.5" />
-                {checkInLoading ? 'Processing...' : `Check Out (${selectedCheckedReportees.length})`}
+                <span className="truncate">{checkInLoading ? '...' : `Check Out (${selectedCheckedReportees.length})`}</span>
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Quick Select Buttons */}
-      <div className="flex items-center gap-3 mb-3">
+      {/* Quick Select Buttons - better wrapping */}
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-3">
         {uncheckedReportees.length > 0 && (
           <button
-            onClick={() => onSelectAll(!allUncheckedSelected, false)}
-            className={`px-3 py-1 text-xs rounded-full border transition-colors ${allUncheckedSelected
+            onClick={() => onSelectAll(!allUncheckedSelected, 'checkin')}
+            className={`px-3 py-1.5 text-[10px] sm:text-xs rounded-full border transition-colors ${allUncheckedSelected
               ? 'bg-red-50 border-red-200 text-red-600'
               : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
               }`}
@@ -369,8 +403,8 @@ const ReporteesCard = ({
         )}
         {checkedReportees.length > 0 && (
           <button
-            onClick={() => onSelectAll(!allCheckedSelected, true)}
-            className={`px-3 py-1 text-xs rounded-full border transition-colors ${allCheckedSelected
+            onClick={() => onSelectAll(!allCheckedSelected, 'checkout')}
+            className={`px-3 py-1.5 text-[10px] sm:text-xs rounded-full border transition-colors ${allCheckedSelected
               ? 'bg-red-50 border-red-200 text-red-600'
               : 'bg-green-50 border-green-200 text-green-600 hover:bg-green-100'
               }`}
@@ -381,101 +415,100 @@ const ReporteesCard = ({
       </div>
 
       {/* Info text */}
-      <p className="text-xs text-gray-500 mb-3">
+      <p className="text-[10px] sm:text-xs text-gray-500 mb-3">
         {selectedReporteeIds.length} employee(s) selected
         {selectedUncheckedReportees.length > 0 && ` • ${selectedUncheckedReportees.length} pending`}
         {selectedCheckedReportees.length > 0 && ` • ${selectedCheckedReportees.length} checked in`}
       </p>
 
       {/* Reportees List */}
-      <div className="flex-1 space-y-3 max-h-[400px] overflow-y-auto">
+      <div className="flex-1 space-y-3 max-h-[500px] overflow-y-auto pr-1 custom-scrollbar">
         {reportees.map((person) => {
           const isSelected = selectedReporteeIds.includes(person.employeeId);
 
           return (
             <div
               key={person.id}
-              className={`flex items-center gap-3 p-2 rounded-lg transition-all ${person.isCheckedOut ? 'bg-gray-50 opacity-60' : isSelected
+              className={`flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg transition-all border-2 ${person.isCheckedOut ? 'bg-gray-50 opacity-60 border-transparent' : isSelected
                 ? person.isCheckedIn
-                  ? 'bg-orange-50 border-2 border-orange-400'
-                  : 'bg-blue-50 border-2 border-blue-400'
-                : 'hover:bg-gray-50 border-2 border-transparent'
+                  ? 'bg-orange-50 border-orange-400'
+                  : 'bg-blue-50 border-blue-400'
+                : 'hover:bg-gray-50 border-transparent'
                 }`}
             >
-              {/* Selection checkbox */}
-              <div
-                className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${person.isCheckedOut ? 'border-gray-200 bg-gray-100 cursor-not-allowed' : 'cursor-pointer'} ${isSelected
-                  ? person.isCheckedIn
-                    ? 'border-orange-500 bg-orange-500'
-                    : 'border-blue-500 bg-blue-500'
-                  : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                onClick={() => !person.isCheckedOut && onSelectReportee(person.employeeId)}
-              >
-                {isSelected && <Check className="w-3 h-3 text-white" />}
-              </div>
-
-              {/* Avatar */}
-              <div className="w-10 h-10 bg-gray-200 rounded-full shrink-0 overflow-hidden">
-                <div className="w-full h-full flex items-center justify-center bg-slate-300 text-slate-500">
-                  <User size={16} />
+              <div className="flex items-center gap-3">
+                {/* Selection checkbox */}
+                <div
+                  className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${person.isCheckedOut ? 'border-gray-200 bg-gray-100 cursor-not-allowed' : 'cursor-pointer'} ${isSelected
+                    ? person.isCheckedIn
+                      ? 'border-orange-500 bg-orange-500'
+                      : 'border-blue-500 bg-blue-500'
+                    : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  onClick={() => !person.isCheckedOut && onSelectReportee(person.employeeId)}
+                >
+                  {isSelected && <Check className="w-3 h-3 text-white" />}
                 </div>
-              </div>
 
-              {/* Info */}
-              <div className="min-w-0 flex-1">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p
-                      className="text-sm text-gray-700 font-medium truncate hover:text-blue-600 transition-colors cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEmployeeClick(person.employeeId, person.name);
-                      }}
-                    >
-                      {person.name}
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      {person.status === 'checked-in' ? (
-                        <>
-                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                          <span className="text-[11px] text-green-600 font-medium">Checked In</span>
-                        </>
-                      ) : person.status === 'checked-out' ? (
-                        <>
-                          <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
-                          <span className="text-[11px] text-gray-500 font-medium">Checked Out</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="w-2 h-2 bg-red-400 rounded-full"></span>
-                          <span className="text-[11px] text-red-500 font-medium">Yet to check-in</span>
-                        </>
-                      )}
-                    </div>
+                {/* Avatar */}
+                <div className="w-10 h-10 bg-gray-200 rounded-full shrink-0 overflow-hidden">
+                  <div className="w-full h-full flex items-center justify-center bg-slate-300 text-slate-500">
+                    <User size={16} />
                   </div>
                 </div>
 
-                {/* Times Display */}
-                <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500 border-t border-gray-50 pt-1.5">
-                  <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-0.5 rounded">
-                    <span className="font-medium text-gray-600">In:</span>
-                    <span className="font-mono">{formatTimeDisplay(person.checkInTime) || '--:--'}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-0.5 rounded">
-                    <span className="font-medium text-gray-600">Out:</span>
-                    <span className="font-mono">{formatTimeDisplay(person.checkOutTime) || '--:--'}</span>
+                {/* Info Container */}
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="text-sm text-gray-700 font-medium truncate hover:text-blue-600 transition-colors cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEmployeeClick(person.employeeId, person.name);
+                    }}
+                  >
+                    {person.name}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    {person.status === 'checked-in' ? (
+                      <>
+                        <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                        <span className="text-[11px] text-green-600 font-medium">
+                          Checked In {person.checkInTime ? `at ${new Date(person.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                        </span>
+                      </>
+                    ) : person.status === 'checked-out' ? (
+                      <>
+                        <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+                        <span className="text-[11px] text-gray-500 font-medium">Checked Out</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="w-2 h-2 bg-red-400 rounded-full"></span>
+                        <span className="text-[11px] text-red-500 font-medium">Yet to check-in</span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Status icon */}
-              <div className={`p-1.5 rounded-full ${person.isCheckedIn ? 'bg-green-100' : 'bg-gray-100'}`}>
-                {person.isCheckedIn ? (
-                  <Check className="w-4 h-4 text-green-600" />
-                ) : (
-                  <Clock className="w-4 h-4 text-gray-400" />
-                )}
+              {/* Times Display - Stack on mobile, side by side on SM+ */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 ml-0 sm:ml-auto mt-2 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100">
+                <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-0.5 rounded text-[10px] sm:text-xs">
+                  <span className="font-medium text-gray-600">In:</span>
+                  <span className="font-mono">{formatTimeDisplay(person.checkInTime) || '--:--'}</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-0.5 rounded text-[10px] sm:text-xs">
+                  <span className="font-medium text-gray-600">Out:</span>
+                  <span className="font-mono">{formatTimeDisplay(person.checkOutTime) || '--:--'}</span>
+                </div>
+                {/* Status icon - Hide on very small screens, show on SM+ */}
+                <div className={`hidden sm:block p-1.5 rounded-full ${person.isCheckedIn ? 'bg-green-100' : 'bg-gray-100'}`}>
+                  {person.isCheckedIn ? (
+                    <Check className="w-3 h-3 text-green-600" />
+                  ) : (
+                    <Clock className="w-3 h-3 text-gray-400" />
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -489,7 +522,7 @@ const ReporteesCard = ({
             <span className="font-medium text-gray-700">{selectedReporteeIds.length}</span> employee(s) selected
           </p>
           <button
-            onClick={() => onSelectAll(false)}
+            onClick={() => onSelectAll(false, 'all')}
             className="text-xs text-red-500 hover:text-red-600 font-medium"
           >
             Clear Selection
@@ -525,6 +558,7 @@ const ActivitiesSection = ({ currentUser }: { currentUser: CurrentUser | null })
 // --- Main Page Component ---
 
 export default function Dashboard() {
+  const router = useRouter();
   const [showProfile, setShowProfile] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [reportees, setReportees] = useState<Reportee[]>([]);
@@ -548,6 +582,8 @@ export default function Dashboard() {
   const [checkInLoading, setCheckInLoading] = useState(false);
   const [isSelfCheckedIn, setIsSelfCheckedIn] = useState(false);
   const [isSelfCheckedOut, setIsSelfCheckedOut] = useState(false);
+  const [selfCheckInTime, setSelfCheckInTime] = useState<string | undefined>(undefined);
+  const [selfCheckOutTime, setSelfCheckOutTime] = useState<string | undefined>(undefined);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Alert State
@@ -616,16 +652,16 @@ export default function Dashboard() {
             attendanceData.forEach((record: any) => {
               if (record.employeeId) {
                 attendanceDetails[record.employeeId] = {
-                  checkInTime: record.checkInTime,
-                  checkOutTime: record.checkOutTime
+                  checkInTime: record.checkInTime || record.checkIn,
+                  checkOutTime: record.checkOutTime || record.checkOut
                 };
 
                 // If there's a check-in but no check-out, they are active
-                if (record.checkInTime && !record.checkOutTime) {
+                if ((record.checkInTime || record.checkIn) && !(record.checkOutTime || record.checkOut)) {
                   attendanceMap[record.employeeId] = true;
                 }
                 // If they have both, they are finished for the day
-                else if (record.checkInTime && record.checkOutTime) {
+                else if ((record.checkInTime || record.checkIn) && (record.checkOutTime || record.checkOut)) {
                   checkedOutMap[record.employeeId] = true;
                 }
               }
@@ -662,8 +698,15 @@ export default function Dashboard() {
 
         setIsSelfCheckedIn(!!attendanceMap[authEmployeeId]);
         setIsSelfCheckedOut(!!checkedOutMap[authEmployeeId]);
-      } catch (error) {
+        setSelfCheckInTime(attendanceDetails[authEmployeeId]?.checkInTime);
+        setSelfCheckOutTime(attendanceDetails[authEmployeeId]?.checkOutTime);
+      } catch (error: any) {
         console.error('Error fetching dashboard data:', error);
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+          console.warn("Session expired (401), redirecting to login...");
+          clearSetupData(); // Clear cookies
+          router.push('/auth/login');
+        }
       } finally {
         setLoading(false);
       }
@@ -692,26 +735,35 @@ export default function Dashboard() {
   };
 
   // Handle select all / deselect all
-  const handleSelectAll = (selectAll: boolean, forCheckOut?: boolean) => {
+  const handleSelectAll = (selectAll: boolean, type?: 'checkin' | 'checkout' | 'all') => {
     if (selectAll) {
-      if (forCheckOut) {
+      let idsToSelect: string[] = [];
+      if (type === 'checkout') {
         // Select all checked-in reportees for checkout
-        const checkedIds = reportees
-          .filter(r => r.isCheckedIn)
+        idsToSelect = reportees
+          .filter(r => r.isCheckedIn && !r.isCheckedOut)
           .map(r => r.employeeId);
-        setSelectedReporteeIds(prev => [...new Set([...prev, ...checkedIds])]);
-      } else {
+      } else if (type === 'checkin') {
         // Select all unchecked-in reportees for check-in
-        const uncheckedIds = reportees
-          .filter(r => !r.isCheckedIn)
+        idsToSelect = reportees
+          .filter(r => !r.isCheckedIn && !r.isCheckedOut)
           .map(r => r.employeeId);
-        setSelectedReporteeIds(prev => [...new Set([...prev, ...uncheckedIds])]);
+      } else {
+        // Select all non-checked-out reportees
+        idsToSelect = reportees
+          .filter(r => !r.isCheckedOut)
+          .map(r => r.employeeId);
       }
+      setSelectedReporteeIds(prev => [...new Set([...prev, ...idsToSelect])]);
     } else {
-      if (forCheckOut) {
+      if (type === 'checkout') {
         // Deselect only checked-in reportees
         const checkedIds = reportees.filter(r => r.isCheckedIn).map(r => r.employeeId);
         setSelectedReporteeIds(prev => prev.filter(id => !checkedIds.includes(id)));
+      } else if (type === 'checkin') {
+        // Deselect only unchecked-in reportees
+        const uncheckedIds = reportees.filter(r => !r.isCheckedIn).map(r => r.employeeId);
+        setSelectedReporteeIds(prev => prev.filter(id => !uncheckedIds.includes(id)));
       } else {
         // Deselect all and clear times
         setSelectedReporteeIds([]);
@@ -882,6 +934,8 @@ export default function Dashboard() {
               currentEmployeeId={currentEmployeeId}
               initialIsCheckedIn={isSelfCheckedIn}
               initialIsCheckedOut={isSelfCheckedOut}
+              checkInTime={selfCheckInTime}
+              checkOutTime={selfCheckOutTime}
               onCheckInStatusChange={() => setRefreshTrigger(prev => prev + 1)}
               showAlert={showAlert}
             />
