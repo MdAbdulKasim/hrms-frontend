@@ -194,19 +194,18 @@ export default function AttendanceReportPage() {
       doc.text(`Total Records: ${selectedData.length}`, 14, 36);
 
       // Table body
-      const tableData = selectedData.map(record => [
-        record.employeeName || record.employee?.fullName || record.employee?.name || record.employeeId || 'N/A',
-        formatDate(record.date),
-        formatDateTime(record.checkInTime) || record.checkIn || 'N/A',
-        formatDateTime(record.checkOutTime) || record.checkOut || 'N/A',
-        record.totalHours ? `${record.totalHours}h` : (record.hoursWorked || 'N/A'),
-        record.status || 'Unknown'
-      ]);
-
       autoTable(doc, {
         startY: 45,
-        head: [['Employee', 'Date', 'Check In', 'Check Out', 'Hours', 'Status']],
-        body: tableData,
+        head: [['Employee ID', 'Employee Name', 'Date', 'Check In', 'Check Out', 'Hours', 'Status']],
+        body: selectedData.map(record => [
+          record.employeeNumber || record.employee?.employeeNumber || 'N/A',
+          record.employeeName || record.employee?.fullName || record.employee?.name || 'N/A',
+          formatDate(record.date),
+          formatDateTime(record.checkInTime) || record.checkIn || 'N/A',
+          formatDateTime(record.checkOutTime) || record.checkOut || 'N/A',
+          record.totalHours ? `${record.totalHours}h` : (record.hoursWorked || 'N/A'),
+          record.status || 'Unknown'
+        ]),
         theme: 'grid',
         headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
         styles: { fontSize: 9, cellPadding: 3 },
@@ -243,11 +242,12 @@ export default function AttendanceReportPage() {
     }
 
     // Create CSV content with wider headers
-    const headers = ['Employee Name', 'Date', 'Check In Time', 'Check Out Time', 'Hours Worked', 'Status'];
+    const headers = ['Employee ID', 'Employee Name', 'Date', 'Check In Time', 'Check Out Time', 'Hours Worked', 'Status'];
     const csvRows = [headers.join(',')];
 
     dataToExport.forEach(record => {
-      const employeeName = record.employeeName || record.employee?.fullName || record.employee?.name || record.employeeId || 'N/A';
+      const employeeId = record.employeeNumber || record.employee?.employeeNumber || 'N/A';
+      const employeeName = record.employeeName || record.employee?.fullName || record.employee?.name || 'N/A';
       const date = formatDate(record.date);
       const checkIn = (formatDateTime(record.checkInTime) || record.checkIn || 'N/A').toString();
       const checkOut = (formatDateTime(record.checkOutTime) || record.checkOut || 'N/A').toString();
@@ -255,6 +255,7 @@ export default function AttendanceReportPage() {
       const status = record.status || 'Unknown';
 
       const row = [
+        `"${employeeId}"`,
         `"${employeeName}"`,
         `"${date}"`,
         `"${checkIn}"`,

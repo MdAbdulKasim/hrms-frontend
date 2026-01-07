@@ -11,6 +11,7 @@ import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
 export interface EmployeeRecord {
   id: string;
   employeeId?: string;
+  employeeNumber?: string;
   fullName?: string;
   firstName?: string;
   lastName?: string;
@@ -351,6 +352,7 @@ export default function EmployeeReportPage() {
       doc.text(`Total Records: ${dataToExport.length}`, 14, 36);
 
       const tableData = dataToExport.map(emp => [
+        emp.employeeNumber || 'N/A',
         getFullName(emp),
         emp.email || 'N/A',
         emp.phoneNumber || 'N/A',
@@ -362,7 +364,7 @@ export default function EmployeeReportPage() {
 
       autoTable(doc, {
         startY: 45,
-        head: [['Full Name', 'Email', 'Phone', 'Department', 'Designation', 'Location', 'Joined']],
+        head: [['EMP ID', 'Full Name', 'Email', 'Phone', 'Department', 'Designation', 'Location', 'Joined']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
@@ -399,11 +401,12 @@ export default function EmployeeReportPage() {
       return;
     }
 
-    const headers = ['Full Name', 'Email', 'Phone', 'Department', 'Designation', 'Location', 'Joined'];
+    const headers = ['Employee ID', 'Full Name', 'Email', 'Phone', 'Department', 'Designation', 'Location', 'Joined'];
     const csvRows = [headers.join(',')];
 
     dataToExport.forEach(emp => {
       const row = [
+        `"${emp.employeeNumber || 'N/A'}"`,
         `"${getFullName(emp)}"`,
         `"${emp.email || 'N/A'}"`,
         `"${emp.phoneNumber || 'N/A'}"`,

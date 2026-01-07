@@ -11,6 +11,8 @@ interface LeaveRequest {
     days: number;
     reason: string;
     status: 'approved' | 'pending' | 'rejected';
+    dayType: 'full_day' | 'first_half' | 'second_half';
+    isLWP: boolean;
     employeeId?: string;
     employeeName?: string;
     employeeEmail?: string;
@@ -74,9 +76,14 @@ const ViewLeaveDetails: React.FC<ViewLeaveDetailsProps> = ({ leave, onClose }) =
 
                 <div className="p-8 space-y-8">
                     {/* Status Banner */}
-                    <div className={`flex items-center gap-3 p-4 rounded-xl border ${statusStyle.border} ${statusStyle.bg} ${statusStyle.text}`}>
-                        {statusStyle.icon}
-                        <span className="font-semibold capitalize">Status: {leave.status}</span>
+                    <div className={`flex items-center justify-between p-4 rounded-xl border ${statusStyle.border} ${statusStyle.bg} ${statusStyle.text}`}>
+                        <div className="flex items-center gap-3">
+                            {statusStyle.icon}
+                            <span className="font-semibold capitalize">Status: {leave.status}</span>
+                        </div>
+                        {leave.isLWP && (
+                            <span className="text-[10px] bg-amber-500 text-white font-black px-2 py-1 rounded shadow-sm uppercase tracking-wider">Leave Without Pay</span>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -102,6 +109,9 @@ const ViewLeaveDetails: React.FC<ViewLeaveDetailsProps> = ({ leave, onClose }) =
                             <div className="space-y-2">
                                 <div className="text-sm font-medium text-gray-600">
                                     <span className="text-gray-900 font-bold">{leave.leaveTypeCode}</span> • {leave.days} {leave.days === 1 ? 'Day' : 'Days'}
+                                    <span className="ml-2 text-[10px] bg-gray-100 text-gray-500 font-bold px-1.5 py-0.5 rounded uppercase">
+                                        {leave.dayType === 'full_day' ? 'Full Day' : leave.dayType === 'first_half' ? 'First Half' : 'Second Half'}
+                                    </span>
                                 </div>
                                 <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex flex-col gap-1">
                                     <div className="text-sm font-bold text-gray-900">{formatDate(leave.startDate)}</div>

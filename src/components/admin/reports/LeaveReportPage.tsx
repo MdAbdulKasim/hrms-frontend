@@ -12,6 +12,7 @@ export interface LeaveRecord {
   id: string;
   employeeName?: string;
   employeeId?: string;
+  employeeNumber?: string;
   leaveTypeCode: string;
   leaveType?: string;
   startDate: string;
@@ -129,6 +130,7 @@ export default function LeaveReportPage() {
       // Transform and enrich the data
       const enrichedLeaves = leaves.map((leave: any) => {
         const employeeId = leave.employeeId || leave.employee?.id;
+        const employeeNumber = leave.employee?.employeeNumber || leave.employeeNumber || 'N/A';
         const employeeName = leave.employeeName ||
           (leave.employee && (leave.employee.fullName || leave.employee.name || `${leave.employee.firstName || ''} ${leave.employee.lastName || ''}`.trim())) ||
           employeeMap[employeeId] ||
@@ -140,6 +142,7 @@ export default function LeaveReportPage() {
         return {
           id: leave.id,
           employeeId: employeeId,
+          employeeNumber: employeeNumber,
           employeeName: employeeName,
           leaveTypeCode: leave.leaveTypeCode || leave.leaveType || 'Unknown',
           startDate: leave.startDate,
@@ -250,6 +253,7 @@ export default function LeaveReportPage() {
       doc.text(`Total Records: ${dataToExport.length}`, 14, 36);
 
       const tableData = dataToExport.map(record => [
+        record.employeeNumber || 'N/A',
         record.employeeName || 'N/A',
         record.leaveTypeCode,
         new Date(record.startDate).toLocaleDateString(),
@@ -261,7 +265,7 @@ export default function LeaveReportPage() {
 
       autoTable(doc, {
         startY: 45,
-        head: [['Employee', 'Leave Type', 'Start Date', 'End Date', 'Days', 'Status', 'Reason']],
+        head: [['EMP ID', 'Employee', 'Leave Type', 'Start Date', 'End Date', 'Days', 'Status', 'Reason']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
@@ -298,11 +302,12 @@ export default function LeaveReportPage() {
       return;
     }
 
-    const headers = ['Employee', 'Leave Type', 'Start Date', 'End Date', 'Days', 'Status', 'Reason'];
+    const headers = ['Employee ID', 'Employee Name', 'Leave Type', 'Start Date', 'End Date', 'Days', 'Status', 'Reason'];
     const csvRows = [headers.join(',')];
 
     dataToExport.forEach(record => {
       const row = [
+        `"${record.employeeNumber || 'N/A'}"`,
         `"${record.employeeName || 'N/A'}"`,
         `"${record.leaveTypeCode}"`,
         `"${new Date(record.startDate).toLocaleDateString()}"`,

@@ -29,7 +29,7 @@ const Dashboard: React.FC = () => {
 
         // Fetch current day attendance status for summary
         try {
-          const statusRes = await axios.get(`${apiUrl}/org/${orgId}/attendance/my-status`, {
+          const statusRes = await axios.get(`${apiUrl}/org/${orgId}/attendence/my-status`, {
             headers: { Authorization: `Bearer ${token}` }
           });
 

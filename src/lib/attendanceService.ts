@@ -31,7 +31,7 @@ export const attendanceService = {
         payload.checkInTime = checkInTime;
       }
       const response = await api.post(
-        `/org/${organizationId}/attendance/check-in`,
+        `/org/${organizationId}/attendence/check-in`,
         Object.keys(payload).length > 0 ? payload : undefined
       );
       return response.data;
@@ -53,7 +53,7 @@ export const attendanceService = {
         payload.checkOutTime = checkOutTime;
       }
       const response = await api.post(
-        `/org/${organizationId}/attendance/check-out`,
+        `/org/${organizationId}/attendence/check-out`,
         Object.keys(payload).length > 0 ? payload : undefined
       );
       return response.data;
@@ -71,7 +71,7 @@ export const attendanceService = {
   async getStatus(organizationId: string): Promise<AttendanceResponse> {
     try {
       const response = await api.get(
-        `/org/${organizationId}/attendance/my-status`
+        `/org/${organizationId}/attendence/my-status`
       );
       return response.data;
     } catch (error: any) {
@@ -96,7 +96,7 @@ export const attendanceService = {
       if (endDate) params.append('endDate', endDate);
 
       const response = await api.get(
-        `/org/${organizationId}/attendance/my-history${params.toString() ? `?${params.toString()}` : ''}`
+        `/org/${organizationId}/attendence/my-history${params.toString() ? `?${params.toString()}` : ''}`
       );
       return response.data;
     } catch (error: any) {
@@ -119,7 +119,7 @@ export const attendanceService = {
       if (date) params.append('date', date);
 
       const response = await api.get(
-        `/org/${organizationId}/attendance/admin/daily${params.toString() ? `?${params.toString()}` : ''}`
+        `/org/${organizationId}/attendence/admin/daily${params.toString() ? `?${params.toString()}` : ''}`
       );
       return response.data;
     } catch (error: any) {
@@ -146,7 +146,7 @@ export const attendanceService = {
       if (endDate) params.append('endDate', endDate);
 
       const response = await api.get(
-        `/org/${organizationId}/attendance/admin/search${params.toString() ? `?${params.toString()}` : ''}`
+        `/org/${organizationId}/attendence/admin/search${params.toString() ? `?${params.toString()}` : ''}`
       );
       return response.data;
     } catch (error: any) {
@@ -172,7 +172,7 @@ export const attendanceService = {
       if (endDate) params.append('endDate', endDate);
 
       const response = await api.get(
-        `/org/${organizationId}/attendance/admin/employee/${employeeId}${params.toString() ? `?${params.toString()}` : ''}`
+        `/org/${organizationId}/attendence/admin/employee/${employeeId}${params.toString() ? `?${params.toString()}` : ''}`
       );
       return response.data;
     } catch (error: any) {
@@ -191,7 +191,7 @@ export const attendanceService = {
   ): Promise<AttendanceResponse> {
     try {
       const response = await api.get(
-        `/org/${organizationId}/attendance/admin/all`
+        `/org/${organizationId}/attendence/admin/all`
       );
       return response.data;
     } catch (error: any) {
@@ -212,7 +212,7 @@ export const attendanceService = {
   ): Promise<AttendanceResponse> {
     try {
       const response = await api.post(
-        `/org/${organizationId}/attendance/manager-checkin`,
+        `/org/${organizationId}/attendence/manager-checkin`,
         { employeeId, checkInTime }
       );
       return response.data;
@@ -234,7 +234,7 @@ export const attendanceService = {
   ): Promise<AttendanceResponse> {
     try {
       const response = await api.post(
-        `/org/${organizationId}/attendance/manager-checkout`,
+        `/org/${organizationId}/attendence/manager-checkout`,
         { employeeId, checkOutTime }
       );
       return response.data;
@@ -257,7 +257,7 @@ export const attendanceService = {
     try {
       console.log('Bulk check-in request:', { organizationId, employeeIds, checkInTime });
       const response = await api.post(
-        `/org/${organizationId}/attendance/bulk-manager-checkin`,
+        `/org/${organizationId}/attendence/bulk-manager-checkin`,
         { employeeIds, checkInTime }
       );
       return response.data;
@@ -286,7 +286,7 @@ export const attendanceService = {
   ): Promise<AttendanceResponse> {
     try {
       const response = await api.post(
-        `/org/${organizationId}/attendance/bulk-manager-checkout`,
+        `/org/${organizationId}/attendence/bulk-manager-checkout`,
         { employeeIds, checkOutTime }
       );
       return response.data;
@@ -312,7 +312,7 @@ export const attendanceService = {
       if (includeAll) params.append('includeAll', 'true');
 
       const response = await api.get(
-        `/org/${organizationId}/attendance/pending-checkins${params.toString() ? `?${params.toString()}` : ''}`
+        `/org/${organizationId}/attendence/pending-checkins${params.toString() ? `?${params.toString()}` : ''}`
       );
       return response.data;
     } catch (error: any) {

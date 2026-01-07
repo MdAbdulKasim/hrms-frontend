@@ -47,6 +47,8 @@ interface LeaveRequest {
   numberOfDays?: number;
   reason: string;
   status: 'approved' | 'pending' | 'rejected';
+  dayType: 'full_day' | 'first_half' | 'second_half';
+  isLWP: boolean;
   employeeId?: string;
   employeeName?: string;
   employeeEmail?: string;
@@ -64,6 +66,7 @@ const LeaveTracker = () => {
   const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [selectedLeaveType, setSelectedLeaveType] = useState('');
+  const [dayType, setDayType] = useState<'full_day' | 'first_half' | 'second_half'>('full_day');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [reason, setReason] = useState('');
@@ -127,6 +130,8 @@ const LeaveTracker = () => {
 
   // Icon mapping for leave types
   const iconMap: { [key: string]: React.ReactNode } = {
+    'SL_CL': <Heart className="w-5 h-5" />,
+    'AL': <Calendar className="w-5 h-5" />,
     'CL': <Coffee className="w-5 h-5" />,
     'EL': <Gift className="w-5 h-5" />,
     'LWP': <Clock className="w-5 h-5" />,
@@ -135,13 +140,15 @@ const LeaveTracker = () => {
     'SL': <AlertCircle className="w-5 h-5" />,
   };
 
-  const colorMap: { [key: string]: { color: string; bgColor: string } } = {
-    'CL': { color: 'text-blue-600', bgColor: 'bg-blue-100' },
-    'EL': { color: 'text-green-600', bgColor: 'bg-green-100' },
-    'LWP': { color: 'text-gray-600', bgColor: 'bg-gray-100' },
-    'PL': { color: 'text-purple-600', bgColor: 'bg-purple-100' },
-    'SBL': { color: 'text-pink-600', bgColor: 'bg-pink-100' },
-    'SL': { color: 'text-red-600', bgColor: 'bg-red-100' },
+  const colorMap: { [key: string]: { color: string; bgColor: string; gradient: string } } = {
+    'SL_CL': { color: 'text-rose-600', bgColor: 'bg-rose-50', gradient: 'from-rose-500 to-pink-600' },
+    'AL': { color: 'text-indigo-600', bgColor: 'bg-indigo-50', gradient: 'from-indigo-500 to-blue-600' },
+    'CL': { color: 'text-blue-600', bgColor: 'bg-blue-50', gradient: 'from-blue-500 to-cyan-600' },
+    'SL': { color: 'text-rose-600', bgColor: 'bg-rose-50', gradient: 'from-rose-500 to-pink-600' },
+    'EL': { color: 'text-emerald-600', bgColor: 'bg-emerald-50', gradient: 'from-emerald-500 to-teal-600' },
+    'LWP': { color: 'text-amber-600', bgColor: 'bg-amber-50', gradient: 'from-amber-500 to-orange-600' },
+    'PL': { color: 'text-purple-600', bgColor: 'bg-purple-50', gradient: 'from-purple-500 to-violet-600' },
+    'SBL': { color: 'text-pink-600', bgColor: 'bg-pink-50', gradient: 'from-pink-500 to-rose-600' },
   };
 
   // Fetch employees for name mapping
@@ -223,7 +230,9 @@ const LeaveTracker = () => {
       employeeEmail: leave.employeeEmail ||
         (leave.employee && leave.employee.email) ||
         employeeInfo?.email,
-      days: days
+      days: days,
+      dayType: leave.dayType || 'full_day',
+      isLWP: !!leave.isLWP
     };
   };
 
@@ -260,6 +269,23 @@ const LeaveTracker = () => {
           defaultDays: totalDays,
         };
       });
+
+      // Ensure AL is always present in the display list if not already there
+      if (!transformedTypes.find(t => t.code === 'AL')) {
+        transformedTypes.push({
+          id: 'AL',
+          code: 'AL',
+          name: 'Annual Leave',
+          total: 30,
+          available: 30,
+          booked: 0,
+          icon: <Calendar className="w-5 h-5" />,
+          color: colorMap['AL'].color,
+          bgColor: colorMap['AL'].bgColor,
+          defaultDays: 30
+        });
+      }
+
       setLeaveTypes(transformedTypes);
       setLeaveConfigs(types.map((type: any) => ({ code: type.code, defaultDays: type.defaultDays || 0 })));
     } catch (error) {
@@ -424,7 +450,7 @@ const LeaveTracker = () => {
           startDate: fromDate,
           endDate: toDate,
           reason: reason,
-          dayType: 'full_day'
+          dayType: dayType
         },
         {
           headers: { Authorization: `Bearer ${token}` }
@@ -521,6 +547,7 @@ const LeaveTracker = () => {
   const handleCancel = () => {
     setIsDialogOpen(false);
     setSelectedLeaveType('');
+    setDayType('full_day');
     setFromDate('');
     setToDate('');
     setReason('');
@@ -660,26 +687,34 @@ const LeaveTracker = () => {
         </div>
 
         {/* Leave Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           {leaveTypes.map((leave) => (
-            <div key={leave.id} className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-200 w-full">
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`${leave.bgColor} ${leave.color} p-2 sm:p-3 rounded-lg flex-shrink-0`}>
+            <div key={leave.id} className="relative overflow-hidden bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 group transition-all duration-300">
+              <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${colorMap[leave.code]?.gradient || 'from-gray-100 to-gray-200'} opacity-[0.05] -mr-8 -mt-8 rounded-full`} />
+
+              <div className="flex items-center gap-4 mb-8 relative">
+                <div className={`${colorMap[leave.code]?.bgColor || 'bg-gray-50'} ${colorMap[leave.code]?.color || 'text-gray-600'} w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm`}>
                   {leave.icon}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{leave.name}</h3>
-                  <p className="text-xs sm:text-sm text-gray-600">Total: {leave.total} days</p>
+                  <h3 className="font-extrabold text-[#0F172A] text-lg leading-tight">{leave.name}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[10px] font-bold px-2 py-0.5 bg-gray-100 text-gray-500 rounded uppercase tracking-wider">
+                      {leave.code}
+                    </span>
+                    <span className="text-[11px] font-medium text-gray-400">Total: {leave.total} days</span>
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                <div className="bg-green-50 rounded-lg p-2 sm:p-3 md:p-4 text-center min-w-0">
-                  <div className="text-xl sm:text-2xl md:text-3xl font-bold text-green-600 break-words">{leave.available}</div>
-                  <div className="text-xs sm:text-sm text-gray-600 mt-1">Available</div>
+
+              <div className="grid grid-cols-2 gap-4 relative">
+                <div className="bg-[#F8FAFC] rounded-2xl p-4 text-center border border-[#F1F5F9] group-hover:bg-white transition-colors">
+                  <div className="text-3xl font-black text-[#0F172A]">{leave.available}</div>
+                  <div className="text-[10px] uppercase tracking-widest font-black text-[#10B981] mt-1">Available</div>
                 </div>
-                <div className="bg-orange-50 rounded-lg p-2 sm:p-3 md:p-4 text-center min-w-0">
-                  <div className="text-xl sm:text-2xl md:text-3xl font-bold text-orange-600 break-words">{leave.booked}</div>
-                  <div className="text-xs sm:text-sm text-gray-600 mt-1">Booked</div>
+                <div className="bg-[#F8FAFC] rounded-2xl p-4 text-center border border-[#F1F5F9] group-hover:bg-white transition-colors">
+                  <div className="text-3xl font-black text-[#0F172A]">{leave.booked}</div>
+                  <div className="text-[10px] uppercase tracking-widest font-black text-[#F97316] mt-1">Booked</div>
                 </div>
               </div>
             </div>
@@ -720,22 +755,37 @@ const LeaveTracker = () => {
                   </tr>
                 ) : (
                   currentLeaves.map((leave) => (
-                    <tr key={leave.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-4 px-4 text-gray-900 whitespace-nowrap">
-                        {leave.employeeName || leave.employeeEmail || 'Unknown'}
+                    <tr key={leave.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
+                      <td className="py-4 px-4">
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-gray-900">{leave.employeeName || 'Unknown'}</span>
+                          <span className="text-xs text-gray-500">{leave.employeeEmail || ''}</span>
+                        </div>
                       </td>
-                      <td className="py-4 px-4 text-gray-900 whitespace-nowrap">
-                        {leave.leaveTypeCode || leave.leaveType || 'Unknown'}
+                      <td className="py-4 px-4">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-900">{leave.leaveTypeCode || leave.leaveType || 'Unknown'}</span>
+                          <span className="text-[10px] uppercase font-bold text-gray-400">
+                            {leave.dayType === 'full_day' ? 'Full Day' : leave.dayType === 'first_half' ? 'First Half' : 'Second Half'}
+                          </span>
+                        </div>
                       </td>
                       <td className="py-4 px-4 text-gray-600 whitespace-nowrap">{formatDate(leave.startDate)}</td>
                       <td className="py-4 px-4 text-gray-600 whitespace-nowrap">{formatDate(leave.endDate)}</td>
-                      <td className="py-4 px-4 text-gray-900 whitespace-nowrap">{leave.days}</td>
-                      <td className="py-4 px-4 text-gray-600 whitespace-nowrap max-w-[200px] truncate" title={leave.reason}>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-gray-900">{leave.days}</span>
+                          {leave.isLWP && (
+                            <span className="text-[10px] bg-amber-100 text-amber-700 font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">LWP</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-gray-600 max-w-[200px] truncate italic" title={leave.reason}>
                         {leave.reason || 'No reason provided'}
                       </td>
                       <td className="py-4 px-4 whitespace-nowrap">
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge(leave.status)}`}>
-                          {leave.status.charAt(0).toUpperCase() + leave.status.slice(1)}
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${getStatusBadge(leave.status)}`}>
+                          {leave.status}
                         </span>
                       </td>
                       <td className="py-4 px-4 whitespace-nowrap">
@@ -861,27 +911,52 @@ const LeaveTracker = () => {
           </DialogHeader>
 
           <div className="space-y-4 sm:space-y-6 py-4">
-            <div className="space-y-2">
-              <label htmlFor="leave-type" className="text-sm sm:text-base font-semibold block">
-                Leave Type
-              </label>
-              <Select value={selectedLeaveType} onValueChange={setSelectedLeaveType}>
-                <SelectTrigger id="leave-type" className="w-full">
-                  <SelectValue placeholder="Select leave type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {leaveTypes.map(type => (
-                    <SelectItem key={type.id} value={type.code}>
-                      {type.name} ({type.available} available)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label htmlFor="from-date" className="text-sm sm:text-base font-semibold block">
+                <label htmlFor="leave-type" className="text-sm font-bold text-gray-700 block">
+                  Leave Type
+                </label>
+                <Select value={selectedLeaveType} onValueChange={setSelectedLeaveType}>
+                  <SelectTrigger id="leave-type" className="w-full bg-gray-50 border-gray-200">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {leaveTypes.map(type => (
+                      <SelectItem key={type.id} value={type.code}>
+                        {type.name} ({type.available} left)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="day-type" className="text-sm font-bold text-gray-700 block">
+                  Day Type
+                </label>
+                <Select
+                  value={dayType}
+                  onValueChange={(v: any) => setDayType(v)}
+                  disabled={!!(fromDate !== toDate && fromDate && toDate)}
+                >
+                  <SelectTrigger id="day-type" className="w-full bg-gray-50 border-gray-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="full_day">Full Day</SelectItem>
+                    <SelectItem value="first_half">First Half</SelectItem>
+                    <SelectItem value="second_half">Second Half</SelectItem>
+                  </SelectContent>
+                </Select>
+                {fromDate !== toDate && fromDate && toDate && (
+                  <p className="text-[10px] text-amber-600 font-medium">Half day selection only available for single day leave.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+              <div className="space-y-2">
+                <label htmlFor="from-date" className="text-sm font-bold text-gray-700 block">
                   From Date
                 </label>
                 <div className="relative">
@@ -891,12 +966,12 @@ const LeaveTracker = () => {
                     type="date"
                     value={fromDate}
                     onChange={(e) => setFromDate(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50/50"
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <label htmlFor="to-date" className="text-sm sm:text-base font-semibold block">
+                <label htmlFor="to-date" className="text-sm font-bold text-gray-700 block">
                   To Date
                 </label>
                 <div className="relative">
@@ -906,7 +981,7 @@ const LeaveTracker = () => {
                     type="date"
                     value={toDate}
                     onChange={(e) => setToDate(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50/50"
                   />
                 </div>
               </div>
@@ -1017,26 +1092,68 @@ const LeaveTracker = () => {
             <DialogTitle className="text-xl sm:text-2xl font-bold">Configure Leave Types</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            {leaveConfigs.map((config, index) => (
-              <div key={config.code} className="flex items-center gap-4">
-                <div className="flex-1">
-                  <label className="text-sm font-semibold block mb-1">
-                    {leaveTypes.find(t => t.code === config.code)?.name || config.code}
-                  </label>
-                  <Input
-                    type="number"
-                    value={config.defaultDays}
-                    onChange={(e) => {
-                      const newConfigs = [...leaveConfigs];
-                      newConfigs[index].defaultDays = parseInt(e.target.value) || 0;
-                      setLeaveConfigs(newConfigs);
-                    }}
-                    min="0"
-                  />
+          <div className="space-y-6 py-4">
+            <div className="space-y-4">
+              {leaveConfigs.map((config, index) => (
+                <div key={config.code} className="p-4 bg-gray-50 rounded-xl border border-gray-100 relative group">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-1.5 rounded-lg ${colorMap[config.code]?.bgColor || 'bg-gray-200'} ${colorMap[config.code]?.color || 'text-gray-600'}`}>
+                        {iconMap[config.code] || <Calendar className="w-4 h-4" />}
+                      </div>
+                      <span className="font-bold text-gray-900">
+                        {leaveTypes.find(t => t.code === config.code)?.name || config.code}
+                      </span>
+                      <span className="text-[10px] bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">{config.code}</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const newConfigs = leaveConfigs.filter((_, i) => i !== index);
+                        setLeaveConfigs(newConfigs);
+                      }}
+                      className="text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-tight">Default Allocation (Days):</label>
+                    <Input
+                      type="number"
+                      value={config.defaultDays}
+                      onChange={(e) => {
+                        const newConfigs = [...leaveConfigs];
+                        newConfigs[index].defaultDays = parseInt(e.target.value) || 0;
+                        setLeaveConfigs(newConfigs);
+                      }}
+                      className="w-24 h-8 bg-white"
+                      min="0"
+                    />
+                  </div>
                 </div>
+              ))}
+            </div>
+
+            <div className="pt-4 border-t border-dashed border-gray-200">
+              <p className="text-xs font-bold text-gray-400 uppercase mb-3">Quick Add Missing Types</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { name: 'Annual Leave', code: 'AL', days: 30 },
+                  { name: 'Sick/Casual Pool', code: 'SL_CL', days: 2 },
+                  { name: 'Earned Leave', code: 'EL', days: 15 },
+                  { name: 'Probationary Leave', code: 'PL', days: 12 }
+                ].filter(t => !leaveConfigs.find(c => c.code === t.code)).map(type => (
+                  <button
+                    key={type.code}
+                    onClick={() => setLeaveConfigs([...leaveConfigs, { code: type.code, defaultDays: type.days }])}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 text-xs font-semibold text-gray-600 hover:text-blue-600 transition-all"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Add {type.name}
+                  </button>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
 
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">

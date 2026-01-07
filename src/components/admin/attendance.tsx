@@ -46,6 +46,7 @@ import attendanceService from '@/lib/attendanceService';
 import employeeService from '@/lib/employeeService';
 
 interface AttendanceRecord {
+  employeeId?: string;
   employeeName?: string;
   date: string;
   checkIn: string;
@@ -81,7 +82,7 @@ const AttendanceTracker: React.FC = () => {
   const [allEmployeesRecords, setAllEmployeesRecords] = useState<AttendanceRecord[]>([]);
   const [adminRecords, setAdminRecords] = useState<PersonalAttendanceRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [employees, setEmployees] = useState<{ id: string, fullName: string }[]>([]);
+  const [employees, setEmployees] = useState<{ id: string, fullName: string, employeeId?: string }[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -105,7 +106,12 @@ const AttendanceTracker: React.FC = () => {
       if (!orgId) return;
       const res = await employeeService.getAll(orgId);
       if (res && !res.error) {
-        setEmployees(Array.isArray(res.data) ? res.data : []);
+        const data = Array.isArray(res.data) ? res.data : [];
+        setEmployees(data.map((e: any) => ({
+          id: e.id,
+          fullName: e.fullName,
+          employeeId: e.employeeNumber || e.employeeId
+        })));
       }
     };
     fetchEmployees();
@@ -230,6 +236,7 @@ const AttendanceTracker: React.FC = () => {
             else if (rawStatus === 'absent') status = 'Absent';
 
             return {
+              employeeId: r.employee?.employeeNumber || r.employeeNumber || 'N/A',
               employeeName: r.employeeName || (r.employee && (r.employee.fullName || r.employee.name)) || 'Unknown',
               date: startDateStr,
               checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
@@ -256,6 +263,7 @@ const AttendanceTracker: React.FC = () => {
 
               if (existingIndex === -1 && !foundMyRecord) { // Only inject if NOT found in daily list (foundMyRecord covers this conceptually, but checking index is safer)
                 const adminEntry: AttendanceRecord = {
+                  employeeId: employees.find(e => e.id === myId)?.employeeId || 'N/A', // Assuming employee object in state has employeeId
                   employeeName: myName,
                   date: startDateStr,
                   checkIn: adminRealTimeRecord.checkInTime ? format(new Date(adminRealTimeRecord.checkInTime), 'hh:mm a') : '-',
@@ -287,6 +295,7 @@ const AttendanceTracker: React.FC = () => {
               else if (rawStatus === 'absent') status = 'Absent';
 
               return {
+                employeeId: r.employee?.employeeNumber || r.employeeNumber || 'N/A',
                 employeeName: r.employeeName || (r.employee && (r.employee.fullName || r.employee.name)) || 'Unknown',
                 date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : '-',
                 checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
@@ -438,8 +447,9 @@ const AttendanceTracker: React.FC = () => {
   };
 
   const handleExportTeamCSV = () => {
-    const headers = ['Employee', 'Date', 'Check In', 'Check Out', 'Status'];
+    const headers = ['Employee ID', 'Employee Name', 'Date', 'Check In', 'Check Out', 'Status'];
     const rows = allEmployeesRecords.map(r => [
+      r.employeeId || 'N/A',
       r.employeeName || 'Unknown',
       `\t${r.date}`,
       r.checkIn,

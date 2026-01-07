@@ -398,7 +398,7 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
                                 <div>
                                     <label className="block text-sm font-medium text-gray-500 mb-3">Allowances</label>
                                     <div className="space-y-2">
-                                        {candidate.accommodationAllowances && candidate.accommodationAllowances.length > 0 ? (
+                                        {Array.isArray(candidate.accommodationAllowances) && candidate.accommodationAllowances.length > 0 ? (
                                             candidate.accommodationAllowances.map((allowance, idx) => (
                                                 <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
                                                     <span className="text-sm font-medium text-gray-700 capitalize">{allowance.type}</span>
@@ -414,7 +414,7 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
                                 <div>
                                     <label className="block text-sm font-medium text-gray-500 mb-3">Insurances</label>
                                     <div className="space-y-2">
-                                        {candidate.insurances && candidate.insurances.length > 0 ? (
+                                        {Array.isArray(candidate.insurances) && candidate.insurances.length > 0 ? (
                                             candidate.insurances.map((insurance, idx) => (
                                                 <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
                                                     <span className="text-sm font-medium text-gray-700 capitalize">{insurance.type?.replace('_', ' ')}</span>
