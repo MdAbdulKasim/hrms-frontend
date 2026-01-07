@@ -909,8 +909,7 @@ function ModernGradientTemplate({ employee, salaryBreakdown }: { employee: Payro
                             )}
                         </div>
                     </div>
-                </div>
-
+                </div>  
                 <div className="bg-slate-900 text-white p-8 rounded-3xl relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-full -mr-16 -mt-16 blur-3xl"></div>
                     <div className="relative z-10 flex justify-between items-center">

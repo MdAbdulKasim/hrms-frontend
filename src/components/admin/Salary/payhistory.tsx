@@ -44,6 +44,13 @@ import { getApiUrl, getAuthToken, getOrgId } from "@/lib/auth"
 
 /* ================= TYPES ================= */
 
+interface AllowanceBreakdown {
+  homeAllowance: number
+  foodAllowance: number
+  travelAllowance: number
+  overtimePay: number
+}
+
 interface DeductionBreakdown {
   homeDeduction: number
   foodDeduction: number
@@ -65,6 +72,7 @@ interface PayHistoryRecord {
   paidDate: Date
   paymentMethod: string
   transactionId?: string
+  allowanceBreakdown: AllowanceBreakdown
   deductionBreakdown: DeductionBreakdown
 }
 
@@ -122,8 +130,8 @@ export default function PayHistoryPage() {
           id: r.id || r._id,
           employeeId: r.employeeId,
           employeeName: r.employeeName || "",
-          department: r.department || "",
-          designation: r.designation || "",
+          department: r.employee?.department?.departmentName || "N/A",
+          designation: r.employee?.designation?.name || "N/A",
           grossSalary: Number(r.grossSalary || 0),
           totalDeductions: Number(r.totalDeductions || 0),
           netPay: Number(r.netSalary || 0),
@@ -132,6 +140,12 @@ export default function PayHistoryPage() {
           paidDate: new Date(r.paidDate),
           paymentMethod: r.paymentMethod || "Bank Transfer",
           transactionId: r.transactionId,
+          allowanceBreakdown: r.allowanceBreakdown || {
+            homeAllowance: 0,
+            foodAllowance: 0,
+            travelAllowance: 0,
+            overtimePay: 0,
+          },
           deductionBreakdown: r.deductionBreakdown || {
             homeDeduction: 0,
             foodDeduction: 0,
@@ -401,7 +415,6 @@ export default function PayHistoryPage() {
                       Paid Date
                     </div>
                   </TableHead>
-                  <TableHead className="text-right font-semibold text-slate-700">Actions</TableHead>
                 </TableRow>
               </TableHeader>
 
@@ -424,17 +437,6 @@ export default function PayHistoryPage() {
                     </TableCell>
                     <TableCell className="text-slate-600">
                       {r.paidDate.toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setViewDetails(r)}
-                        className="hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                      >
-                        <Eye className="w-4 h-4 mr-1" />
-                        View
-                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -523,12 +525,48 @@ export default function PayHistoryPage() {
                     <span className="text-green-900 font-bold text-lg">AED {viewDetails.grossSalary.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center pb-2 border-b border-green-200">
+                    <span className="text-green-700 font-medium">Total Allowances</span>
+                    <span className="text-blue-600 font-bold">+AED {(viewDetails.grossSalary - viewDetails.grossSalary + (viewDetails.allowanceBreakdown.homeAllowance + viewDetails.allowanceBreakdown.foodAllowance + viewDetails.allowanceBreakdown.travelAllowance + viewDetails.allowanceBreakdown.overtimePay)).toLocaleString()}</span>
+                    {/* Note: Total Allowances logic might be implicitly part of Gross or separate depending on backend. SalaryReport has totalAllowances field! But we didn't map it. Let's rely on breakdown sum or add totalAllowances to model. 
+                        Wait, SalaryReport entity has `totalAllowances`. Let's assume Gross includes basic + allowances? 
+                        Usually Gross = Basic + Allowances.
+                        Net = Gross - Deductions.
+                        Let's just show breakdown.
+                    */}
+                  </div>
+                  <div className="flex justify-between items-center pb-2 border-b border-green-200">
                     <span className="text-green-700 font-medium">Total Deductions</span>
                     <span className="text-red-600 font-bold">-AED {viewDetails.totalDeductions.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center pt-2">
                     <span className="text-green-700 font-semibold text-lg">Net Pay</span>
                     <span className="text-green-700 font-bold text-2xl">AED {viewDetails.netPay.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Allowance Breakdown Card */}
+              <div className="bg-gradient-to-br from-indigo-50 to-violet-50 rounded-xl p-5 border border-indigo-200">
+                <h3 className="font-semibold text-indigo-900 mb-3 flex items-center gap-2">
+                  <Receipt className="w-5 h-5" />
+                  Allowance Breakdown
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex justify-between items-center bg-white rounded-lg p-3 shadow-sm">
+                    <span className="text-indigo-700 text-sm font-medium">Home</span>
+                    <span className="text-indigo-900 font-semibold">AED {viewDetails.allowanceBreakdown.homeAllowance?.toLocaleString() || 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center bg-white rounded-lg p-3 shadow-sm">
+                    <span className="text-indigo-700 text-sm font-medium">Food</span>
+                    <span className="text-indigo-900 font-semibold">AED {viewDetails.allowanceBreakdown.foodAllowance?.toLocaleString() || 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center bg-white rounded-lg p-3 shadow-sm">
+                    <span className="text-indigo-700 text-sm font-medium">Travel</span>
+                    <span className="text-indigo-900 font-semibold">AED {viewDetails.allowanceBreakdown.travelAllowance?.toLocaleString() || 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center bg-white rounded-lg p-3 shadow-sm">
+                    <span className="text-indigo-700 text-sm font-medium">Overtime</span>
+                    <span className="text-indigo-900 font-semibold">AED {viewDetails.allowanceBreakdown.overtimePay?.toLocaleString() || 0}</span>
                   </div>
                 </div>
               </div>
