@@ -21,6 +21,8 @@ import {
   endOfYear,
   startOfWeek,
   endOfWeek,
+  startOfDay,
+  endOfDay,
   isWithinInterval,
   subDays,
   addDays,
@@ -93,32 +95,29 @@ const AttendanceTracker: React.FC = () => {
         let startDateStr = '';
         let endDateStr = '';
 
-        const start = viewMode === 'daily' ? currentDate :
+        const start = viewMode === 'daily' ? startOfDay(currentDate) :
           viewMode === 'weekly' ? startOfWeek(currentDate, { weekStartsOn: 1 }) :
             viewMode === 'monthly' ? startOfMonth(currentDate) :
               startOfYear(currentDate);
 
-        const end = viewMode === 'daily' ? currentDate :
+        const end = viewMode === 'daily' ? endOfDay(currentDate) :
           viewMode === 'weekly' ? endOfWeek(currentDate, { weekStartsOn: 1 }) :
             viewMode === 'monthly' ? endOfMonth(currentDate) :
               endOfYear(currentDate);
 
-        startDateStr = format(start, 'yyyy-MM-dd');
-        endDateStr = format(end, 'yyyy-MM-dd');
+        startDateStr = start.toISOString();
+        endDateStr = end.toISOString();
 
         // Special handling for "Today" in Daily view to get real-time status
         if (viewMode === 'daily' && isSameDay(currentDate, new Date())) {
           const statusRes = await attendanceService.getStatus(orgId);
           if (statusRes && !statusRes.error) {
-            const rawData = statusRes.data as any;
+            // Handle various backend response shapes (wrapped in .data or direct object)
+            const anyRes = statusRes as any;
+            const finalizedData = anyRes.data || (anyRes.id || anyRes.checkInTime || anyRes.checkIn ? anyRes : null);
 
-            // If no data or checkInTime, do not return empty, let it fall through to history
-            if (!rawData || (!rawData.checkInTime && !rawData.checkIn)) {
-              // Fallthrough to fetch history
-            } else {
-
-
-              const r = rawData;
+            if (finalizedData && (finalizedData.checkInTime || finalizedData.checkIn)) {
+              const r = finalizedData;
               const transformed: AttendanceRecord = {
                 date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : format(currentDate, 'yyyy-MM-dd'),
                 checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : (r.checkIn ? format(new Date(r.checkIn), 'hh:mm a') : '-'),
@@ -137,28 +136,40 @@ const AttendanceTracker: React.FC = () => {
         if (res && !res.error) {
           const rawData = res as any;
           const records = rawData.attendance ||
-            (rawData.data && rawData.data.attendance) ||
-            (Array.isArray(rawData.data) ? rawData.data : (Array.isArray(rawData) ? rawData : []));
+            (rawData.data && Array.isArray(rawData.data.attendance) ? rawData.data.attendance : null) ||
+            (rawData.data && Array.isArray(rawData.data) ? rawData.data : null) ||
+            (Array.isArray(rawData) ? rawData : []);
 
-          const transformedData: AttendanceRecord[] = records.map((r: any) => {
+          let transformedData: AttendanceRecord[] = records.map((r: any) => {
             const rawStatus = r.status?.toLowerCase();
-            let status = r.checkInTime ? 'Present' : 'Absent';
+            let status = (r.checkInTime || r.checkIn) ? 'Present' : 'Absent';
 
             if (rawStatus === 'holiday') status = 'Holiday';
-            else if (rawStatus === 'leave') status = 'Leave';
+            else if (rawStatus === 'leave' || rawStatus === 'on-leave') status = 'Leave';
             else if (rawStatus === 'weekend') status = 'Weekend';
-            else if (rawStatus === 'present' || r.checkInTime) status = 'Present';
+            else if (rawStatus === 'present' || r.checkInTime || r.checkIn) status = 'Present';
             else if (rawStatus === 'late') status = 'Late';
             else if (rawStatus === 'absent') status = 'Absent';
 
             return {
               date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : '-',
-              checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
-              checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : '-',
-              hoursWorked: r.totalHours ? `${r.totalHours}h` : '-',
+              checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : (r.checkIn ? format(new Date(r.checkIn), 'hh:mm a') : '-'),
+              checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : (r.checkOut ? format(new Date(r.checkOut), 'hh:mm a') : '-'),
+              hoursWorked: r.totalHours ? `${r.totalHours}h` : (r.hoursWorked ? `${r.hoursWorked}h` : '-'),
               status: status
             };
           });
+
+          // If daily view and no records found, show as Absent for that day
+          if (viewMode === 'daily' && transformedData.length === 0) {
+            transformedData = [{
+              date: startDateStr,
+              checkIn: '-',
+              checkOut: '-',
+              hoursWorked: '-',
+              status: 'Absent'
+            }];
+          }
 
           setAllAttendanceData(transformedData);
         }

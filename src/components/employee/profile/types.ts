@@ -1,6 +1,7 @@
 export interface FormData {
     // Personal Details
     fullName: string
+    employeeNumber: string
     emailAddress: string
     mobileNumber: string
     role: string
@@ -10,30 +11,27 @@ export interface FormData {
     teamPosition: string
     shift: string
     location: string
+    site: string
+    building: string
     timeZone: string
     dateOfBirth: string
     gender: string
     maritalStatus: string
     bloodGroup: string
-    site: string
-    building: string
     empType: string
     employeeStatus: string
+    dateOfJoining: string
+
+    // Contract Details
     contractType: string
     contractStartDate: string
     contractEndDate: string
-    basicSalary: string
-    bankDetails: {
-        bankName: string
-        branchName: string
-        accountNumber: string
-        accountHolderName: string
-        ifscCode: string
-    }
 
     // Identity Information
     uan: string
     uanDocUrl?: string
+    iban: string
+    ibanDocUrl?: string
     pan: string
     panDocUrl?: string
     aadhaarNumber: string
@@ -42,6 +40,16 @@ export interface FormData {
     passportDocUrl?: string
     drivingLicenseNumber: string
     drivingLicenseDocUrl?: string
+
+    // Salary & Bank Details
+    basicSalary: string
+    bankDetails: {
+        bankName: string
+        branchName: string
+        accountNumber: string
+        accountHolderName: string
+        ifscCode: string
+    }
 
     // Work Experience
     workExperience: Array<{
@@ -55,16 +63,7 @@ export interface FormData {
     }>
 
     // Contact Information
-    presentAddress: {
-        addressLine1: string
-        addressLine2: string
-        city: string
-        state: string
-        country: string
-        pinCode: string
-    }
-    sameAsPresentAddress: boolean
-    permanentAddress: {
+    address: {
         addressLine1: string
         addressLine2: string
         city: string
@@ -91,6 +90,7 @@ export interface FormData {
 
 export const initialFormData: FormData = {
     fullName: "",
+    employeeNumber: "",
     emailAddress: "",
     mobileNumber: "",
     role: "",
@@ -100,28 +100,23 @@ export const initialFormData: FormData = {
     teamPosition: "",
     shift: "",
     location: "",
+    site: "",
+    building: "",
     timeZone: "",
     dateOfBirth: "",
     gender: "",
     maritalStatus: "",
     bloodGroup: "",
-    site: "",
-    building: "",
     empType: "",
     employeeStatus: "",
+    dateOfJoining: "",
     contractType: "",
     contractStartDate: "",
     contractEndDate: "",
-    basicSalary: "",
-    bankDetails: {
-        bankName: "",
-        branchName: "",
-        accountNumber: "",
-        accountHolderName: "",
-        ifscCode: "",
-    },
     uan: "",
     uanDocUrl: "",
+    iban: "",
+    ibanDocUrl: "",
     pan: "",
     panDocUrl: "",
     aadhaarNumber: "",
@@ -130,17 +125,16 @@ export const initialFormData: FormData = {
     passportDocUrl: "",
     drivingLicenseNumber: "",
     drivingLicenseDocUrl: "",
-    workExperience: [],
-    presentAddress: {
-        addressLine1: "",
-        addressLine2: "",
-        city: "",
-        state: "",
-        country: "",
-        pinCode: "",
+    basicSalary: "",
+    bankDetails: {
+        bankName: "",
+        branchName: "",
+        accountNumber: "",
+        accountHolderName: "",
+        ifscCode: ""
     },
-    sameAsPresentAddress: false,
-    permanentAddress: {
+    workExperience: [],
+    address: {
         addressLine1: "",
         addressLine2: "",
         city: "",

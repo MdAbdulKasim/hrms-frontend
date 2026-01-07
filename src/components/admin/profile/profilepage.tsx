@@ -13,6 +13,21 @@ import ChangePassword from "./ChangePassword"
 import ProfileForm from "./ProfileForm"
 import { type FormData as ProfileFormData, initialFormData } from "./types"
 
+const sanitizeDate = (val: any) => {
+  if (!val) return "";
+  const str = String(val);
+  if (str.includes("NaN")) return "";
+  return str.split("T")[0];
+};
+
+const sanitizeYear = (val: any) => {
+  if (!val) return "";
+  const d = new Date(val);
+  const year = d.getFullYear();
+  return isNaN(year) ? "" : year.toString();
+};
+
+
 interface Props {
   employeeId?: string
   onBack?: () => void
@@ -61,6 +76,7 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
 
         const employee = response.data?.data || response.data
 
+
         setFormData({
           fullName: employee.fullName ||
             (employee.firstName && employee.lastName
@@ -82,16 +98,16 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
           site: employee.site?.name || employee.site || "",
           building: employee.building?.name || employee.building || "",
           timeZone: employee.timeZone || "",
-          dateOfBirth: employee.dateOfBirth ? employee.dateOfBirth.split("T")[0] : "",
+          dateOfBirth: sanitizeDate(employee.dateOfBirth),
           gender: employee.gender || "",
           maritalStatus: employee.maritalStatus || "",
           bloodGroup: employee.bloodGroup || "",
           empType: employee.empType || "",
           employeeStatus: employee.employeeStatus || employee.status || "",
-          dateOfJoining: employee.dateOfJoining ? employee.dateOfJoining.split("T")[0] : "",
+          dateOfJoining: sanitizeDate(employee.dateOfJoining),
           contractType: employee.contractType || "",
-          contractStartDate: employee.contractStartDate ? employee.contractStartDate.split("T")[0] : "",
-          contractEndDate: employee.contractEndDate ? employee.contractEndDate.split("T")[0] : "",
+          contractStartDate: sanitizeDate(employee.contractStartDate),
+          contractEndDate: sanitizeDate(employee.contractEndDate),
           uan: employee.UAN || employee.uan || "",
           uanDocUrl: employee.uanDocUrl || "",
           iban: employee.iban || "",
@@ -115,8 +131,8 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
           workExperience: (employee.experience || []).map((exp: any) => ({
             companyName: exp.companyName || "",
             jobTitle: exp.jobTitle || "",
-            fromDate: exp.fromDate ? exp.fromDate.split("T")[0] : "",
-            toDate: exp.toDate ? exp.toDate.split("T")[0] : "",
+            fromDate: sanitizeDate(exp.fromDate),
+            toDate: sanitizeDate(exp.toDate),
             currentlyWorkHere: !exp.toDate,
             jobDescription: exp.jobDescription || "",
             documentUrl: exp.documentUrl || "",
@@ -125,8 +141,8 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
             instituteName: edu.instituteName || "",
             degree: edu.degree || "",
             fieldOfStudy: edu.specialization || edu.fieldOfStudy || "",
-            startYear: edu.startyear || edu.startYear || "",
-            endYear: edu.dateOfCompletion || edu.endyear || edu.endYear ? new Date(edu.dateOfCompletion || edu.endyear || edu.endYear).getFullYear().toString() : "",
+            startYear: sanitizeYear(edu.startyear || edu.startYear),
+            endYear: sanitizeYear(edu.dateOfCompletion || edu.endyear || edu.endYear),
             documentUrl: edu.documentUrl || "",
           })),
           address: {
@@ -143,6 +159,7 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
             contactNumber: employee.emergencyContactNumber || employee.emergencyContact?.contactNumber || "",
           },
         })
+
 
         if (employee.profilePicUrl) {
           try {
@@ -315,8 +332,9 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
     try {
       const token = getAuthToken()
       const orgId = getOrgId()
-      const employeeId = getEmployeeId()
+      const employeeId = propEmployeeId || getEmployeeId()
       const apiUrl = getApiUrl()
+
 
       if (!token || !orgId || !employeeId) {
         console.error("Authentication, organization ID, or employee ID missing")
@@ -386,12 +404,28 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
         ) {
           formDataToSend.append(key, JSON.stringify(value))
         } else {
+          // Robust handling for dates and numeric fields to prevent 500 errors
+          const dateFields = ['dateOfBirth', 'dateOfJoining', 'contractStartDate', 'contractEndDate'];
+          const numericFields = ['basicSalary', 'salary', 'totalExperience', 'currentExperience'];
+
+          const isDate = dateFields.includes(key);
+          const isNumeric = numericFields.includes(key);
+
+          if (isDate && (value === "" || String(value).includes("NaN"))) {
+            return;
+          }
+
+          if (isNumeric && (!value || value === "" || isNaN(Number(value)))) {
+            return;
+          }
+
           if (typeof value === 'boolean') {
             formDataToSend.append(key, String(value));
           } else {
             formDataToSend.append(key, String(value || ''))
           }
         }
+
       })
 
       if (selectedProfilePicFile) {
@@ -453,8 +487,8 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
         workExperience: (refreshedEmployee.experience || []).map((exp: any) => ({
           companyName: exp.companyName || "",
           jobTitle: exp.jobTitle || "",
-          fromDate: exp.fromDate ? exp.fromDate.split("T")[0] : "",
-          toDate: exp.toDate ? exp.toDate.split("T")[0] : "",
+          fromDate: sanitizeDate(exp.fromDate),
+          toDate: sanitizeDate(exp.toDate),
           currentlyWorkHere: !exp.toDate,
           jobDescription: exp.jobDescription || "",
           documentUrl: exp.documentUrl || "",
@@ -463,10 +497,11 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
           instituteName: edu.instituteName || "",
           degree: edu.degree || "",
           fieldOfStudy: edu.specialization || edu.fieldOfStudy || "",
-          startYear: edu.startyear || edu.startYear || "",
-          endYear: edu.dateOfCompletion || edu.endyear || edu.endYear ? new Date(edu.dateOfCompletion || edu.endyear || edu.endYear).getFullYear().toString() : "",
+          startYear: sanitizeYear(edu.startyear || edu.startYear),
+          endYear: sanitizeYear(edu.dateOfCompletion || edu.endyear || edu.endYear),
           documentUrl: edu.documentUrl || "",
         })),
+
         address: {
           addressLine1: refreshedEmployee.presentAddressLine1 || refreshedEmployee.presentAddress?.addressLine1 || "",
           addressLine2: refreshedEmployee.presentAddressLine2 || refreshedEmployee.presentAddress?.addressLine2 || "",
