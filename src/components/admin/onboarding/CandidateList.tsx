@@ -8,12 +8,6 @@ interface CandidateListProps {
     selectedIds: string[];
     onSelectAll: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onSelectOne: (id: string) => void;
-    showPAN: { [key: string]: boolean };
-    setShowPAN: (val: { [key: string]: boolean }) => void;
-    showAadhaar: { [key: string]: boolean };
-    setShowAadhaar: (val: { [key: string]: boolean }) => void;
-    showUAN: { [key: string]: boolean };
-    setShowUAN: (val: { [key: string]: boolean }) => void;
     onAddCandidateClick: () => void;
     onBulkImportClick: () => void;
     onDelete: (id: string) => void;
@@ -34,12 +28,6 @@ const CandidateList: React.FC<CandidateListProps> = ({
     selectedIds,
     onSelectAll,
     onSelectOne,
-    showPAN,
-    setShowPAN,
-    showAadhaar,
-    setShowAadhaar,
-    showUAN,
-    setShowUAN,
     onAddCandidateClick,
     onBulkImportClick,
     onDelete,
@@ -206,15 +194,6 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                     <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                                         DOJ
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
-                                        PAN
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
-                                        Aadhaar
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
-                                        UAN
-                                    </th>
                                     <th className="px-6 py-3 text-center text-xs font-medium text-black uppercase tracking-wider">
                                         Actions
                                     </th>
@@ -240,30 +219,6 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                             <td className="px-6 py-4 text-sm text-gray-900">{employee.department}</td>
                                             <td className="px-6 py-4 text-sm text-gray-900">{employee.location || 'N/A'}</td>
                                             <td className="px-6 py-4 text-sm text-gray-900">{employee.dateOfJoining ? new Date(employee.dateOfJoining).toLocaleDateString() : 'N/A'}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-900">
-                                                <div className="flex items-center gap-2">
-                                                    {showPAN[employee.id] ? employee.panCard : '**********'}
-                                                    <button onClick={() => setShowPAN({ ...showPAN, [employee.id]: !showPAN[employee.id] })}>
-                                                        {showPAN[employee.id] ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
-                                                    </button>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-900">
-                                                <div className="flex items-center gap-2">
-                                                    {showAadhaar[employee.id] ? employee.aadhaar : '**********'}
-                                                    <button onClick={() => setShowAadhaar({ ...showAadhaar, [employee.id]: !showAadhaar[employee.id] })}>
-                                                        {showAadhaar[employee.id] ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
-                                                    </button>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-900">
-                                                <div className="flex items-center gap-2">
-                                                    {showUAN[employee.id] ? employee.uan : '**********'}
-                                                    <button onClick={() => setShowUAN({ ...showUAN, [employee.id]: !showUAN[employee.id] })}>
-                                                        {showUAN[employee.id] ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
-                                                    </button>
-                                                </div>
-                                            </td>
                                             <td className="px-6 py-4 text-sm text-gray-900">
                                                 <div className="flex items-center justify-center gap-3">
                                                     <button
@@ -293,7 +248,7 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={13} className="px-6 py-8 text-center text-gray-500 italic">
+                                        <td colSpan={10} className="px-6 py-8 text-center text-gray-500 italic">
                                             No candidates found matching your criteria
                                         </td>
                                     </tr>
