@@ -7,7 +7,6 @@ import {
   Briefcase,
   X
 } from 'lucide-react';
-import ProfilePage from '../profile/ProfilePage'; // Import ProfilePage from profile folder
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import { getApiUrl, getAuthToken, getOrgId, getCookie, getUserRole, clearSetupData } from '@/lib/auth';
@@ -900,16 +899,16 @@ export default function Dashboard() {
   };
 
   // If profile is shown, render only the profile page
-  if (showProfile) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <ProfilePage
-          employeeId={selectedEmployeeId}
-          onBack={handleCloseProfile}
-        />
-      </div>
-    );
-  }
+  // if (showProfile) {
+  //   return (
+  //     <div className="min-h-screen bg-gray-50">
+  //       <ProfilePage
+  //         employeeId={selectedEmployeeId}
+  //         onBack={handleCloseProfile}
+  //       />
+  //     </div>
+  //   );
+  // }
 
   if (loading) {
     return <div className="min-h-screen bg-white flex items-center justify-center">Loading...</div>;
