@@ -5,10 +5,10 @@ import Layout from "@/components/layout/Layout";
 
 
 
-export default function profile(){
+export default function profile() {
     return (
-        <Layout>    
-        <ProfilePage/>  
+        <Layout>
+            <ProfilePage />
         </Layout>
     )
 }

@@ -58,11 +58,12 @@ export default function ChangePassword({ onBack }: ChangePasswordProps) {
                 throw new Error("Authentication missing")
             }
 
-            await axios.put(
-                `${apiUrl}/org/${orgId}/employees/${employeeId}/change-password`,
+            await axios.post(
+                `${apiUrl}/org/${orgId}/employees/change-password`,
                 {
-                    currentPassword: formData.currentPassword,
+                    oldPassword: formData.currentPassword,
                     newPassword: formData.newPassword,
+                    confirmNewPassword: formData.confirmPassword
                 },
                 {
                     headers: { Authorization: `Bearer ${token}` },
