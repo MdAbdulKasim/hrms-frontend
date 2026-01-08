@@ -48,6 +48,7 @@ interface Deduction {
 
 interface PayrollEmployee {
     id: string
+    employeeNumber: string
     name: string
     department: string
     designation: string
@@ -57,6 +58,7 @@ interface PayrollEmployee {
     deductions: Deduction[]
     overtimeHours?: number
     overtimeAmount?: number
+    payDate?: string
 }
 
 /* ================= PAGE ================= */
@@ -123,14 +125,66 @@ export default function PayrunViewPage() {
                         salaryRecord = data.data || data;
 
                         if (salaryRecord) {
-                            // Valid record found, map it
-                            const empInfo = salaryRecord.employee || {};
+                            // If the salary record doesn't have the employee object with employeeNumber, 
+                            // try to fetch it separately to get the correct human-readable ID
+                            let empInfo = salaryRecord.employee;
+                            const empIdToFetch = salaryRecord.employeeId || salaryRecord.employee_id || (empInfo ? (empInfo.id || empInfo._id) : null);
+
+                            if ((!empInfo || (!empInfo.employeeNumber && !empInfo.employee_number)) && empIdToFetch) {
+                                try {
+                                    const employeeRes = await axiosInstance.get(`/org/${organizationId}/employees/${empIdToFetch}`);
+                                    const fetchedEmp = employeeRes.data.data || employeeRes.data;
+                                    if (fetchedEmp) {
+                                        empInfo = { ...empInfo, ...fetchedEmp };
+                                    }
+                                } catch (e) {
+                                    console.warn("Failed to supplement employee info:", e);
+                                }
+                            }
+
+                            empInfo = empInfo || {};
+
                             const mappedEmployee: PayrollEmployee = {
-                                id: empInfo.id || empInfo._id || salaryRecord.employeeId || "",
-                                name: empInfo.fullName || `${empInfo.firstName || ""} ${empInfo.lastName || ""}`.trim() || salaryRecord.employeeName || "Unknown Employee",
-                                department: empInfo.department?.name || empInfo.department?.departmentName || salaryRecord.department || "N/A",
-                                designation: empInfo.designation?.name || empInfo.designation?.designationName || salaryRecord.designation || "N/A",
-                                location: empInfo.location?.name || empInfo.location?.locationName || salaryRecord.location || "N/A",
+                                id: empInfo.id || empInfo._id || salaryRecord.employeeId || salaryRecord.employee_id || "",
+                                employeeNumber:
+                                    empInfo.employeeNumber ||
+                                    empInfo.employee_number ||
+                                    salaryRecord.employeeNumber ||
+                                    salaryRecord.employee_number ||
+                                    empInfo.employeeId ||
+                                    empInfo.employee_id ||
+                                    (salaryRecord.employeeId?.substring(0, 8).toUpperCase()) ||
+                                    "N/A",
+                                name:
+                                    empInfo.fullName ||
+                                    empInfo.full_name ||
+                                    `${empInfo.firstName || empInfo.first_name || ""} ${empInfo.lastName || empInfo.last_name || ""}`.trim() ||
+                                    salaryRecord.employeeName ||
+                                    salaryRecord.employee_name ||
+                                    "Unknown Employee",
+                                department:
+                                    empInfo.department?.departmentName ||
+                                    empInfo.department?.name ||
+                                    empInfo.department_name ||
+                                    empInfo.department ||
+                                    salaryRecord.department ||
+                                    salaryRecord.department_name ||
+                                    "N/A",
+                                designation:
+                                    empInfo.designation?.designationName ||
+                                    empInfo.designation?.name ||
+                                    empInfo.designation_name ||
+                                    empInfo.designation ||
+                                    salaryRecord.designation ||
+                                    salaryRecord.designation_name ||
+                                    "N/A",
+                                location:
+                                    empInfo.location?.name ||
+                                    empInfo.location_name ||
+                                    empInfo.location ||
+                                    salaryRecord.location ||
+                                    salaryRecord.location_name ||
+                                    "N/A",
                                 basicSalary: Number(salaryRecord.basicSalary || salaryRecord.salary || 0),
                                 allowances: Array.isArray(salaryRecord.allowances)
                                     ? salaryRecord.allowances.map((a: any) => ({
@@ -162,8 +216,15 @@ export default function PayrunViewPage() {
                                             type: (typeof val === 'object' && val.percentage) || (typeof val !== 'object' && String(key).includes('Percentage')) ? "percentage" : "fixed"
                                         }))
                                         : []),
-                                overtimeHours: Number(salaryRecord.overtimeHours || 0),
-                                overtimeAmount: Number(salaryRecord.overtimeAmount || 0),
+                                overtimeHours: Number(salaryRecord.overtimeHours || salaryRecord.overtime_hours || 0),
+                                overtimeAmount: Number(salaryRecord.overtimeAmount || salaryRecord.overtime_amount || 0),
+                                payDate:
+                                    salaryRecord.payPeriodEnd ||
+                                    salaryRecord.pay_period_end ||
+                                    salaryRecord.paidDate ||
+                                    salaryRecord.paid_date ||
+                                    salaryRecord.createdAt ||
+                                    salaryRecord.created_at
                             };
                             setEmployee(mappedEmployee);
                             setIsLoading(false);
@@ -233,15 +294,40 @@ export default function PayrunViewPage() {
                         // Construct a PayrollEmployee object
                         const mappedEmployee: PayrollEmployee = {
                             id: empData.id || empData._id || "",
-                            name: empData.fullName || `${empData.firstName || ""} ${empData.lastName || ""}`.trim() || "Unknown Employee",
-                            department: empData.department?.name || empData.department?.departmentName || "N/A",
-                            designation: empData.designation?.name || empData.designation?.designationName || "N/A",
-                            location: empData.location?.name || empData.location?.locationName || "N/A",
+                            employeeNumber:
+                                empData.employeeNumber ||
+                                empData.employee_number ||
+                                empData.employeeId ||
+                                empData.employee_id ||
+                                "",
+                            name:
+                                empData.fullName ||
+                                empData.full_name ||
+                                `${empData.firstName || empData.first_name || ""} ${empData.lastName || empData.last_name || ""}`.trim() ||
+                                "Unknown Employee",
+                            department:
+                                empData.department?.departmentName ||
+                                empData.department?.name ||
+                                empData.department_name ||
+                                empData.department ||
+                                "N/A",
+                            designation:
+                                empData.designation?.designationName ||
+                                empData.designation?.name ||
+                                empData.designation_name ||
+                                empData.designation ||
+                                "N/A",
+                            location:
+                                empData.location?.name ||
+                                empData.location_name ||
+                                empData.location ||
+                                "N/A",
                             basicSalary: basic,
                             allowances: allowances,
                             deductions: deductions,
                             overtimeHours: 0,
                             overtimeAmount: 0,
+                            payDate: new Date().toISOString()
                         };
 
                         setEmployee(mappedEmployee);
@@ -526,7 +612,7 @@ function CorporateTealTemplate({ employee, salaryBreakdown }: { employee: Payrol
                     </div>
                     <div>
                         <p className="text-xs text-slate-500">Employee ID</p>
-                        <p className="font-bold">{employee.id.substring(0, 8).toUpperCase()}</p>
+                        <p className="font-bold">{employee.employeeNumber}</p>
                     </div>
                     <div>
                         <p className="text-xs text-slate-500">Department</p>
@@ -542,7 +628,7 @@ function CorporateTealTemplate({ employee, salaryBreakdown }: { employee: Payrol
                     </div>
                     <div>
                         <p className="text-xs text-slate-500">Pay Date</p>
-                        <p className="font-bold">{new Date().toLocaleDateString()}</p>
+                        <p className="font-bold">{employee.payDate ? new Date(employee.payDate).toLocaleDateString() : "N/A"}</p>
                     </div>
                 </div>
 
@@ -607,7 +693,7 @@ function CorporateTealTemplate({ employee, salaryBreakdown }: { employee: Payrol
                     </div>
                     <div className="text-center">
                         <div className="border-b border-slate-400 h-8 mb-2"></div>
-                        <p className="text-xs font-bold">Employee Signature</p>
+                        <p className="text-xs font-bold">HR Signature</p>
                     </div>
                 </div>
             </div>
@@ -632,7 +718,7 @@ function ProfessionalBrownTemplate({ employee, salaryBreakdown }: { employee: Pa
                     </div>
                     <div className="text-right">
                         <div className="bg-[#8B6F47] text-white px-6 py-1.5 text-sm font-black tracking-widest inline-block mb-2">P A Y S L I P</div>
-                        <p className="text-xs font-bold text-slate-500 italic">Statement Date: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                        <p className="text-xs font-bold text-slate-500 italic">Statement Date: {employee.payDate ? new Date(employee.payDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : "N/A"}</p>
                     </div>
                 </div>
 
@@ -646,7 +732,7 @@ function ProfessionalBrownTemplate({ employee, salaryBreakdown }: { employee: Pa
                             </p>
                             <p className="flex justify-between border-b border-slate-100 pb-1">
                                 <span className="text-slate-500 font-medium">Employee ID:</span>
-                                <span className="font-bold text-slate-800">{employee.id.substring(0, 6).toUpperCase()}</span>
+                                <span className="font-bold text-slate-800">{employee.employeeNumber}</span>
                             </p>
                             <p className="flex justify-between border-b border-slate-100 pb-1">
                                 <span className="text-slate-500 font-medium">Designation:</span>
@@ -765,7 +851,7 @@ function MinimalCleanTemplate({ employee, salaryBreakdown }: { employee: Payroll
                     <div className="w-px h-10 bg-slate-100"></div>
                     <div className="text-sm">
                         <p className="text-slate-400 font-bold text-[10px] uppercase mb-1">Statement Date</p>
-                        <p className="font-bold">{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                        <p className="font-bold">{employee.payDate ? new Date(employee.payDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"}</p>
                     </div>
                     <div className="w-px h-10 bg-slate-100"></div>
                     <div className="text-right">
@@ -779,7 +865,7 @@ function MinimalCleanTemplate({ employee, salaryBreakdown }: { employee: Payroll
                         <h3 className="text-xs font-black border-l-4 border-blue-600 pl-3 uppercase tracking-widest">Personnel</h3>
                         <div className="space-y-1 text-sm">
                             <p className="font-bold text-slate-800">{employee.name}</p>
-                            <p className="text-slate-500 font-medium">#{employee.id.substring(0, 5).toUpperCase()} | {employee.designation}</p>
+                            <p className="text-slate-500 font-medium">#{employee.employeeNumber} | {employee.designation}</p>
                             <p className="text-slate-500 font-medium">{employee.department} Dept.</p>
                         </div>
                     </div>
@@ -845,8 +931,8 @@ function MinimalCleanTemplate({ employee, salaryBreakdown }: { employee: Payroll
                 </div>
 
                 <div className="mt-12 flex justify-between text-[10px] font-bold text-slate-300 uppercase tracking-widest px-4">
-                    <p>© 2025 Zarco Contracting</p>
-                    <p>INTERNAL DOCUMENT ID: {Math.random().toString(36).substring(7).toUpperCase()}</p>
+                    <p>© {new Date().getFullYear()} Zarco Contracting</p>
+                    <p>INTERNAL DOCUMENT ID: {employee.id.substring(0, 8).toUpperCase()}</p>
                 </div>
             </div>
         </div>
@@ -867,7 +953,7 @@ function ModernGradientTemplate({ employee, salaryBreakdown }: { employee: Payro
                             <p className="text-xl font-black tracking-tight uppercase">Zarco Contracting</p>
                         </div>
                         <h1 className="text-4xl font-black italic tracking-tighter">P A Y S L I P</h1>
-                        <p className="text-blue-100/70 text-sm font-bold mt-1 uppercase tracking-widest">January 2025 Statement</p>
+                        <p className="text-blue-100/70 text-sm font-bold mt-1 uppercase tracking-widest">{employee.payDate ? new Date(employee.payDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : "N/A"} Statement</p>
                     </div>
                     <div className="text-right">
                         <div className="bg-black/20 backdrop-blur-md px-4 py-3 rounded-xl border border-white/10">
@@ -885,7 +971,7 @@ function ModernGradientTemplate({ employee, salaryBreakdown }: { employee: Payro
                         <p className="text-xl font-black text-slate-800 mb-1">{employee.name}</p>
                         <p className="text-sm font-bold text-purple-600 mb-3">{employee.designation}</p>
                         <div className="flex gap-4 text-xs font-bold text-slate-500 uppercase">
-                            <span>ID: {employee.id.substring(0, 6).toUpperCase()}</span>
+                            <span>ID: {employee.employeeNumber}</span>
                             <span>•</span>
                             <span>{employee.department}</span>
                         </div>

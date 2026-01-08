@@ -285,7 +285,7 @@ export default function NavigationHeader({
             className="p-2.5 mr-4 text-gray-500 hover:bg-gray-50 hover:text-blue-600 rounded-xl transition-all active:scale-95 shrink-0"
             aria-label="Toggle Sidebar"
           >
-            <PanelLeft className="w-5 h-5 hidden md:block" />
+            {/* <PanelLeft className="w-5 h-5 hidden md:block" /> */}
             <Menu className="w-5 h-5 md:hidden" />
           </button>
 
