@@ -131,14 +131,58 @@ export default function SalaryReportPage() {
       // Enrich with employee names
       const enrichedSalaries = salaries.map((salary: any) => {
         const employeeNumber = salary.employee?.employeeNumber || salary.employeeNumber || 'N/A';
+        const emp = salary.employee || {};
         const employeeName = salary.employeeName ||
-          (salary.employee && (salary.employee.fullName || salary.employee.name || `${salary.employee.firstName || ''} ${salary.employee.lastName || ''}`.trim())) ||
+          emp.fullName ||
+          emp.name ||
+          (emp.firstName || emp.lastName ? `${emp.firstName || ''} ${emp.lastName || ''}`.trim() : "") ||
           employeeMap[salary.employeeId] ||
           'Unknown';
 
         // Extract month and year from payPeriodStart or createdAt
         const dateSource = salary.payPeriodStart || salary.createdAt || new Date();
         const date = new Date(dateSource);
+        const basicSalary = parseFloat(salary.basicSalary || salary.basic_salary || emp.basicSalary || 0);
+        let allowances = parseFloat(salary.allowances || salary.totalAllowances || salary.total_allowances || 0);
+        let deductions = parseFloat(salary.deductions || salary.totalDeductions || salary.total_deductions || 0);
+
+        // Fallback parsing if zeros
+        if (allowances === 0 && emp.allowances) {
+          const data = emp.allowances;
+          if (Array.isArray(data)) {
+            data.forEach((i: any) => {
+              const v = Number(i.value || i.amount || 0);
+              allowances += (i.type === 'percentage') ? (basicSalary * v / 100) : v;
+            });
+          } else if (typeof data === "object") {
+            Object.values(data).forEach((val: any) => {
+              if (val && val.enabled) {
+                const amount = val.amount || (basicSalary * val.percentage) / 100 || 0;
+                allowances += amount;
+              }
+            });
+          }
+        }
+
+        if (deductions === 0 && emp.deductions) {
+          const data = emp.deductions;
+          if (Array.isArray(data)) {
+            data.forEach((i: any) => {
+              const v = Number(i.value || i.amount || 0);
+              deductions += (i.type === 'percentage') ? (basicSalary * v / 100) : v;
+            });
+          } else if (typeof data === "object") {
+            Object.values(data).forEach((val: any) => {
+              if (val && val.enabled) {
+                const amount = val.amount || (basicSalary * val.percentage) / 100 || 0;
+                deductions += amount;
+              }
+            });
+          }
+        }
+
+        const overtimeAmount = parseFloat(salary.overtimeAmount || salary.overtime_amount || salary.overtimePay || 0);
+        const netSalary = basicSalary + allowances + overtimeAmount - deductions;
 
         return {
           id: salary.id,
@@ -147,11 +191,11 @@ export default function SalaryReportPage() {
           employeeName: employeeName,
           month: salary.month || date.getMonth() + 1,
           year: salary.year || date.getFullYear(),
-          basicSalary: parseFloat(salary.basicSalary || salary.grossSalary || 0),
-          allowances: parseFloat(salary.allowances || salary.totalAllowances || 0),
-          overtimeAmount: parseFloat(salary.overtimeAmount || 0),
-          deductions: parseFloat(salary.deductions || salary.totalDeductions || 0),
-          netSalary: parseFloat(salary.netSalary || 0),
+          basicSalary,
+          allowances,
+          overtimeAmount,
+          deductions,
+          netSalary,
           status: salary.status || 'unpaid',
           paidDate: salary.paidDate,
           createdAt: salary.createdAt
@@ -281,11 +325,11 @@ export default function SalaryReportPage() {
           record.employeeName || 'N/A',
           `${getMonthName(record.month)} ${record.year}`,
           `AED ${record.basicSalary.toFixed(2)}`,
-          `+ ${(record.allowances || 0).toFixed(2)}`,
-          `+ ${(record.overtimeAmount || 0).toFixed(2)}`,
-          `= ${gross.toFixed(2)}`,
-          `- ${(record.deductions || 0).toFixed(2)}`,
-          `= AED ${net.toFixed(2)}`,
+          `${(record.allowances || 0).toFixed(2)}`,
+          `${(record.overtimeAmount || 0).toFixed(2)}`,
+          `${gross.toFixed(2)}`,
+          `${(record.deductions || 0).toFixed(2)}`,
+          `AED ${net.toFixed(2)}`,
           record.status.charAt(0).toUpperCase() + record.status.slice(1)
         ];
       });
@@ -635,19 +679,19 @@ export default function SalaryReportPage() {
                                 AED {salary.basicSalary.toLocaleString()}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
-                                + {(salary.allowances || 0).toLocaleString()}
+                                {(salary.allowances || 0).toLocaleString()}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-medium">
-                                + {(salary.overtimeAmount || 0).toLocaleString()}
+                                {(salary.overtimeAmount || 0).toLocaleString()}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold bg-slate-50">
-                                = {gross.toLocaleString()}
+                                {gross.toLocaleString()}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
-                                - {(salary.deductions || 0).toLocaleString()}
+                                {(salary.deductions || 0).toLocaleString()}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-600 bg-blue-50/50">
-                                = AED {net.toLocaleString()}
+                                AED {net.toLocaleString()}
                               </td>
                             </>
                           );

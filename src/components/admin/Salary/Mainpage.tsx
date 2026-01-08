@@ -16,6 +16,13 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -81,6 +88,8 @@ export default function SalaryPage() {
   const router = useRouter()
   const [employees, setEmployees] = useState<SalaryEmployee[]>([])
   const [search, setSearch] = useState("")
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [statusFilter, setStatusFilter] = useState<"all" | "Paid" | "Pending">("all")
   const [page, setPage] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
@@ -122,7 +131,7 @@ export default function SalaryPage() {
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [selectedMonth, selectedYear])
 
   const fetchData = async () => {
     setIsLoading(true)
@@ -156,9 +165,8 @@ export default function SalaryPage() {
       setLocations(locationsData)
 
       // Fetch Attendance for Overtime Calculation
-      const today = new Date();
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+      const firstDay = new Date(selectedYear, selectedMonth - 1, 1).toISOString().split('T')[0];
+      const lastDay = new Date(selectedYear, selectedMonth, 0).toISOString().split('T')[0];
 
       let attendanceRecords: any[] = [];
       try {
@@ -203,212 +211,211 @@ export default function SalaryPage() {
         console.error("Failed to fetch salary records", err)
       }
 
-      const formatted: SalaryEmployee[] = empData.map((emp: any) => {
-        const empId = emp.id || emp._id
+      const formatted: SalaryEmployee[] = empData
+        .map((emp: any) => {
+          const empId = emp.id || emp._id
 
-        // Resolve Department
-        let deptName = emp.department?.departmentName || emp.department?.name || emp.departmentName || ""
-        if (!deptName && (emp.department || emp.departmentId)) {
-          const id = typeof emp.department === 'object'
-            ? (emp.department.id || emp.department._id)
-            : (emp.department || emp.departmentId)
-          deptName = deptMap.get(id) || ""
-        }
+          // Resolve Department
+          let deptName = emp.department?.departmentName || emp.department?.name || emp.departmentName || ""
+          if (!deptName && (emp.department || emp.departmentId)) {
+            const id = typeof emp.department === 'object'
+              ? (emp.department.id || emp.department._id)
+              : (emp.department || emp.departmentId)
+            deptName = deptMap.get(id) || ""
+          }
 
-        // Resolve Designation
-        let desigName = emp.designation?.designationName || emp.designation?.name || emp.designationName || ""
-        if (!desigName && (emp.designation || emp.designationId)) {
-          const id = typeof emp.designation === 'object'
-            ? (emp.designation.id || emp.designation._id)
-            : (emp.designation || emp.designationId)
-          desigName = desigMap.get(id) || ""
-        }
+          // Resolve Designation
+          let desigName = emp.designation?.designationName || emp.designation?.name || emp.designationName || ""
+          if (!desigName && (emp.designation || emp.designationId)) {
+            const id = typeof emp.designation === 'object'
+              ? (emp.designation.id || emp.designation._id)
+              : (emp.designation || emp.designationId)
+            desigName = desigMap.get(id) || ""
+          }
 
-        // Resolve Location
-        let locName = emp.location?.locationName || emp.location?.name || emp.locationName || ""
-        if (!locName && (emp.location || emp.locationId)) {
-          const id = typeof emp.location === 'object'
-            ? (emp.location.id || emp.location._id)
-            : (emp.location || emp.locationId)
-          locName = locMap.get(id) || ""
-        }
+          // Resolve Location
+          let locName = emp.location?.locationName || emp.location?.name || emp.locationName || ""
+          if (!locName && (emp.location || emp.locationId)) {
+            const id = typeof emp.location === 'object'
+              ? (emp.location.id || emp.location._id)
+              : (emp.location || emp.locationId)
+            locName = locMap.get(id) || ""
+          }
 
-        // Parse allowances and deductions from employee data (supports multiple formats)
-        const allowances: Allowance[] = [];
-        const deductions: Deduction[] = [];
-        const empAllowances = emp.allowances;
-        const empDeductions = emp.deductions;
+          // Parse allowances and deductions from employee data (supports multiple formats)
+          const allowances: Allowance[] = [];
+          const deductions: Deduction[] = [];
+          const empAllowances = emp.allowances;
+          const empDeductions = emp.deductions;
 
-        // 1. Handle Allowances
-        if (empAllowances && typeof empAllowances === 'object' && !Array.isArray(empAllowances)) {
-          // Handle flattened structure (from onboarding)
-          const flatMap = [
-            { key: 'homeClaimed', perc: 'homeAllowancePercentage', name: 'Home' },
-            { key: 'foodClaimed', perc: 'foodAllowancePercentage', name: 'Food' },
-            { key: 'travelClaimed', perc: 'travelAllowancePercentage', name: 'Travel' }
-          ];
+          // 1. Handle Allowances
+          if (empAllowances && typeof empAllowances === 'object' && !Array.isArray(empAllowances)) {
+            // Handle flattened structure (from onboarding)
+            const flatMap = [
+              { key: 'homeClaimed', perc: 'homeAllowancePercentage', name: 'Home' },
+              { key: 'foodClaimed', perc: 'foodAllowancePercentage', name: 'Food' },
+              { key: 'travelClaimed', perc: 'travelAllowancePercentage', name: 'Travel' }
+            ];
 
-          flatMap.forEach(m => {
-            if (empAllowances[m.key] === true || empAllowances[m.key] === 'true') {
-              allowances.push({
-                id: `allowance-${m.name.toLowerCase()}`,
-                name: m.name,
-                value: Number(empAllowances[m.perc] || 0),
-                type: "percentage"
-              });
-            }
-          });
-
-          // Handle nested structure (if any)
-          Object.entries(empAllowances).forEach(([key, val]: [string, any]) => {
-            if (val && typeof val === 'object' && val.enabled && !allowances.some(a => a.name.toLowerCase() === key.toLowerCase())) {
-              allowances.push({
-                id: `allowance-${key}`,
-                name: key.charAt(0).toUpperCase() + key.slice(1),
-                value: Number(val.amount || val.percentage || 0),
-                type: val.percentage > 0 ? "percentage" : "fixed"
-              });
-            }
-          });
-        } else if (Array.isArray(empAllowances)) {
-          empAllowances.forEach((a: any, idx: number) => {
-            allowances.push({
-              id: a.id || `allowance-${idx}`,
-              name: a.name || a.type || "Allowance",
-              value: Number(a.value || a.amount || a.percentage || 0),
-              type: a.type === "percentage" || a.percentage > 0 ? "percentage" : "fixed"
+            flatMap.forEach(m => {
+              if (empAllowances[m.key] === true || empAllowances[m.key] === 'true') {
+                allowances.push({
+                  id: `allowance-${m.name.toLowerCase()}`,
+                  name: m.name,
+                  value: Number(empAllowances[m.perc] || 0),
+                  type: "percentage"
+                });
+              }
             });
-          });
-        }
 
-        // Final fallback for purely legacy field names
-        if (allowances.length === 0 && Array.isArray(emp.accommodationAllowances)) {
-          emp.accommodationAllowances.forEach((a: any, idx: number) => {
-            allowances.push({
-              id: a.id || `allowance-${idx}`,
-              name: a.name || a.type || "Allowance",
-              value: Number(a.value || a.amount || a.percentage || 0),
-              type: a.type === "percentage" || (a.percentage && a.percentage > 0) ? "percentage" : "fixed"
+            // Handle nested structure (if any)
+            Object.entries(empAllowances).forEach(([key, val]: [string, any]) => {
+              if (val && typeof val === 'object' && val.enabled && !allowances.some(a => a.name.toLowerCase() === key.toLowerCase())) {
+                allowances.push({
+                  id: `allowance-${key}`,
+                  name: key.charAt(0).toUpperCase() + key.slice(1),
+                  value: Number(val.amount || val.percentage || 0),
+                  type: val.percentage > 0 ? "percentage" : "fixed"
+                });
+              }
             });
-          });
-        }
-
-        // 2. Handle Deductions
-        if (empDeductions && typeof empDeductions === 'object' && !Array.isArray(empDeductions)) {
-          // Handle flattened structure (insuranceDeductionPercentage)
-          if (empDeductions.insuranceDeductionPercentage) {
-            deductions.push({
-              id: 'deduction-insurance',
-              name: 'Insurance',
-              value: Number(empDeductions.insuranceDeductionPercentage),
-              type: 'percentage'
+          } else if (Array.isArray(empAllowances)) {
+            empAllowances.forEach((a: any, idx: number) => {
+              allowances.push({
+                id: a.id || `allowance-${idx}`,
+                name: a.name || a.type || "Allowance",
+                value: Number(a.value || a.amount || a.percentage || 0),
+                type: a.type === "percentage" || a.percentage > 0 ? "percentage" : "fixed"
+              });
             });
           }
 
-          // Handle nested structure (if any)
-          Object.entries(empDeductions).forEach(([key, val]: [string, any]) => {
-            if (val && typeof val === 'object' && val.enabled && !deductions.some(d => d.name.toLowerCase() === key.toLowerCase())) {
+          // Final fallback for purely legacy field names
+          if (allowances.length === 0 && Array.isArray(emp.accommodationAllowances)) {
+            emp.accommodationAllowances.forEach((a: any, idx: number) => {
+              allowances.push({
+                id: a.id || `allowance-${idx}`,
+                name: a.name || a.type || "Allowance",
+                value: Number(a.value || a.amount || a.percentage || 0),
+                type: a.type === "percentage" || (a.percentage && a.percentage > 0) ? "percentage" : "fixed"
+              });
+            });
+          }
+
+          // 2. Handle Deductions
+          if (empDeductions && typeof empDeductions === 'object' && !Array.isArray(empDeductions)) {
+            // Handle flattened structure (insuranceDeductionPercentage)
+            if (empDeductions.insuranceDeductionPercentage) {
               deductions.push({
-                id: `deduction-${key}`,
-                name: key.charAt(0).toUpperCase() + key.slice(1),
-                value: Number(val.amount || val.percentage || 0),
-                type: val.percentage > 0 ? "percentage" : "fixed"
+                id: 'deduction-insurance',
+                name: 'Insurance',
+                value: Number(empDeductions.insuranceDeductionPercentage),
+                type: 'percentage'
               });
             }
-          });
-        } else if (Array.isArray(empDeductions)) {
-          empDeductions.forEach((d: any, idx: number) => {
-            deductions.push({
-              id: d.id || `deduction-${idx}`,
-              name: d.name || d.type || "Deduction",
-              value: Number(d.value || d.amount || d.percentage || 0),
-              type: d.type === "percentage" || d.percentage > 0 ? "percentage" : "fixed"
+
+            // Handle nested structure (if any)
+            Object.entries(empDeductions).forEach(([key, val]: [string, any]) => {
+              if (val && typeof val === 'object' && val.enabled && !deductions.some(d => d.name.toLowerCase() === key.toLowerCase())) {
+                deductions.push({
+                  id: `deduction-${key}`,
+                  name: key.charAt(0).toUpperCase() + key.slice(1),
+                  value: Number(val.amount || val.percentage || 0),
+                  type: val.percentage > 0 ? "percentage" : "fixed"
+                });
+              }
             });
-          });
-        }
-
-        if (deductions.length === 0 && Array.isArray(emp.insurances)) {
-          emp.insurances.forEach((d: any, idx: number) => {
-            deductions.push({
-              id: d.id || `deduction-${idx}`,
-              name: d.name || d.type || "Deduction",
-              value: Number(d.value || d.amount || d.percentage || 0),
-              type: d.type === "percentage" || (d.percentage && d.percentage > 0) ? "percentage" : "fixed"
+          } else if (Array.isArray(empDeductions)) {
+            empDeductions.forEach((d: any, idx: number) => {
+              deductions.push({
+                id: d.id || `deduction-${idx}`,
+                name: d.name || d.type || "Deduction",
+                value: Number(d.value || d.amount || d.percentage || 0),
+                type: d.type === "percentage" || d.percentage > 0 ? "percentage" : "fixed"
+              });
             });
+          }
+
+          if (deductions.length === 0 && Array.isArray(emp.insurances)) {
+            emp.insurances.forEach((d: any, idx: number) => {
+              deductions.push({
+                id: d.id || `deduction-${idx}`,
+                name: d.name || d.type || "Deduction",
+                value: Number(d.value || d.amount || d.percentage || 0),
+                type: d.type === "percentage" || (d.percentage && d.percentage > 0) ? "percentage" : "fixed"
+              });
+            });
+          }
+
+          // Determine status from salary records (real-time)
+          // Check if there's a record for this employee marked as paid in the selected month/year
+          const salaryRecord = salaryRecords.find((r: any) => {
+            const isSameEmployee = r.employeeId === empId || r.employee?.id === empId || r.employee?._id === empId
+            const isPaid = r.status?.toLowerCase() === "paid"
+            const payDate = new Date(r.payPeriodEnd || r.paidDate)
+            const isSameMonth = payDate.getMonth() + 1 === selectedMonth && payDate.getFullYear() === selectedYear
+            return isSameEmployee && isPaid && isSameMonth
+          })
+
+          // Calculate Overtime
+          const basicSalary = Number(emp.basicSalary || emp.salary || emp.ctc || emp.baseSalary || 0);
+          let overtimeHours = 0;
+
+          // Filter attendance records for this employee
+          const empAttendance = attendanceRecords.filter((r: any) =>
+            r.employeeId === empId || r.employee?.id === empId || r.employee?._id === empId
+          );
+
+          empAttendance.forEach((record: any) => {
+            // Parse total hours. Assuming format "9h 30m" or just number
+            let hours = 0;
+            if (typeof record.totalHours === 'string') {
+              // Extract hours part
+              const match = record.totalHours.match(/(\d+(\.\d+)?)h?/);
+              if (match) hours = parseFloat(match[1]);
+            } else if (typeof record.totalHours === 'number') {
+              hours = record.totalHours;
+            } else if (record.hoursWorked) {
+              const match = String(record.hoursWorked).match(/(\d+(\.\d+)?)h?/);
+              if (match) hours = parseFloat(match[1]);
+            }
+
+            if (hours > 9) {
+              overtimeHours += (hours - 9);
+            }
           });
-        }
 
-        // Determine status from salary records (real-time)
-        // Check if there's a record for this employee marked as paid in the current month/year
-        const currentMonth = new Date().getMonth() + 1
-        const currentYear = new Date().getFullYear()
+          // Calculate Overtime Amount
+          // Annual / 12 / 30 / 9 = Hourly rate (Approx)
+          // Or Basic / 30 / 9
+          const dailyRate = basicSalary / 30;
+          const hourlyRate = dailyRate / 9;
+          const overtimeAmount = overtimeHours * hourlyRate;
 
-        const salaryRecord = salaryRecords.find((r: any) => {
-          const isSameEmployee = r.employeeId === empId || r.employee?.id === empId || r.employee?._id === empId
-          const isPaid = r.status?.toLowerCase() === "paid"
-          const payDate = new Date(r.payPeriodEnd || r.paidDate)
-          const isSameMonth = payDate.getMonth() + 1 === currentMonth && payDate.getFullYear() === currentYear
-          return isSameEmployee && isPaid && isSameMonth
+          // Fetch EOSB from backend if applicable (Terminated or Resigned)
+          // We can't await inside map properly without Promise.all, so we'll do a separate pass or just fetch for all relevant ones.
+          // For simplicity and performance, we will fetch EOSB concurrently after mapping initial data.
+
+          return {
+            id: empId,
+            name: emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "",
+            department: deptName || "N/A",
+            designation: desigName || "N/A",
+            location: locName || "N/A",
+            basicSalary,
+            allowances,
+            deductions,
+            status: salaryRecord ? "Paid" : "Pending",
+            paidDate: salaryRecord?.paidDate ? new Date(salaryRecord.paidDate) : undefined,
+            selected: false,
+            overtimeHours: parseFloat(overtimeHours.toFixed(2)),
+            overtimeAmount: Math.round(overtimeAmount),
+            joiningDate: emp.joiningDate || emp.dateOfJoining || emp.startDate,
+            employmentStatus: emp.status || emp.employeeStatus || "Active",
+            exitDate: emp.exitDate || emp.relievingDate || emp.terminationDate || emp.resignationDate
+          }
         })
-
-        // Calculate Overtime
-        const basicSalary = Number(emp.basicSalary || emp.salary || emp.ctc || emp.baseSalary || 0);
-        let overtimeHours = 0;
-
-        // Filter attendance records for this employee
-        const empAttendance = attendanceRecords.filter((r: any) =>
-          r.employeeId === empId || r.employee?.id === empId || r.employee?._id === empId
-        );
-
-        empAttendance.forEach((record: any) => {
-          // Parse total hours. Assuming format "9h 30m" or just number
-          let hours = 0;
-          if (typeof record.totalHours === 'string') {
-            // Extract hours part
-            const match = record.totalHours.match(/(\d+(\.\d+)?)h?/);
-            if (match) hours = parseFloat(match[1]);
-          } else if (typeof record.totalHours === 'number') {
-            hours = record.totalHours;
-          } else if (record.hoursWorked) {
-            const match = String(record.hoursWorked).match(/(\d+(\.\d+)?)h?/);
-            if (match) hours = parseFloat(match[1]);
-          }
-
-          if (hours > 9) {
-            overtimeHours += (hours - 9);
-          }
-        });
-
-        // Calculate Overtime Amount
-        // Annual / 12 / 30 / 9 = Hourly rate (Approx)
-        // Or Basic / 30 / 9
-        const dailyRate = basicSalary / 30;
-        const hourlyRate = dailyRate / 9;
-        const overtimeAmount = overtimeHours * hourlyRate;
-
-        // Fetch EOSB from backend if applicable (Terminated or Resigned)
-        // We can't await inside map properly without Promise.all, so we'll do a separate pass or just fetch for all relevant ones.
-        // For simplicity and performance, we will fetch EOSB concurrently after mapping initial data.
-
-        return {
-          id: empId,
-          name: emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "",
-          department: deptName || "N/A",
-          designation: desigName || "N/A",
-          location: locName || "N/A",
-          basicSalary,
-          allowances,
-          deductions,
-          status: salaryRecord ? "Paid" : "Pending",
-          selected: false,
-          paidDate: salaryRecord?.paidDate ? new Date(salaryRecord.paidDate) : undefined,
-          overtimeHours: parseFloat(overtimeHours.toFixed(2)),
-          overtimeAmount: Math.round(overtimeAmount),
-          joiningDate: emp.joiningDate || emp.dateOfJoining || emp.startDate,
-          employmentStatus: emp.status || emp.employeeStatus || "Active",
-          exitDate: emp.exitDate || emp.relievingDate || emp.terminationDate || emp.resignationDate
-        }
-      })
+        .filter((emp: any) => emp.status !== "Paid") // ONLY SHOW PENDING PAYMENTS
 
       // Set employees immediately to show the list
       setEmployees(formatted)
@@ -549,9 +556,6 @@ export default function SalaryPage() {
   const filteredEmployees = useMemo(() => {
     return employees
       .filter((e) =>
-        statusFilter === "all" ? true : e.status === statusFilter
-      )
-      .filter((e) =>
         deptFilter === "all" ? true : e.department === deptFilter
       )
       .filter((e) =>
@@ -625,11 +629,15 @@ export default function SalaryPage() {
   const handlePayRunClick = () => {
     // Store selected employees in sessionStorage for preview page
     const selectedEmployeesData = employees.filter(e => e.selected)
-    sessionStorage.setItem('payrollPreviewData', JSON.stringify(selectedEmployeesData))
-
-    // Navigate to preview page
-    router.push('/admin/salary/add')
-  }
+    const data = selectedEmployeesData.map(e => {
+      const calc = calculateEmployeeSalary(e);
+      return { ...e, ...calc };
+    });
+    sessionStorage.setItem('payrollPreviewData', JSON.stringify(data));
+    sessionStorage.setItem('payrollMonth', selectedMonth.toString());
+    sessionStorage.setItem('payrollYear', selectedYear.toString());
+    router.push("/admin/salary/add");
+  };
 
   /* ================= EXPORT ================= */
 
@@ -844,26 +852,35 @@ export default function SalaryPage() {
                 </div>
 
                 <div className="lg:col-span-1">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="w-full border-slate-200 hover:bg-slate-50 h-9 xs:h-10 text-xs xs:text-sm justify-start">
-                        <Filter className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1.5 xs:mr-2" />
-                        <span className="truncate">Status: {statusFilter === 'all' ? 'All' : statusFilter}</span>
-                        <ChevronDown className="w-3.5 h-3.5 xs:w-4 xs:h-4 ml-auto" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-40">
-                      <DropdownMenuItem onClick={() => setStatusFilter("all")}>
-                        All
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setStatusFilter("Paid")}>
-                        Paid
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setStatusFilter("Pending")}>
-                        Unpaid
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <Select
+                    value={selectedMonth.toString()}
+                    onValueChange={(val) => setSelectedMonth(parseInt(val))}
+                  >
+                    <SelectTrigger className="w-full border-slate-200 h-9 xs:h-10 text-xs xs:text-sm">
+                      <SelectValue placeholder="Month" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (
+                        <SelectItem key={i + 1} value={(i + 1).toString()}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="lg:col-span-1">
+                  <Select
+                    value={selectedYear.toString()}
+                    onValueChange={(val) => setSelectedYear(parseInt(val))}
+                  >
+                    <SelectTrigger className="w-full border-slate-200 h-9 xs:h-10 text-xs xs:text-sm">
+                      <SelectValue placeholder="Year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[2024, 2025, 2026].map(y => (
+                        <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="lg:col-span-1">
@@ -969,7 +986,6 @@ export default function SalaryPage() {
                       <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm bg-slate-100/50">GROSS SALARY</TableHead>
                       <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm">DEDUCTIONS</TableHead>
                       <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm bg-blue-50/50">NET SALARY</TableHead>
-                      <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm">STATUS</TableHead>
                     </TableRow>
                   </TableHeader>
 
@@ -1006,11 +1022,10 @@ export default function SalaryPage() {
                             AED {calc.basicSalary.toLocaleString()}
                           </TableCell>
                           <TableCell className="font-medium text-green-600 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
-                            + {calc.totalAllowances.toLocaleString()}
+                            {calc.totalAllowances.toLocaleString()}
                           </TableCell>
                           <TableCell className="font-medium text-blue-600 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
                             <div className="flex items-center gap-1">
-                              <span>+</span>
                               <div className="flex flex-col">
                                 <span>{calc.overtimeAmount.toLocaleString()}</span>
                                 <span className="text-[10px] text-slate-500">{e.overtimeHours} hrs</span>
@@ -1018,23 +1033,13 @@ export default function SalaryPage() {
                             </div>
                           </TableCell>
                           <TableCell className="font-bold text-slate-900 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap bg-slate-100/30">
-                            = {calc.grossSalary.toLocaleString()}
+                            {calc.grossSalary.toLocaleString()}
                           </TableCell>
                           <TableCell className="font-medium text-red-600 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
-                            - {calc.totalDeductions.toLocaleString()}
+                            {calc.totalDeductions.toLocaleString()}
                           </TableCell>
                           <TableCell className="font-bold text-blue-600 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap bg-blue-50/30">
-                            = AED {calc.netSalary.toLocaleString()}
-                          </TableCell>
-                          <TableCell className="px-2 xs:px-4">
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 xs:px-3 xs:py-1 rounded-full text-xs font-medium ${e.status === "Paid"
-                                ? "bg-green-100 text-green-700"
-                                : "bg-orange-100 text-orange-700"
-                                }`}
-                            >
-                              {e.status}
-                            </span>
+                            AED {calc.netSalary.toLocaleString()}
                           </TableCell>
                         </TableRow>
                       )
