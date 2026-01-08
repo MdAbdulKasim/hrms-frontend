@@ -118,12 +118,15 @@ const AttendanceTracker: React.FC = () => {
 
             if (finalizedData && (finalizedData.checkInTime || finalizedData.checkIn)) {
               const r = finalizedData;
+              const hasCheckedIn = !!(r.checkInTime || r.checkIn);
+              const transformedStatus = hasCheckedIn ? 'Present' : (r.status || 'Absent');
+
               const transformed: AttendanceRecord = {
                 date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : format(currentDate, 'yyyy-MM-dd'),
                 checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : (r.checkIn ? format(new Date(r.checkIn), 'hh:mm a') : '-'),
                 checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : (r.checkOut ? format(new Date(r.checkOut), 'hh:mm a') : '-'),
                 hoursWorked: r.totalHours ? `${r.totalHours}h` : (r.hoursWorked ? `${r.hoursWorked}h` : '-'),
-                status: r.status || (r.checkInTime || r.checkIn ? 'Present' : 'Absent')
+                status: transformedStatus
               };
               setAllAttendanceData([transformed]);
               setLoading(false);
@@ -142,13 +145,40 @@ const AttendanceTracker: React.FC = () => {
 
           let transformedData: AttendanceRecord[] = records.map((r: any) => {
             const rawStatus = r.status?.toLowerCase();
-            let status = (r.checkInTime || r.checkIn) ? 'Present' : 'Absent';
+            const hasCheckedIn = !!(r.checkInTime || r.checkIn);
+            const hasCheckedOut = !!(r.checkOutTime || r.checkOut);
 
+            // Parse record date to check if it is today
+            let isToday = false;
+            try {
+              const recordDateStr = r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : '';
+              const todayStr = format(new Date(), 'yyyy-MM-dd');
+              isToday = recordDateStr === todayStr;
+            } catch (e) {
+              console.error("Error parsing date for status logic", e);
+            }
+
+            let status = 'Absent';
+
+            if (hasCheckedIn) {
+              if (hasCheckedOut) {
+                status = 'Present';
+                if (rawStatus === 'late') status = 'Late';
+              } else {
+                // Checked in but no check out
+                // Show Present if today (allowed until midnight), else Absent
+                status = isToday ? 'Present' : 'Absent';
+              }
+            } else {
+              status = 'Absent';
+              if (rawStatus === 'late') status = 'Late';
+              else if (rawStatus === 'present') status = 'Present';
+            }
+
+            // Override with special statuses if applicable
             if (rawStatus === 'holiday') status = 'Holiday';
             else if (rawStatus === 'leave' || rawStatus === 'on-leave') status = 'Leave';
             else if (rawStatus === 'weekend') status = 'Weekend';
-            else if (rawStatus === 'present' || r.checkInTime || r.checkIn) status = 'Present';
-            else if (rawStatus === 'late') status = 'Late';
             else if (rawStatus === 'absent') status = 'Absent';
 
             return {
