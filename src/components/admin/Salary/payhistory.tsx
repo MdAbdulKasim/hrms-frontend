@@ -91,14 +91,42 @@ export default function PayHistoryPage() {
   const [viewDetails, setViewDetails] =
     useState<PayHistoryRecord | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
+  const [totalPages, setTotalPages] = useState(2)
   const ITEMS_PER_PAGE = 10
+
+  /* ================= METADATA ================= */
+  const [departments, setDepartments] = useState<any[]>([])
+  const [designations, setDesignations] = useState<any[]>([])
 
   /* ================= FETCH ================= */
 
   useEffect(() => {
+    fetchMetadata()
+  }, [])
+
+  useEffect(() => {
     fetchHistory()
   }, [currentPage])
+
+  const fetchMetadata = async () => {
+    const orgId = getOrgId()
+    const token = getAuthToken()
+    const apiUrl = getApiUrl()
+    if (!orgId || !token) return
+
+    try {
+      const headers = { Authorization: `Bearer ${token}` }
+      const [deptRes, desigRes] = await Promise.all([
+        axios.get(`${apiUrl}/org/${orgId}/departments`, { headers }).catch(() => ({ data: { data: [] } })),
+        axios.get(`${apiUrl}/org/${orgId}/designations`, { headers }).catch(() => ({ data: { data: [] } }))
+      ])
+
+      setDepartments(Array.isArray(deptRes.data?.data) ? deptRes.data.data : (Array.isArray(deptRes.data) ? deptRes.data : []))
+      setDesignations(Array.isArray(desigRes.data?.data) ? desigRes.data.data : (Array.isArray(desigRes.data) ? desigRes.data : []))
+    } catch (err) {
+      console.error("Metadata fetch failed", err)
+    }
+  }
 
   const fetchHistory = async () => {
     setLoading(true)
@@ -125,38 +153,109 @@ export default function PayHistoryPage() {
       const rows = response.data?.data || []
       const apiTotalPages = response.data?.totalPages || 1
 
+      const deptMap = new Map(departments.map((d: any) => [d.id || d._id, d.departmentName || d.name]))
+      const desigMap = new Map(designations.map((d: any) => [d.id || d._id, d.designationName || d.name]))
+
       // Filter for paid records only and format
       const formatted: PayHistoryRecord[] = rows
-        .filter((r: any) => r.status === "paid")
-        .map((r: any) => ({
-          id: r.id || r._id,
-          employeeId: r.employeeId,
-          employeeName: r.employeeName || "",
-          department: r.employee?.department?.departmentName || "N/A",
-          designation: r.employee?.designation?.name || "N/A",
-          basicSalary: Number(r.basicSalary || 0),
-          totalAllowances: Number(r.totalAllowances || 0),
-          grossSalary: Number(r.grossSalary || 0),
-          totalDeductions: Number(r.totalDeductions || 0),
-          netPay: Number(r.netSalary || 0),
-          payPeriodStart: r.payPeriodStart || "",
-          payPeriodEnd: r.payPeriodEnd || "",
-          paidDate: new Date(r.paidDate),
-          paymentMethod: r.paymentMethod || "Bank Transfer",
-          transactionId: r.transactionId,
-          allowanceBreakdown: r.allowanceBreakdown || {
-            homeAllowance: 0,
-            foodAllowance: 0,
-            travelAllowance: 0,
-            overtimePay: 0,
-          },
-          deductionBreakdown: r.deductionBreakdown || {
-            homeDeduction: 0,
-            foodDeduction: 0,
-            travelDeduction: 0,
-            insuranceDeduction: 0,
-          },
-        }))
+        .filter((r: any) => (r.status || "").toLowerCase() === "paid")
+        .map((r: any) => {
+          const emp = r.employee || {};
+          const allowanceData = r.allowanceBreakdown || emp.allowances || [];
+          const deductionData = r.deductionBreakdown || emp.deductions || [];
+
+          // Robust parsing (simplified but effective version)
+          const parseVal = (data: any) => {
+            let total = 0;
+            if (Array.isArray(data)) {
+              data.forEach((i: any) => {
+                const val = Number(i.value || i.amount || 0);
+                if (i.type === 'percentage') {
+                  total += (Number(r.basicSalary || 0) * val) / 100;
+                } else {
+                  total += val;
+                }
+              });
+            }
+            return total;
+          };
+
+          const basicSalary = Number(r.basicSalary || r.basic_salary || emp.basicSalary || 0);
+          let totalAllowances = Number(r.totalAllowances || r.total_allowances || 0);
+          let totalDeductions = Number(r.totalDeductions || r.total_deductions || 0);
+
+          if (totalAllowances === 0 && emp.allowances) {
+            const data = emp.allowances;
+            if (Array.isArray(data)) {
+              data.forEach((i: any) => {
+                const v = Number(i.value || i.amount || 0);
+                totalAllowances += (i.type === 'percentage') ? (basicSalary * v / 100) : v;
+              });
+            } else if (typeof data === "object") {
+              Object.values(data).forEach((val: any) => {
+                if (val && val.enabled) {
+                  const amount = val.amount || (basicSalary * val.percentage) / 100 || 0;
+                  totalAllowances += amount;
+                }
+              });
+            }
+          }
+
+          if (totalDeductions === 0 && emp.deductions) {
+            const data = emp.deductions;
+            if (Array.isArray(data)) {
+              data.forEach((i: any) => {
+                const v = Number(i.value || i.amount || 0);
+                totalDeductions += (i.type === 'percentage') ? (basicSalary * v / 100) : v;
+              });
+            } else if (typeof data === "object") {
+              Object.values(data).forEach((val: any) => {
+                if (val && val.enabled) {
+                  const amount = val.amount || (basicSalary * val.percentage) / 100 || 0;
+                  totalDeductions += amount;
+                }
+              });
+            }
+          }
+
+          const overtimeAmount = Number(r.overtimeAmount || r.overtimePay || r.overtime_amount || 0);
+          const grossSalary = basicSalary + totalAllowances + overtimeAmount;
+          const netSalary = grossSalary - totalDeductions;
+
+          const getDeptName = () => {
+            if (emp.department?.departmentName || emp.department?.name) return emp.department.departmentName || emp.department.name;
+            if (emp.departmentId) return deptMap.get(emp.departmentId) || "N/A";
+            if (r.department) return r.department;
+            return "N/A";
+          }
+
+          const getDesigName = () => {
+            if (emp.designation?.designationName || emp.designation?.name) return emp.designation.designationName || emp.designation.name;
+            if (emp.designationId) return desigMap.get(emp.designationId) || "N/A";
+            if (r.designation) return r.designation;
+            return "N/A";
+          }
+
+          return {
+            id: r.id || r._id,
+            employeeId: r.employeeId,
+            employeeName: r.employeeName || emp.fullName || emp.name || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "Unknown",
+            department: getDeptName(),
+            designation: getDesigName(),
+            basicSalary,
+            totalAllowances,
+            grossSalary,
+            totalDeductions,
+            netPay: netSalary,
+            payPeriodStart: r.payPeriodStart || "",
+            payPeriodEnd: r.payPeriodEnd || "",
+            paidDate: r.paidDate ? new Date(r.paidDate) : new Date(),
+            paymentMethod: r.paymentMethod || "Bank Transfer",
+            transactionId: r.transactionId,
+            allowanceBreakdown: r.allowanceBreakdown || {},
+            deductionBreakdown: r.deductionBreakdown || {},
+          };
+        })
 
       setHistory(formatted)
       setTotalPages(apiTotalPages)
@@ -455,16 +554,16 @@ export default function PayHistoryPage() {
                       AED {r.basicSalary.toLocaleString()}
                     </TableCell>
                     <TableCell className="font-medium text-green-600">
-                      + {r.totalAllowances.toLocaleString()}
+                      {r.totalAllowances.toLocaleString()}
                     </TableCell>
                     <TableCell className="font-bold text-slate-900 bg-slate-50">
-                      = {r.grossSalary.toLocaleString()}
+                      {r.grossSalary.toLocaleString()}
                     </TableCell>
                     <TableCell className="font-medium text-red-600">
-                      - {r.totalDeductions.toLocaleString()}
+                      {r.totalDeductions.toLocaleString()}
                     </TableCell>
                     <TableCell className="text-blue-600 font-bold bg-blue-50/50">
-                      = AED {r.netPay.toLocaleString()}
+                      AED {r.netPay.toLocaleString()}
                     </TableCell>
                     <TableCell className="text-slate-600">
                       {r.paidDate.toLocaleDateString()}
@@ -557,19 +656,19 @@ export default function PayHistoryPage() {
                   </div>
                   <div className="flex justify-between items-center pb-2 border-b border-green-200">
                     <span className="text-green-700 font-medium">Total Allowances</span>
-                    <span className="text-blue-600 font-bold">+ {viewDetails.totalAllowances.toLocaleString()}</span>
+                    <span className="text-blue-600 font-bold">{viewDetails.totalAllowances.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center pb-2 border-b border-green-200">
                     <span className="text-green-700 font-medium">Gross Salary</span>
-                    <span className="text-slate-900 font-bold text-lg">= {viewDetails.grossSalary.toLocaleString()}</span>
+                    <span className="text-slate-900 font-bold text-lg">{viewDetails.grossSalary.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center pb-2 border-b border-green-200">
                     <span className="text-green-700 font-medium">Total Deductions</span>
-                    <span className="text-red-600 font-bold">- {viewDetails.totalDeductions.toLocaleString()}</span>
+                    <span className="text-red-600 font-bold">{viewDetails.totalDeductions.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center pt-2">
                     <span className="text-green-700 font-semibold text-lg">Net Pay</span>
-                    <span className="text-blue-700 font-bold text-2xl">= AED {viewDetails.netPay.toLocaleString()}</span>
+                    <span className="text-blue-700 font-bold text-2xl">AED {viewDetails.netPay.toLocaleString()}</span>
                   </div>
                 </div>
               </div>

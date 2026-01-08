@@ -1,6 +1,13 @@
 "use client";
 import { useEffect, useState } from "react"
-import { Download, AlertCircle, Loader2 } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Download, AlertCircle, Loader2, Filter } from "lucide-react"
 import axios from "axios"
 import { getApiUrl, getAuthToken, getOrgId } from "@/lib/auth"
 
@@ -29,11 +36,14 @@ export default function WPSSIFPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+
   /* ================= FETCH DATA ================= */
 
   useEffect(() => {
     fetchSIFData()
-  }, [])
+  }, [selectedMonth, selectedYear])
 
   const fetchSIFData = async () => {
     setLoading(true)
@@ -61,10 +71,9 @@ export default function WPSSIFPage() {
       const empData = empRes.data.data || empRes.data || []
       const salaryRecords = salaryRes.data.data || salaryRes.data || []
 
-      // Identify current month and year for display
-      const now = new Date()
-      const currentMonth = now.getMonth() + 1
-      const currentYear = now.getFullYear()
+      // Use selected month and year
+      const currentMonth = selectedMonth
+      const currentYear = selectedYear
 
       // Set Summary from organization data
       const orgData = empData[0]?.organization
@@ -82,17 +91,68 @@ export default function WPSSIFPage() {
 
       // Merge Employee details with Salary records
       const mergedData: SIFEmployee[] = currentSalaries.map((record: any) => {
-        const empId = record.employeeId || record.employee?.id || record.employee?._id
-        const employee = empData.find((e: any) => (e.id || e._id) === empId)
+        let empId = record.employeeId;
+        if (empId && typeof empId === 'object') {
+          empId = empId.id || empId._id;
+        }
+        if (!empId) {
+          empId = record.employee?.id || record.employee?._id;
+        }
+
+        const employee = record.employee || empData.find((e: any) => (e.id || e._id) === empId)
+
+        const basic = Number(record.basicSalary || record.basic_salary || employee?.basicSalary || 0);
+        let allowances = Number(record.totalAllowances || record.total_allowances || 0);
+        let deductions = Number(record.totalDeductions || record.total_deductions || 0);
+
+        if (allowances === 0 && employee?.allowances) {
+          const data = employee.allowances;
+          if (Array.isArray(data)) {
+            data.forEach((i: any) => {
+              const v = Number(i.value || i.amount || 0);
+              allowances += (i.type === 'percentage') ? (basic * v / 100) : v;
+            });
+          } else if (typeof data === "object") {
+            Object.values(data).forEach((val: any) => {
+              if (val && val.enabled) {
+                const amount = val.amount || (basic * val.percentage) / 100 || 0;
+                allowances += amount;
+              }
+            });
+          }
+        }
+
+        if (deductions === 0 && employee?.deductions) {
+          const data = employee.deductions;
+          if (Array.isArray(data)) {
+            data.forEach((i: any) => {
+              const v = Number(i.value || i.amount || 0);
+              deductions += (i.type === 'percentage') ? (basic * v / 100) : v;
+            });
+          } else if (typeof data === "object") {
+            Object.values(data).forEach((val: any) => {
+              if (val && val.enabled) {
+                const amount = val.amount || (basic * val.percentage) / 100 || 0;
+                deductions += amount;
+              }
+            });
+          }
+        }
+
+        const employeeName = record.employeeName ||
+          employee?.fullName ||
+          employee?.name ||
+          (employee ? `${employee.firstName || ""} ${employee.lastName || ""}`.trim() : "") ||
+          "Unknown";
 
         return {
-          employeeName: employee?.fullName || `${employee?.firstName || ""} ${employee?.lastName || ""}`.trim() || "Unknown",
-          molId: employee?.molId || "N/A",
-          iban: employee?.iban || "N/A",
-          basic: Number(record.basicSalary || 0),
-          allowances: Number(record.totalAllowances || 0),
-          overtimeAmount: Number(record.overtimeAmount || 0),
-          deductions: Number(record.totalDeductions || 0),
+          employeeName,
+          molId: employee?.molId || record.molId || "N/A",
+          iban: employee?.iban || record.iban || "N/A",
+          basic,
+          allowances,
+          overtimeAmount: Number(record.overtimeAmount || record.overtimePay || record.overtime_amount || 0),
+          deductions,
         }
       })
 
@@ -173,15 +233,55 @@ export default function WPSSIFPage() {
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h1 className="text-2xl font-bold text-slate-900 border-l-4 border-blue-600 pl-4">WPS SIF Export</h1>
-        <button
-          disabled={employees.length === 0}
-          onClick={exportSIFCSV}
-          className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto justify-center"
-        >
-          <Download size={18} />
-          Export SIF CSV
-        </button>
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <Select
+            value={selectedMonth.toString()}
+            onValueChange={(val) => setSelectedMonth(parseInt(val))}
+          >
+            <SelectTrigger className="w-32 border-slate-200">
+              <SelectValue placeholder="Month" />
+            </SelectTrigger>
+            <SelectContent>
+              {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (
+                <SelectItem key={i + 1} value={(i + 1).toString()}>{m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={selectedYear.toString()}
+            onValueChange={(val) => setSelectedYear(parseInt(val))}
+          >
+            <SelectTrigger className="w-32 border-slate-200">
+              <SelectValue placeholder="Year" />
+            </SelectTrigger>
+            <SelectContent>
+              {[2024, 2025, 2026].map(y => (
+                <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <button
+            disabled={employees.length === 0}
+            onClick={exportSIFCSV}
+            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed hidden md:flex"
+          >
+            <Download size={18} />
+            Export SIF CSV
+          </button>
+        </div>
       </div>
+
+      {/* Mobile Export Button */}
+      <button
+        disabled={employees.length === 0}
+        onClick={exportSIFCSV}
+        className="flex md:hidden items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
+      >
+        <Download size={18} />
+        Export SIF CSV
+      </button>
 
 
       {/* SUMMARY */}
@@ -224,11 +324,11 @@ export default function WPSSIFPage() {
                     <td className="px-6 py-4 text-slate-600">{emp.molId}</td>
                     <td className="px-6 py-4 text-slate-600 font-mono text-xs">{emp.iban}</td>
                     <td className="px-6 py-4 text-center text-slate-900">AED {emp.basic.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-center text-green-600 font-medium">+ {emp.allowances.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-center text-blue-600 font-medium">+ {emp.overtimeAmount.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-center text-slate-900 font-bold bg-slate-100/30">= {gross.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-center text-red-600 font-medium">- {emp.deductions.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-center font-bold text-blue-600 bg-blue-50/30">= {net.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-center text-green-600 font-medium">{emp.allowances.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-center text-blue-600 font-medium">{emp.overtimeAmount.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-center text-slate-900 font-bold bg-slate-100/30">{gross.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-center text-red-600 font-medium">{emp.deductions.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-center font-bold text-blue-600 bg-blue-50/30">{net.toLocaleString()}</td>
                   </tr>
                 )
               })}

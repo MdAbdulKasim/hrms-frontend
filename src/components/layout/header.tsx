@@ -11,41 +11,17 @@ type SubTab = {
   path: string;
 };
 
-type MainTab = {
-  name: string;
-  path: string;
-  subTabs: SubTab[];
-};
-
-const adminNavigationConfig: MainTab[] = [
-  {
-    name: 'My Space',
-    path: '/admin/my-space',
-    subTabs: [
-      { name: 'Overview', path: '/admin/my-space/overview' },
-      { name: 'Dashboard', path: '/admin/my-space/dashboard' },
-      { name: 'Calendar', path: '/admin/my-space/calendar' }
-    ]
-  },
-  {
-    name: 'Team',
-    path: '/admin/team',
-    subTabs: [
-      { name: 'HR Process', path: '/admin/team/hr-process' }
-    ]
-  }
+const adminNavigationConfig: SubTab[] = [
+  { name: 'Overview', path: '/admin/my-space/overview' },
+  { name: 'Dashboard', path: '/admin/my-space/dashboard' },
+  { name: 'Calendar', path: '/admin/my-space/calendar' },
+  { name: 'HR Process', path: '/admin/team/hr-process' }
 ];
 
-const employeeNavigationConfig: MainTab[] = [
-  {
-    name: 'My Space',
-    path: '/employee/my-space',
-    subTabs: [
-      { name: 'Overview', path: '/employee/my-space/overview' },
-      { name: 'Dashboard', path: '/employee/my-space/dashboard' },
-      { name: 'Calendar', path: '/employee/my-space/calender' }
-    ]
-  }
+const employeeNavigationConfig: SubTab[] = [
+  { name: 'Overview', path: '/employee/my-space/overview' },
+  { name: 'Dashboard', path: '/employee/my-space/dashboard' },
+  { name: 'Calendar', path: '/employee/my-space/calender' }
 ];
 
 interface NavigationHeaderProps {
@@ -60,8 +36,7 @@ export default function NavigationHeader({
   const pathname = usePathname();
 
   const navigationConfig = userRole === 'admin' ? adminNavigationConfig : employeeNavigationConfig;
-  const isHomeSection = navigationConfig.some(tab => pathname.startsWith(tab.path));
-  const [activeMainTab, setActiveMainTab] = useState(navigationConfig[0]);
+  const isHomeSection = navigationConfig.some(tab => pathname.startsWith(tab.path.split('/').slice(0, 3).join('/')));
 
   // User data state - start with empty values
   const [userData, setUserData] = useState({
@@ -297,15 +272,6 @@ export default function NavigationHeader({
     };
   }, [userRole]); // Re-fetch when userRole changes
 
-  useEffect(() => {
-    const matchedTab = navigationConfig.find(tab =>
-      pathname.startsWith(tab.path)
-    );
-    if (matchedTab) {
-      setActiveMainTab(matchedTab);
-    }
-  }, [pathname, navigationConfig]);
-
   const noScrollbarClass = "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]";
 
   return (
@@ -325,20 +291,20 @@ export default function NavigationHeader({
 
           {/* Desktop & Mobile Main Tabs */}
           {isHomeSection ? (
-            <div className={`flex items-center gap-2 md:gap-3 overflow-x-auto whitespace-nowrap ${noScrollbarClass} py-1`}>
+            <div className={`flex items-center gap-2 md:gap-2 overflow-x-auto whitespace-nowrap ${noScrollbarClass} py-1`}>
               {navigationConfig.map((tab) => {
-                const isActive = activeMainTab.name === tab.name;
+                const isActive = pathname === tab.path;
                 return (
-                  <button
-                    key={tab.name}
-                    onClick={() => setActiveMainTab(tab)}
-                    className={`text-xs md:text-sm font-bold transition-all px-4 py-2 rounded-xl shrink-0 ${isActive
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10'
-                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                  <Link
+                    key={tab.path}
+                    href={tab.path}
+                    className={`text-[12px] md:text-[13px] font-bold transition-all px-4 py-2 rounded-lg shrink-0 ${isActive
+                      ? 'text-blue-600 bg-blue-50'
+                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100/50'
                       }`}
                   >
                     {tab.name}
-                  </button>
+                  </Link>
                 );
               })}
             </div>
@@ -396,29 +362,6 @@ export default function NavigationHeader({
           )}
         </div>
       </div>
-
-      {/* Sub Header - Sub Navigation */}
-      {isHomeSection && (
-        <div className="bg-gray-50/50">
-          <div className={`flex items-center px-4 md:px-8 h-12 md:h-14 gap-2 md:gap-2 overflow-x-auto whitespace-nowrap ${noScrollbarClass}`}>
-            {activeMainTab.subTabs.map((tab) => {
-              const isActive = pathname === tab.path;
-              return (
-                <Link
-                  key={tab.path}
-                  href={tab.path}
-                  className={`text-[12px] md:text-[13px] font-bold transition-all px-4 py-2 rounded-lg shrink-0 ${isActive
-                    ? 'text-blue-600 bg-blue-50'
-                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100/50'
-                    }`}
-                >
-                  {tab.name}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

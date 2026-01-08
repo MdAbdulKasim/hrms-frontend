@@ -118,9 +118,11 @@ export default function PayRunProcess() {
 
         const formatted: PayrollEmployee[] = empData.map((emp: any) => {
           // Parse allowances and deductions from employee data (Object Format)
-          const parseAllowances = (emp: any): Allowance[] => {
+          const parseAllowances = (employee: any): Allowance[] => {
             const allowances: Allowance[] = [];
-            const empAllowances = emp.allowances;
+            if (!employee) return allowances;
+
+            const empAllowances = employee.allowances;
 
             if (empAllowances && typeof empAllowances === 'object' && !Array.isArray(empAllowances)) {
               // Handle flattened structure (from onboarding)
@@ -164,8 +166,8 @@ export default function PayRunProcess() {
             }
 
             // Final fallback for legacy field names
-            if (allowances.length === 0 && Array.isArray(emp.accommodationAllowances)) {
-              emp.accommodationAllowances.forEach((a: any, idx: number) => {
+            if (allowances.length === 0 && Array.isArray(employee.accommodationAllowances)) {
+              employee.accommodationAllowances.forEach((a: any, idx: number) => {
                 allowances.push({
                   id: a.id || `allowance-${idx}`,
                   name: a.name || a.type || "Allowance",
@@ -177,9 +179,11 @@ export default function PayRunProcess() {
             return allowances;
           };
 
-          const parseDeductions = (emp: any): Deduction[] => {
+          const parseDeductions = (employee: any): Deduction[] => {
             const deductions: Deduction[] = [];
-            const empDeductions = emp.deductions;
+            if (!employee) return deductions;
+
+            const empDeductions = employee.deductions;
 
             if (empDeductions && typeof empDeductions === 'object' && !Array.isArray(empDeductions)) {
               // Handle flattened structure (insuranceDeductionPercentage)
@@ -214,8 +218,8 @@ export default function PayRunProcess() {
               });
             }
 
-            if (deductions.length === 0 && Array.isArray(emp.insurances)) {
-              emp.insurances.forEach((d: any, idx: number) => {
+            if (deductions.length === 0 && Array.isArray(employee.insurances)) {
+              employee.insurances.forEach((d: any, idx: number) => {
                 deductions.push({
                   id: d.id || `deduction-${idx}`,
                   name: d.name || d.type || "Deduction",
@@ -234,8 +238,8 @@ export default function PayRunProcess() {
             designation: emp.designation?.designationName || emp.designation?.name || "N/A",
             location: emp.location?.locationName || emp.location?.name || "N/A",
             basicSalary: Number(emp.basicSalary || emp.salary || emp.ctc || emp.baseSalary || 0),
-            allowances: parseAllowances(emp.allowances),
-            deductions: parseDeductions(emp.deductions),
+            allowances: parseAllowances(emp),
+            deductions: parseDeductions(emp),
             overtimeHours: 0, // Default for fresh fetch, as overtime calculation is complex and done in Mainpage
             overtimeAmount: 0,
             joiningDate: emp.joiningDate || emp.dateOfJoining || emp.startDate,
@@ -429,10 +433,24 @@ export default function PayRunProcess() {
       // Process each employee sequentially but continue on failure so one bad record doesn't stop the rest.
       for (const emp of employees) {
         try {
+          // Use selected month/year if provided from Mainpage
+          const storedMonth = sessionStorage.getItem('payrollMonth');
+          const storedYear = sessionStorage.getItem('payrollYear');
+
+          let processStartDate = startDate;
+          let processEndDate = endDate;
+
+          if (storedMonth && storedYear) {
+            const m = parseInt(storedMonth);
+            const y = parseInt(storedYear);
+            processStartDate = new Date(Date.UTC(y, m - 1, 1));
+            processEndDate = new Date(Date.UTC(y, m, 0));
+          }
+
           const processPayload = {
             employeeId: emp.id,
-            payPeriodStart: startDate.toISOString(),
-            payPeriodEnd: endDate.toISOString(),
+            payPeriodStart: processStartDate.toISOString(),
+            payPeriodEnd: processEndDate.toISOString(),
             organizationId: orgId
           }
 
@@ -705,15 +723,15 @@ export default function PayRunProcess() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-[10px] xs:text-xs text-slate-500 mb-0.5 truncate">Allowances</p>
-                    <p className="font-medium text-green-600 text-xs xs:text-sm truncate">+AED {calc.totalAllowances.toLocaleString()}</p>
+                    <p className="font-medium text-green-600 text-xs xs:text-sm truncate">AED {calc.totalAllowances.toLocaleString()}</p>
                   </div>
                   <div className="min-w-0">
                     <p className="text-[10px] xs:text-xs text-slate-500 mb-0.5 truncate">Overtime ({emp.overtimeHours}hrs)</p>
-                    <p className="font-medium text-blue-600 text-xs xs:text-sm truncate">+AED {calc.overtimeAmount.toLocaleString()}</p>
+                    <p className="font-medium text-blue-600 text-xs xs:text-sm truncate">AED {calc.overtimeAmount.toLocaleString()}</p>
                   </div>
                   <div className="min-w-0">
                     <p className="text-[10px] xs:text-xs text-slate-500 mb-0.5 truncate">Deductions</p>
-                    <p className="font-medium text-red-600 text-xs xs:text-sm truncate">-AED {calc.totalDeductions.toLocaleString()}</p>
+                    <p className="font-medium text-red-600 text-xs xs:text-sm truncate">AED {calc.totalDeductions.toLocaleString()}</p>
                   </div>
                 </div>
 
@@ -765,11 +783,10 @@ export default function PayRunProcess() {
                         AED {calc.basicSalary.toLocaleString()}
                       </TableCell>
                       <TableCell className="py-4 px-4 font-medium text-green-600 truncate">
-                        + {calc.totalAllowances.toLocaleString()}
+                        {calc.totalAllowances.toLocaleString()}
                       </TableCell>
                       <TableCell className="py-4 px-4">
                         <div className="flex items-center gap-1">
-                          <span className="font-medium text-blue-600">+</span>
                           <div className="flex flex-col">
                             <span className="font-medium text-blue-600">{calc.overtimeAmount.toLocaleString()}</span>
                             <span className="text-[10px] text-slate-500">{emp.overtimeHours} hrs</span>
@@ -777,13 +794,13 @@ export default function PayRunProcess() {
                         </div>
                       </TableCell>
                       <TableCell className="py-4 px-4 font-bold text-slate-900 truncate bg-slate-100/30">
-                        = {calc.grossSalary.toLocaleString()}
+                        {calc.grossSalary.toLocaleString()}
                       </TableCell>
                       <TableCell className="py-4 px-4 font-medium text-red-600 truncate">
-                        - {calc.totalDeductions.toLocaleString()}
+                        {calc.totalDeductions.toLocaleString()}
                       </TableCell>
                       <TableCell className="py-4 px-4 font-bold text-blue-600 truncate bg-blue-50/30">
-                        = AED {calc.netSalary.toLocaleString()}
+                        AED {calc.netSalary.toLocaleString()}
                       </TableCell>
                       <TableCell className="py-4 px-4 text-right">
                         <Button
