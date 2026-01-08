@@ -356,17 +356,27 @@ const EmployeeOnboardingSystem: React.FC = () => {
         passportNumber: candidateForm.passportNumber,
         drivingLicenseNumber: candidateForm.drivingLicenseNumber,
         // Map allowances and deductions correctly for backend
-        allowances: {
-          homeClaimed: candidateForm.accommodationAllowances?.some(a => a.type === 'house' || a.type === 'home') || false,
-          homeAllowancePercentage: parseFloat(candidateForm.accommodationAllowances?.find(a => a.type === 'house' || a.type === 'home')?.percentage || '0'),
-          foodClaimed: candidateForm.accommodationAllowances?.some(a => a.type === 'food') || false,
-          foodAllowancePercentage: parseFloat(candidateForm.accommodationAllowances?.find(a => a.type === 'food')?.percentage || '0'),
-          travelClaimed: candidateForm.accommodationAllowances?.some(a => a.type === 'travel') || false,
-          travelAllowancePercentage: parseFloat(candidateForm.accommodationAllowances?.find(a => a.type === 'travel')?.percentage || '0')
-        },
-        deductions: {
-          insuranceDeductionPercentage: candidateForm.insurances?.reduce((sum, i) => sum + parseFloat(i.percentage || '0'), 0) || 0
-        }
+        // Map allowances and deductions using the detailed dictionary format
+        allowances: (candidateForm.accommodationAllowances || []).reduce((acc: any, curr) => {
+          if (curr.type && curr.percentage) {
+            acc[curr.type] = {
+              enabled: true,
+              percentage: parseFloat(curr.percentage),
+              amount: 0
+            };
+          }
+          return acc;
+        }, {}),
+        deductions: (candidateForm.insurances || []).reduce((acc: any, curr) => {
+          if (curr.type && curr.percentage) {
+            acc[curr.type] = {
+              enabled: true,
+              percentage: parseFloat(curr.percentage),
+              amount: 0
+            };
+          }
+          return acc;
+        }, {})
       };
 
       // Handle numeric fields: don't send empty strings
@@ -493,14 +503,48 @@ const EmployeeOnboardingSystem: React.FC = () => {
         contractStartDate: emp.contractStartDate ? new Date(emp.contractStartDate).toISOString().split('T')[0] : '',
         contractEndDate: emp.contractEndDate ? new Date(emp.contractEndDate).toISOString().split('T')[0] : '',
         contractType: emp.contractType || '',
-        accommodationAllowances: emp.allowances ? [
-          ...(emp.allowances.homeClaimed ? [{ type: 'house', percentage: String(emp.allowances.homeAllowancePercentage || 0) }] : []),
-          ...(emp.allowances.foodClaimed ? [{ type: 'food', percentage: String(emp.allowances.foodAllowancePercentage || 0) }] : []),
-          ...(emp.allowances.travelClaimed ? [{ type: 'travel', percentage: String(emp.allowances.travelAllowancePercentage || 0) }] : [])
-        ] : (emp.accommodationAllowances || []),
-        insurances: emp.deductions ? [
-          ...(emp.deductions.insuranceDeductionPercentage > 0 ? [{ type: 'health_basic', percentage: String(emp.deductions.insuranceDeductionPercentage) }] : [])
-        ] : (emp.insurances || (emp.insuranceType ? [{ type: emp.insuranceType, percentage: emp.insurancePercentage || '' }] : [])),
+        accommodationAllowances: (() => {
+          if (!emp.allowances) return [];
+          const list: any[] = [];
+
+          // Helper to check object format
+          Object.keys(emp.allowances).forEach(key => {
+            const val = emp.allowances[key];
+            if (typeof val === 'object' && val !== null && val.enabled && !['homeClaimed', 'foodClaimed', 'travelClaimed'].includes(key)) {
+              list.push({ type: key, percentage: String(val.percentage || 0) });
+            }
+          });
+
+          // Fallback for old format if list is empty
+          if (list.length === 0) {
+            if (emp.allowances.homeClaimed) list.push({ type: 'house', percentage: String(emp.allowances.homeAllowancePercentage || 0) });
+            if (emp.allowances.foodClaimed) list.push({ type: 'food', percentage: String(emp.allowances.foodAllowancePercentage || 0) });
+            if (emp.allowances.travelClaimed) list.push({ type: 'travel', percentage: String(emp.allowances.travelAllowancePercentage || 0) });
+          }
+
+          // If still empty check for raw array
+          if (list.length === 0 && Array.isArray(emp.accommodationAllowances)) return emp.accommodationAllowances;
+
+          return list;
+        })(),
+        insurances: (() => {
+          if (!emp.deductions) return (emp.insurances || (emp.insuranceType ? [{ type: emp.insuranceType, percentage: emp.insurancePercentage || '' }] : []));
+
+          const list: any[] = [];
+          Object.keys(emp.deductions).forEach(key => {
+            const val = emp.deductions[key];
+            if (typeof val === 'object' && val !== null && val.enabled && key !== 'insuranceDeductionPercentage') {
+              list.push({ type: key, percentage: String(val.percentage || 0) });
+            }
+          });
+
+          // Fallback
+          if (list.length === 0 && emp.deductions.insuranceDeductionPercentage > 0) {
+            list.push({ type: 'health_basic', percentage: String(emp.deductions.insuranceDeductionPercentage) });
+          }
+
+          return list;
+        })(),
         bankDetails: bankData,
         // Add Identity fields for editing
         pan: emp.PAN || emp.panCard || emp.pan || '',
@@ -599,17 +643,27 @@ const EmployeeOnboardingSystem: React.FC = () => {
         passportNumber: candidateForm.passportNumber,
         drivingLicenseNumber: candidateForm.drivingLicenseNumber,
         // Map allowances and deductions correctly for backend
-        allowances: {
-          homeClaimed: candidateForm.accommodationAllowances?.some(a => a.type === 'house' || a.type === 'home') || false,
-          homeAllowancePercentage: parseFloat(candidateForm.accommodationAllowances?.find(a => a.type === 'house' || a.type === 'home')?.percentage || '0'),
-          foodClaimed: candidateForm.accommodationAllowances?.some(a => a.type === 'food') || false,
-          foodAllowancePercentage: parseFloat(candidateForm.accommodationAllowances?.find(a => a.type === 'food')?.percentage || '0'),
-          travelClaimed: candidateForm.accommodationAllowances?.some(a => a.type === 'travel') || false,
-          travelAllowancePercentage: parseFloat(candidateForm.accommodationAllowances?.find(a => a.type === 'travel')?.percentage || '0')
-        },
-        deductions: {
-          insuranceDeductionPercentage: candidateForm.insurances?.reduce((sum, i) => sum + parseFloat(i.percentage || '0'), 0) || 0
-        }
+        // Map allowances and deductions using the detailed dictionary format
+        allowances: (candidateForm.accommodationAllowances || []).reduce((acc: any, curr) => {
+          if (curr.type && curr.percentage) {
+            acc[curr.type] = {
+              enabled: true,
+              percentage: parseFloat(curr.percentage),
+              amount: 0
+            };
+          }
+          return acc;
+        }, {}),
+        deductions: (candidateForm.insurances || []).reduce((acc: any, curr) => {
+          if (curr.type && curr.percentage) {
+            acc[curr.type] = {
+              enabled: true,
+              percentage: parseFloat(curr.percentage),
+              amount: 0
+            };
+          }
+          return acc;
+        }, {})
       };
 
       // Handle numeric fields: don't send empty strings
@@ -729,25 +783,45 @@ const EmployeeOnboardingSystem: React.FC = () => {
           };
 
       const getAllowances = () => {
-        if (emp.allowances && typeof emp.allowances === 'object' && !Array.isArray(emp.allowances)) {
-          return [
-            ...(emp.allowances.homeClaimed ? [{ type: 'house', percentage: String(emp.allowances.homeAllowancePercentage || 0) }] : []),
-            ...(emp.allowances.foodClaimed ? [{ type: 'food', percentage: String(emp.allowances.foodAllowancePercentage || 0) }] : []),
-            ...(emp.allowances.travelClaimed ? [{ type: 'travel', percentage: String(emp.allowances.travelAllowancePercentage || 0) }] : [])
-          ];
+        if (!emp.allowances) return Array.isArray(emp.accommodationAllowances) ? emp.accommodationAllowances : [];
+
+        const list: any[] = [];
+        Object.keys(emp.allowances).forEach(key => {
+          const val = emp.allowances[key];
+          if (typeof val === 'object' && val !== null && val.enabled && !['homeClaimed', 'foodClaimed', 'travelClaimed'].includes(key)) {
+            list.push({ type: key, percentage: String(val.percentage || 0) });
+          }
+        });
+
+        if (list.length === 0) {
+          if (emp.allowances.homeClaimed) list.push({ type: 'house', percentage: String(emp.allowances.homeAllowancePercentage || 0) });
+          if (emp.allowances.foodClaimed) list.push({ type: 'food', percentage: String(emp.allowances.foodAllowancePercentage || 0) });
+          if (emp.allowances.travelClaimed) list.push({ type: 'travel', percentage: String(emp.allowances.travelAllowancePercentage || 0) });
         }
-        return Array.isArray(emp.accommodationAllowances) ? emp.accommodationAllowances : [];
+
+        return list;
       };
 
       const getInsurances = () => {
-        if (emp.deductions && typeof emp.deductions === 'object' && !Array.isArray(emp.deductions)) {
-          return [
-            ...(emp.deductions.insuranceDeductionPercentage > 0 ? [{ type: 'health_basic', percentage: String(emp.deductions.insuranceDeductionPercentage) }] : [])
-          ];
+        if (!emp.deductions) {
+          if (Array.isArray(emp.insurances)) return emp.insurances;
+          if (emp.insuranceType) return [{ type: emp.insuranceType, percentage: String(emp.insurancePercentage || '') }];
+          return [];
         }
-        if (Array.isArray(emp.insurances)) return emp.insurances;
-        if (emp.insuranceType) return [{ type: emp.insuranceType, percentage: String(emp.insurancePercentage || '') }];
-        return [];
+
+        const list: any[] = [];
+        Object.keys(emp.deductions).forEach(key => {
+          const val = emp.deductions[key];
+          if (typeof val === 'object' && val !== null && val.enabled && key !== 'insuranceDeductionPercentage') {
+            list.push({ type: key, percentage: String(val.percentage || 0) });
+          }
+        });
+
+        if (list.length === 0 && emp.deductions.insuranceDeductionPercentage > 0) {
+          list.push({ type: 'health_basic', percentage: String(emp.deductions.insuranceDeductionPercentage) });
+        }
+
+        return list;
       };
 
       // Map to CandidateForm
