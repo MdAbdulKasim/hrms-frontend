@@ -102,14 +102,14 @@ export default function EmployeeProfilePage() {
           contractType: employee.contractType || "",
           contractStartDate: sanitizeDate(employee.contractStartDate),
           contractEndDate: sanitizeDate(employee.contractEndDate),
-          uan: employee.UAN || employee.uan || "",
-          uanDocUrl: employee.uanDocUrl || "",
+          // uan: employee.UAN || employee.uan || "",
+          // uanDocUrl: employee.uanDocUrl || "",
           iban: employee.iban || "",
           ibanDocUrl: employee.ibanDocUrl || "",
-          pan: employee.PAN || employee.panCard || employee.pan || "",
-          panDocUrl: employee.panDocUrl || "",
-          aadhaarNumber: employee.aadharNumber || employee.aadhaar || "",
-          aadhaarDocUrl: employee.aadharDocUrl || "",
+          // pan: employee.PAN || employee.panCard || employee.pan || "",
+          // panDocUrl: employee.panDocUrl || "",
+          // aadhaarNumber: employee.aadharNumber || employee.aadhaar || "",
+          // aadhaarDocUrl: employee.aadharDocUrl || "",
           passportNumber: employee.passportNumber || "",
           passportDocUrl: employee.passportDocUrl || "",
           drivingLicenseNumber: employee.drivingLicenseNumber || "",
@@ -207,26 +207,26 @@ export default function EmployeeProfilePage() {
     } else {
       let finalValue = value;
 
-      if (name === 'uan' || name === 'mobileNumber' || name === 'pinCode') {
+      if (name === 'mobileNumber' || name === 'pinCode') {
         finalValue = value.replace(/[^0-9]/g, '');
-        if (name === 'uan') finalValue = finalValue.slice(0, 12);
+        // if (name === 'uan') finalValue = finalValue.slice(0, 12);
         if (name === 'pinCode') finalValue = finalValue.slice(0, 6);
         if (name === 'mobileNumber') finalValue = finalValue.slice(0, 15);
       }
 
-      if (name === 'pan') {
-        const uppercaseValue = value.toUpperCase();
-        let validatedValue = '';
-        for (let i = 0; i < Math.min(uppercaseValue.length, 10); i++) {
-          const char = uppercaseValue[i];
-          if (i < 5 || i === 9) {
-            if (/[A-Z]/.test(char)) validatedValue += char;
-          } else if (i >= 5 && i <= 8) {
-            if (/[0-9]/.test(char)) validatedValue += char;
-          }
-        }
-        finalValue = validatedValue;
-      }
+      // if (name === 'pan') {
+      //   const uppercaseValue = value.toUpperCase();
+      //   let validatedValue = '';
+      //   for (let i = 0; i < Math.min(uppercaseValue.length, 10); i++) {
+      //     const char = uppercaseValue[i];
+      //     if (i < 5 || i === 9) {
+      //       if (/[A-Z]/.test(char)) validatedValue += char;
+      //     } else if (i >= 5 && i <= 8) {
+      //       if (/[0-9]/.test(char)) validatedValue += char;
+      //     }
+      //   }
+      //   finalValue = validatedValue;
+      // }
 
       if (name === 'passportNumber' || name === 'drivingLicenseNumber') {
         finalValue = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();

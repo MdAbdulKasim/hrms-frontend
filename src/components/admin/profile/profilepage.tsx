@@ -108,14 +108,16 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
           contractType: employee.contractType || "",
           contractStartDate: sanitizeDate(employee.contractStartDate),
           contractEndDate: sanitizeDate(employee.contractEndDate),
-          uan: employee.UAN || employee.uan || "",
-          uanDocUrl: employee.uanDocUrl || "",
+          uid: employee.uid || "",
+          uidDocUrl: employee.uidDocUrl || "",
+          labourNumber: employee.labourNumber || "",
+          labourNumberDocUrl: employee.labourNumberDocUrl || "",
+          eidNumber: employee.eidNumber || employee.eid || "",
+          eidNumberDocUrl: employee.eidNumberDocUrl || "",
+          visaNumber: employee.visaNumber || "",
+          visaNumberDocUrl: employee.visaNumberDocUrl || "",
           iban: employee.iban || "",
           ibanDocUrl: employee.ibanDocUrl || "",
-          pan: employee.PAN || employee.panCard || employee.pan || "",
-          panDocUrl: employee.panDocUrl || "",
-          aadhaarNumber: employee.aadharNumber || employee.aadhaar || "",
-          aadhaarDocUrl: employee.aadharDocUrl || "",
           passportNumber: employee.passportNumber || "",
           passportDocUrl: employee.passportDocUrl || "",
           drivingLicenseNumber: employee.drivingLicenseNumber || "",
@@ -213,25 +215,10 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
     } else {
       let finalValue = value;
 
-      if (name === 'uan' || name === 'mobileNumber' || name === 'pinCode') {
+      if (name === 'mobileNumber' || name === 'pinCode') {
         finalValue = value.replace(/[^0-9]/g, '');
-        if (name === 'uan') finalValue = finalValue.slice(0, 12);
         if (name === 'pinCode') finalValue = finalValue.slice(0, 6);
         if (name === 'mobileNumber') finalValue = finalValue.slice(0, 15);
-      }
-
-      if (name === 'pan') {
-        const uppercaseValue = value.toUpperCase();
-        let validatedValue = '';
-        for (let i = 0; i < Math.min(uppercaseValue.length, 10); i++) {
-          const char = uppercaseValue[i];
-          if (i < 5 || i === 9) {
-            if (/[A-Z]/.test(char)) validatedValue += char;
-          } else if (i >= 5 && i <= 8) {
-            if (/[0-9]/.test(char)) validatedValue += char;
-          }
-        }
-        finalValue = validatedValue;
       }
 
       if (name === 'passportNumber' || name === 'drivingLicenseNumber') {
@@ -379,9 +366,9 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
         // Exclude fields not present in backend entity to prevent 500 errors
         if ([
           'contractType', 'contractStartDate', 'contractEndDate',
-          'uanDocUrl', 'panDocUrl', 'aadhaarDocUrl',
-          'passportDocUrl', 'drivingLicenseDocUrl', 'ibanDocUrl',
-          'uan', 'pan', 'aadhaarNumber'
+          'uidDocUrl', 'labourNumberDocUrl', 'eidNumberDocUrl',
+          'visaNumberDocUrl', 'passportDocUrl', 'drivingLicenseDocUrl', 'ibanDocUrl',
+          'uid', 'labourNumber', 'eidNumber', 'visaNumber'
         ].includes(key)) {
           return
         }
@@ -471,9 +458,16 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
         building: refreshedEmployee.building?.name || refreshedEmployee.building || prev.building,
         role: refreshedEmployee.role || prev.role,
         shift: refreshedEmployee.shiftType || refreshedEmployee.shift?.name || refreshedEmployee.shift || prev.shift,
-        uanDocUrl: refreshedEmployee.uanDocUrl || prev.uanDocUrl,
-        panDocUrl: refreshedEmployee.panDocUrl || prev.panDocUrl,
-        aadhaarDocUrl: refreshedEmployee.aadharDocUrl || prev.aadhaarDocUrl,
+        uid: refreshedEmployee.uid || prev.uid,
+        uidDocUrl: refreshedEmployee.uidDocUrl || prev.uidDocUrl,
+        labourNumber: refreshedEmployee.labourNumber || prev.labourNumber,
+        labourNumberDocUrl: refreshedEmployee.labourNumberDocUrl || prev.labourNumberDocUrl,
+        eidNumber: refreshedEmployee.eidNumber || prev.eidNumber,
+        eidNumberDocUrl: refreshedEmployee.eidNumberDocUrl || prev.eidNumberDocUrl,
+        visaNumber: refreshedEmployee.visaNumber || prev.visaNumber,
+        visaNumberDocUrl: refreshedEmployee.visaNumberDocUrl || prev.visaNumberDocUrl,
+        iban: refreshedEmployee.iban || prev.iban,
+        ibanDocUrl: refreshedEmployee.ibanDocUrl || prev.ibanDocUrl,
         passportDocUrl: refreshedEmployee.passportDocUrl || prev.passportDocUrl,
         drivingLicenseDocUrl: refreshedEmployee.drivingLicenseDocUrl || prev.drivingLicenseDocUrl,
         basicSalary: refreshedEmployee.basicSalary || prev.basicSalary,

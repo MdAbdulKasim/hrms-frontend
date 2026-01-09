@@ -96,9 +96,8 @@ const EXISTING_EMPLOYEE_FIELDS = [
     { key: 'maritalStatus', label: 'Marital Status', required: false },
     { key: 'bloodGroup', label: 'Blood Group', required: false },
     { key: 'iban', label: 'IBAN', required: false },
-    { key: 'pan', label: 'MOL/MOHER (PAN)', required: false },
-    { key: 'aadhaar', label: 'Aadhaar Number', required: false },
-    { key: 'uan', label: 'UAN', required: false },
+    // Removed PAN, Aadhaar mappings
+    // Removed PAN, Aadhaar, UAN mappings
     { key: 'passportNumber', label: 'Passport Number', required: false },
     { key: 'drivingLicenseNumber', label: 'Driving License', required: false },
     // Address
@@ -299,8 +298,7 @@ const BulkImport: React.FC<BulkImportProps> = ({
                     }
 
                     // Identity
-                    if (key === 'pan') return emp.PAN || emp.panCard || emp.pan || '';
-                    if (key === 'aadhaar') return emp.aadharNumber || emp.aadhaar || '';
+                    // Removed PAN, Aadhaar mapping logic
 
                     return emp[key] || '';
                 };
@@ -567,9 +565,7 @@ const BulkImport: React.FC<BulkImportProps> = ({
                         };
                     }
 
-                    if (getColVal('pan')) updateData.pan = String(getColVal('pan')).trim();
-                    if (getColVal('aadhaar')) updateData.aadharNumber = String(getColVal('aadhaar')).trim();
-                    if (getColVal('uan')) updateData.uan = String(getColVal('uan')).trim();
+                    // Removed PAN, Aadhaar, UAN update logic
 
                     // Resolvable IDs
                     const desigId = findId('designation', designations, 'designationName') || findId('role', designations, 'designationName');

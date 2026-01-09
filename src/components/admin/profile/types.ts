@@ -28,14 +28,16 @@ export interface FormData {
     contractEndDate: string
 
     // Identity Information
-    uan: string
-    uanDocUrl?: string
+    uid: string
+    uidDocUrl?: string
+    labourNumber: string
+    labourNumberDocUrl?: string
+    eidNumber: string
+    eidNumberDocUrl?: string
+    visaNumber: string
+    visaNumberDocUrl?: string
     iban: string
     ibanDocUrl?: string
-    pan: string
-    panDocUrl?: string
-    aadhaarNumber: string
-    aadhaarDocUrl?: string
     passportNumber: string
     passportDocUrl?: string
     drivingLicenseNumber: string
@@ -113,14 +115,16 @@ export const initialFormData: FormData = {
     contractType: "",
     contractStartDate: "",
     contractEndDate: "",
-    uan: "",
-    uanDocUrl: "",
+    uid: "",
+    uidDocUrl: "",
+    labourNumber: "",
+    labourNumberDocUrl: "",
+    eidNumber: "",
+    eidNumberDocUrl: "",
+    visaNumber: "",
+    visaNumberDocUrl: "",
     iban: "",
     ibanDocUrl: "",
-    pan: "",
-    panDocUrl: "",
-    aadhaarNumber: "",
-    aadhaarDocUrl: "",
     passportNumber: "",
     passportDocUrl: "",
     drivingLicenseNumber: "",

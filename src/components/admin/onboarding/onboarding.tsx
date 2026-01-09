@@ -547,9 +547,6 @@ const EmployeeOnboardingSystem: React.FC = () => {
         })(),
         bankDetails: bankData,
         // Add Identity fields for editing
-        pan: emp.PAN || emp.panCard || emp.pan || '',
-        aadhaar: emp.aadharNumber || emp.aadhaar || '',
-        uan: emp.UAN || emp.uan || '',
         passportNumber: emp.passportNumber || '',
         drivingLicenseNumber: emp.drivingLicenseNumber || '',
         // Add Personal fields
@@ -855,9 +852,6 @@ const EmployeeOnboardingSystem: React.FC = () => {
         dateOfBirth: emp.dateOfBirth ? new Date(emp.dateOfBirth).toISOString().split('T')[0] : '',
         bloodGroup: emp.bloodGroup || '',
         // Identity Information
-        uan: emp.UAN || emp.uan || '',
-        pan: emp.PAN || emp.panCard || emp.pan || '',
-        aadhaar: emp.aadhaar || emp.aadharNumber || '',
         passportNumber: emp.passportNumber || '',
         drivingLicenseNumber: emp.drivingLicenseNumber || '',
         // Address Information

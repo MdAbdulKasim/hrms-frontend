@@ -84,9 +84,11 @@ export interface CandidateForm {
     dateOfBirth?: string;
     bloodGroup?: string;
     // Identity Information
-    uan?: string;
-    pan?: string;
-    aadhaar?: string;
+    // Identity Information
+    uid?: string;
+    labourNumber?: string;
+    eid?: string;
+    visaNumber?: string;
     passportNumber?: string;
     drivingLicenseNumber?: string;
     // Address Information

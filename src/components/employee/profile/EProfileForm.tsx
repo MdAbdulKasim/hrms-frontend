@@ -434,29 +434,7 @@ export default function EProfileForm({
                             </div>
                         </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            MOL/MOHER <span className="text-red-500">*</span>
-                        </label>
-                        <Input
-                            name="pan"
-                            value={formData.pan}
-                            onChange={handleInputChange}
-                            disabled={!isEditing}
-                            placeholder="e.g. 5010932"
-                        />
-                        <div className="flex items-center justify-between mt-2">
-                            <p className="text-xs text-gray-500">7 to 9 digits MOL/MOHER</p>
-                            <div className="flex items-center gap-2">
-                                <input type="file" id="panDoc" className="hidden" onChange={(e) => handleFileChange(e, "panDoc")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
-                                <label htmlFor="panDoc" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                    <Upload className="w-3 h-3" />
-                                    {formData.panDocUrl ? 'Change' : 'Upload Doc'}
-                                </label>
-                                {formData.panDocUrl && <span className="text-[10px] text-green-600 font-medium">✓ Uploaded</span>}
-                            </div>
-                        </div>
-                    </div>
+                    {/* Removed MOL/MOHER (PAN) field */}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mb-6">
