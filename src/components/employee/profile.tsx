@@ -286,11 +286,11 @@ export default function ProfilePage() {
   });
 
   // Identity Information
-  const [identityInfo, setIdentityInfo] = useState({
-    uan: "",
-    pan: "",
-    aadhaar: "",
-  });
+  // const [identityInfo, setIdentityInfo] = useState({
+  //   uan: "",
+  //   pan: "",
+  //   aadhaar: "",
+  // });
 
   // Contact Details
   const [contactDetails, setContactDetails] = useState({
@@ -378,11 +378,11 @@ export default function ProfilePage() {
         });
 
         // Update identity information
-        setIdentityInfo({
-          uan: empData.uan || empData.UAN || "",
-          pan: empData.pan || empData.PAN || "",
-          aadhaar: empData.aadhaar || empData.aadharNumber || "",
-        });
+        // setIdentityInfo({
+        //   uan: empData.uan || empData.UAN || "",
+        //   pan: empData.pan || empData.PAN || "",
+        //   aadhaar: empData.aadhaar || empData.aadharNumber || "",
+        // });
 
         // Update contact details
         setContactDetails({
@@ -455,9 +455,9 @@ export default function ProfilePage() {
       case "personalDetails":
         setPersonalDetails((prev) => ({ ...prev, [field]: value }));
         break;
-      case "identityInfo":
-        setIdentityInfo((prev) => ({ ...prev, [field]: value }));
-        break;
+      // case "identityInfo":
+      //   setIdentityInfo((prev) => ({ ...prev, [field]: value }));
+      //   break;
       case "contactDetails":
         setContactDetails((prev) => ({ ...prev, [field]: value }));
         break;
@@ -853,34 +853,7 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
 
-          {/* IDENTITY INFORMATION */}
-          <Card>
-            <CardHeader className="py-4 px-4 md:px-6">
-              <CardTitle className="text-sm font-semibold">
-                Identity Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 md:px-6">
-              <EditableRow
-                label="UAN"
-                value={identityInfo.uan}
-                editMode={editMode}
-                onChange={(v) => updateField("identityInfo", "uan", v)}
-              />
-              <EditableRow
-                label="PAN"
-                value={identityInfo.pan}
-                editMode={editMode}
-                onChange={(v) => updateField("identityInfo", "pan", v)}
-              />
-              <EditableRow
-                label="Aadhaar"
-                value={identityInfo.aadhaar}
-                editMode={editMode}
-                onChange={(v) => updateField("identityInfo", "aadhaar", v)}
-              />
-            </CardContent>
-          </Card>
+
 
           {/* WORK EXPERIENCE TABLE */}
           <EditableTable

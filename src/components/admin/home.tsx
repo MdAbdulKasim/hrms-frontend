@@ -676,7 +676,7 @@ export default function Dashboard() {
         });
         const reporteesData = reporteesRes.data.data || reporteesRes.data || [];
 
-        setReportees(reporteesData.slice(0, 10).map((emp: any) => {
+        setReportees(reporteesData.map((emp: any) => {
           const empId = emp.id || emp._id;
           const isCheckedIn = !!attendanceMap[empId];
           const isCheckedOut = !!checkedOutMap[empId];

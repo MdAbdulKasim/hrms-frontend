@@ -140,16 +140,20 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-gray-500 mb-1">PAN Number</label>
-                                <div className="text-gray-900 font-medium uppercase">{candidate.pan || 'N/A'}</div>
+                                <label className="block text-sm font-medium text-gray-500 mb-1">UID Number</label>
+                                <div className="text-gray-900 font-medium uppercase">{candidate.uid || 'N/A'}</div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-500 mb-1">Aadhaar Number</label>
-                                <div className="text-gray-900 font-medium">{candidate.aadhaar || 'N/A'}</div>
+                                <label className="block text-sm font-medium text-gray-500 mb-1">Labour Number</label>
+                                <div className="text-gray-900 font-medium uppercase">{candidate.labourNumber || 'N/A'}</div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-500 mb-1">UAN Number</label>
-                                <div className="text-gray-900 font-medium">{candidate.uan || 'N/A'}</div>
+                                <label className="block text-sm font-medium text-gray-500 mb-1">EID Number</label>
+                                <div className="text-gray-900 font-medium">{candidate.eid || 'N/A'}</div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-500 mb-1">Visa Number</label>
+                                <div className="text-gray-900 font-medium">{candidate.visaNumber || 'N/A'}</div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-500 mb-1">Passport Number</label>

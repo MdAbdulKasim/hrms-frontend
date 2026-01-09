@@ -415,6 +415,104 @@ export default function ProfileForm({
                 <div className="grid grid-cols-2 gap-4 mb-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
+                            UID Number <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                            name="uid"
+                            value={formData.uid}
+                            onChange={handleInputChange}
+                            disabled={!isEditing}
+                            placeholder="Enter UID Number"
+                        />
+                        <div className="flex items-center justify-between mt-2">
+                            <p className="text-xs text-gray-500">UID Document</p>
+                            <div className="flex items-center gap-2">
+                                <input type="file" id="uidDoc" className="hidden" onChange={(e) => handleFileChange(e, "uidDoc")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
+                                <label htmlFor="uidDoc" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                    <Upload className="w-3 h-3" />
+                                    {formData.uidDocUrl ? 'Change' : 'Upload Doc'}
+                                </label>
+                                {formData.uidDocUrl && <span className="text-[10px] text-green-600 font-medium">✓ Uploaded</span>}
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Labour Number <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                            name="labourNumber"
+                            value={formData.labourNumber}
+                            onChange={handleInputChange}
+                            disabled={!isEditing}
+                            placeholder="Enter Labour Number"
+                        />
+                        <div className="flex items-center justify-between mt-2">
+                            <p className="text-xs text-gray-500">Labour Card Document</p>
+                            <div className="flex items-center gap-2">
+                                <input type="file" id="labourNumberDoc" className="hidden" onChange={(e) => handleFileChange(e, "labourNumberDoc")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
+                                <label htmlFor="labourNumberDoc" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                    <Upload className="w-3 h-3" />
+                                    {formData.labourNumberDocUrl ? 'Change' : 'Upload Doc'}
+                                </label>
+                                {formData.labourNumberDocUrl && <span className="text-[10px] text-green-600 font-medium">✓ Uploaded</span>}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            EID Number <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                            name="eidNumber"
+                            value={formData.eidNumber}
+                            onChange={handleInputChange}
+                            disabled={!isEditing}
+                            placeholder="Enter Emirates ID"
+                        />
+                        <div className="flex items-center justify-between mt-2">
+                            <p className="text-xs text-gray-500">Emirates ID Document</p>
+                            <div className="flex items-center gap-2">
+                                <input type="file" id="eidNumberDoc" className="hidden" onChange={(e) => handleFileChange(e, "eidNumberDoc")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
+                                <label htmlFor="eidNumberDoc" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                    <Upload className="w-3 h-3" />
+                                    {formData.eidNumberDocUrl ? 'Change' : 'Upload Doc'}
+                                </label>
+                                {formData.eidNumberDocUrl && <span className="text-[10px] text-green-600 font-medium">✓ Uploaded</span>}
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Visa Number <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                            name="visaNumber"
+                            value={formData.visaNumber}
+                            onChange={handleInputChange}
+                            disabled={!isEditing}
+                            placeholder="Enter Visa Number"
+                        />
+                        <div className="flex items-center justify-between mt-2">
+                            <p className="text-xs text-gray-500">Visa Document</p>
+                            <div className="flex items-center gap-2">
+                                <input type="file" id="visaNumberDoc" className="hidden" onChange={(e) => handleFileChange(e, "visaNumberDoc")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
+                                <label htmlFor="visaNumberDoc" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                    <Upload className="w-3 h-3" />
+                                    {formData.visaNumberDocUrl ? 'Change' : 'Upload Doc'}
+                                </label>
+                                {formData.visaNumberDocUrl && <span className="text-[10px] text-green-600 font-medium">✓ Uploaded</span>}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
                             IBAN <span className="text-red-500">*</span>
                         </label>
                         <Input
@@ -433,29 +531,6 @@ export default function ProfileForm({
                                     {formData.ibanDocUrl ? 'Change' : 'Upload Doc'}
                                 </label>
                                 {formData.ibanDocUrl && <span className="text-[10px] text-green-600 font-medium">✓ Uploaded</span>}
-                            </div>
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            MOL/MOHER <span className="text-red-500">*</span>
-                        </label>
-                        <Input
-                            name="pan"
-                            value={formData.pan}
-                            onChange={handleInputChange}
-                            disabled={!isEditing}
-                            placeholder="e.g. 5010932"
-                        />
-                        <div className="flex items-center justify-between mt-2">
-                            <p className="text-xs text-gray-500">7 to 9 digits MOL/MOHER</p>
-                            <div className="flex items-center gap-2">
-                                <input type="file" id="panDoc" className="hidden" onChange={(e) => handleFileChange(e, "panDoc")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
-                                <label htmlFor="panDoc" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                    <Upload className="w-3 h-3" />
-                                    {formData.panDocUrl ? 'Change' : 'Upload Doc'}
-                                </label>
-                                {formData.panDocUrl && <span className="text-[10px] text-green-600 font-medium">✓ Uploaded</span>}
                             </div>
                         </div>
                     </div>
