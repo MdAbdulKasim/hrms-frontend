@@ -12,17 +12,17 @@ interface LayoutProps {
 
 import { checkSetupStatus, checkEmployeeSetupStatus, getUserRole, requiresSetup } from '@/lib/auth';
 
-export default function Layout({ children }: LayoutProps) {
+export default function Layout({ children, userRole }: LayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [role, setRole] = useState<'admin' | 'employee'>('admin');
+  const [role, setRole] = useState<'admin' | 'employee'>(userRole || 'admin');
   const [isChecking, setIsChecking] = useState(true);
 
   // Read role from centralized helper on first load
   useEffect(() => {
-    const activeRole = getUserRole();
+    const activeRole = userRole || getUserRole();
     if (activeRole) {
       setRole(activeRole);
     }
