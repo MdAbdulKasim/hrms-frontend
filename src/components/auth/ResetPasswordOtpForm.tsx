@@ -87,7 +87,14 @@ export default function ResetPasswordOtpForm() {
             const payload = { email, otp: otpValue };
 
             console.log("Verifying reset password OTP for:", email);
-            await axios.post(`${apiUrl}/auth/verify-reset-otp`, payload);
+            const response = await axios.post(`${apiUrl}/auth/verify-reset-otp`, payload);
+
+            // Store resetToken in cookie (from backend response)
+            const resetToken = response.data.resetToken;
+            if (resetToken) {
+                document.cookie = `resetToken=${resetToken}; path=/; max-age=3600; SameSite=Lax`;
+                console.log("Reset token stored in cookie");
+            }
 
             console.log("Reset password OTP verified successfully!");
             router.push("/auth/reset-password");

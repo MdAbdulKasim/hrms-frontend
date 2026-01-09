@@ -42,21 +42,31 @@ export default function ResetPasswordForm() {
         setIsLoading(true);
 
         try {
-            const email = localStorage.getItem("resetPasswordEmail");
-            if (!email) {
+            // Get resetToken from cookie
+            const resetToken = document.cookie
+                .split('; ')
+                .find(row => row.startsWith('resetToken='))
+                ?.split('=')[1];
+
+            if (!resetToken) {
                 setError("Session expired. Please start the password reset process again.");
                 router.push("/auth/forgot-password");
                 return;
             }
 
             const apiUrl = getApiUrl();
-            const payload = { email, newPassword: formData.password };
+            const payload = {
+                resetToken: resetToken,
+                newPassword: formData.password,
+                confirmPassword: formData.confirmPassword
+            };
 
-            console.log("Resetting password for:", email);
+            console.log("Resetting password with token");
             await axios.post(`${apiUrl}/auth/reset-password`, payload);
 
             // Clear storage
             localStorage.removeItem("resetPasswordEmail");
+            document.cookie = "resetToken=; path=/; max-age=0"; // Clear resetToken cookie
 
             console.log("Password reset successfully!");
             // Redirect to login
