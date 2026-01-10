@@ -61,6 +61,7 @@ interface DeductionBreakdown {
 interface PayHistoryRecord {
   id: string
   employeeId: string
+  employeeNumber: string
   employeeName: string
   department: string
   designation: string
@@ -97,6 +98,7 @@ export default function PayHistoryPage() {
   /* ================= METADATA ================= */
   const [departments, setDepartments] = useState<any[]>([])
   const [designations, setDesignations] = useState<any[]>([])
+  const [employeeMap, setEmployeeMap] = useState<{ [key: string]: any }>({})
 
   /* ================= FETCH ================= */
 
@@ -106,7 +108,7 @@ export default function PayHistoryPage() {
 
   useEffect(() => {
     fetchHistory()
-  }, [currentPage])
+  }, [currentPage, employeeMap, departments, designations])
 
   const fetchMetadata = async () => {
     const orgId = getOrgId()
@@ -116,13 +118,27 @@ export default function PayHistoryPage() {
 
     try {
       const headers = { Authorization: `Bearer ${token}` }
-      const [deptRes, desigRes] = await Promise.all([
+      const [deptRes, desigRes, empRes] = await Promise.all([
         axios.get(`${apiUrl}/org/${orgId}/departments`, { headers }).catch(() => ({ data: { data: [] } })),
-        axios.get(`${apiUrl}/org/${orgId}/designations`, { headers }).catch(() => ({ data: { data: [] } }))
+        axios.get(`${apiUrl}/org/${orgId}/designations`, { headers }).catch(() => ({ data: { data: [] } })),
+        axios.get(`${apiUrl}/org/${orgId}/employees`, { headers }).catch(() => ({ data: { data: [] } }))
       ])
 
-      setDepartments(Array.isArray(deptRes.data?.data) ? deptRes.data.data : (Array.isArray(deptRes.data) ? deptRes.data : []))
-      setDesignations(Array.isArray(desigRes.data?.data) ? desigRes.data.data : (Array.isArray(desigRes.data) ? desigRes.data : []))
+      const deptData = Array.isArray(deptRes.data?.data) ? deptRes.data.data : (Array.isArray(deptRes.data) ? deptRes.data : [])
+      const desigData = Array.isArray(desigRes.data?.data) ? desigRes.data.data : (Array.isArray(desigRes.data) ? desigRes.data : [])
+      const empData = Array.isArray(empRes.data?.data) ? empRes.data.data : (Array.isArray(empRes.data) ? empRes.data : [])
+
+      setDepartments(deptData)
+      setDesignations(desigData)
+
+      const eMap: { [key: string]: any } = {}
+      empData.forEach((emp: any) => {
+        const id = emp.id || emp._id
+        if (id) {
+          eMap[String(id)] = emp
+        }
+      })
+      setEmployeeMap(eMap)
     } catch (err) {
       console.error("Metadata fetch failed", err)
     }
@@ -153,37 +169,21 @@ export default function PayHistoryPage() {
       const rows = response.data?.data || []
       const apiTotalPages = response.data?.totalPages || 1
 
-      const deptMap = new Map(departments.map((d: any) => [d.id || d._id, d.departmentName || d.name]))
-      const desigMap = new Map(designations.map((d: any) => [d.id || d._id, d.designationName || d.name]))
+      const deptMap = new Map(departments.map((d: any) => [String(d.id || d._id), d.departmentName || d.name]))
+      const desigMap = new Map(designations.map((d: any) => [String(d.id || d._id), d.designationName || d.name]))
 
       // Filter for paid records only and format
       const formatted: PayHistoryRecord[] = rows
-        .filter((r: any) => (r.status || "").toLowerCase() === "paid")
         .map((r: any) => {
-          const emp = r.employee || {};
-          const allowanceData = r.allowanceBreakdown || emp.allowances || [];
-          const deductionData = r.deductionBreakdown || emp.deductions || [];
-
-          // Robust parsing (simplified but effective version)
-          const parseVal = (data: any) => {
-            let total = 0;
-            if (Array.isArray(data)) {
-              data.forEach((i: any) => {
-                const val = Number(i.value || i.amount || 0);
-                if (i.type === 'percentage') {
-                  total += (Number(r.basicSalary || 0) * val) / 100;
-                } else {
-                  total += val;
-                }
-              });
-            }
-            return total;
-          };
+          const employeeId = r.employeeId || (r.employee && (r.employee.id || r.employee._id));
+          const empMapData = employeeId ? employeeMap[String(employeeId)] : null;
+          const emp = r.employee || empMapData || {};
 
           const basicSalary = Number(r.basicSalary || r.basic_salary || emp.basicSalary || 0);
-          let totalAllowances = Number(r.totalAllowances || r.total_allowances || 0);
-          let totalDeductions = Number(r.totalDeductions || r.total_deductions || 0);
+          let totalAllowances = Number(r.allowances || r.totalAllowances || r.total_allowances || 0);
+          let totalDeductions = Number(r.deductions || r.totalDeductions || r.total_deductions || 0);
 
+          // Robust fallback logic for allowances and deductions
           if (totalAllowances === 0 && emp.allowances) {
             const data = emp.allowances;
             if (Array.isArray(data)) {
@@ -194,7 +194,7 @@ export default function PayHistoryPage() {
             } else if (typeof data === "object") {
               Object.values(data).forEach((val: any) => {
                 if (val && val.enabled) {
-                  const amount = val.amount || (basicSalary * val.percentage) / 100 || 0;
+                  const amount = val.amount || (basicSalary * (val.percentage || 0)) / 100 || 0;
                   totalAllowances += amount;
                 }
               });
@@ -211,7 +211,7 @@ export default function PayHistoryPage() {
             } else if (typeof data === "object") {
               Object.values(data).forEach((val: any) => {
                 if (val && val.enabled) {
-                  const amount = val.amount || (basicSalary * val.percentage) / 100 || 0;
+                  const amount = val.amount || (basicSalary * (val.percentage || 0)) / 100 || 0;
                   totalDeductions += amount;
                 }
               });
@@ -223,22 +223,36 @@ export default function PayHistoryPage() {
           const netSalary = grossSalary - totalDeductions;
 
           const getDeptName = () => {
-            if (emp.department?.departmentName || emp.department?.name) return emp.department.departmentName || emp.department.name;
-            if (emp.departmentId) return deptMap.get(emp.departmentId) || "N/A";
-            if (r.department) return r.department;
+            if (emp.department && typeof emp.department === 'object') {
+              return emp.department.departmentName || emp.department.name || "N/A";
+            }
+            const dId = emp.departmentId || emp.department || r.departmentId || r.department;
+            if (dId) {
+              const mapped = deptMap.get(String(dId));
+              if (mapped) return mapped;
+              // If it's not in map, it might be the name already if it's not a hex ID
+              if (typeof dId === 'string' && dId.length > 0 && !/^[0-9a-fA-F]{24}$/.test(dId)) return dId;
+            }
             return "N/A";
           }
 
           const getDesigName = () => {
-            if (emp.designation?.designationName || emp.designation?.name) return emp.designation.designationName || emp.designation.name;
-            if (emp.designationId) return desigMap.get(emp.designationId) || "N/A";
-            if (r.designation) return r.designation;
+            if (emp.designation && typeof emp.designation === 'object') {
+              return emp.designation.designationName || emp.designation.name || "N/A";
+            }
+            const desId = emp.designationId || emp.designation || r.designationId || r.designation;
+            if (desId) {
+              const mapped = desigMap.get(String(desId));
+              if (mapped) return mapped;
+              if (typeof desId === 'string' && desId.length > 0 && !/^[0-9a-fA-F]{24}$/.test(desId)) return desId;
+            }
             return "N/A";
           }
 
           return {
             id: r.id || r._id,
-            employeeId: r.employeeId,
+            employeeId: String(employeeId || ""),
+            employeeNumber: emp.employeeNumber || emp.employeeId || "N/A",
             employeeName: r.employeeName || emp.fullName || emp.name || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "Unknown",
             department: getDeptName(),
             designation: getDesigName(),
@@ -254,8 +268,10 @@ export default function PayHistoryPage() {
             transactionId: r.transactionId,
             allowanceBreakdown: r.allowanceBreakdown || {},
             deductionBreakdown: r.deductionBreakdown || {},
+            status: r.status || "unpaid"
           };
         })
+        .filter((r: any) => (r.status || "").toLowerCase() === "paid");
 
       setHistory(formatted)
       setTotalPages(apiTotalPages)
@@ -322,15 +338,16 @@ export default function PayHistoryPage() {
   const exportCSV = () => {
     const csv = [
       [
+        "EMP ID",
         "Employee",
         "Department",
-        "Designation",
         "Gross Salary",
         "Net Pay",
         "Paid Date",
         "Pay Period",
       ],
       ...filteredHistory.map((r) => [
+        r.employeeNumber,
         r.employeeName,
         r.department,
         r.designation,
@@ -355,113 +372,130 @@ export default function PayHistoryPage() {
   /* ================= UI ================= */
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-white ">
+    <div className="p-1 sm:p-4 md:p-6 lg:p-8 space-y-4 sm:space-y-6 bg-white min-h-screen">
+      <style jsx>{`
+        @media (max-width: 480px) {
+          .responsive-text { font-size: 11px; }
+          .responsive-title { font-size: 18px; }
+          .responsive-label { font-size: 10px; }
+          .responsive-stat-value { font-size: 16px; }
+          .responsive-button { height: 32px; font-size: 10px; padding: 0 8px; }
+          .responsive-input { height: 32px; font-size: 11px; }
+          .responsive-table-text { font-size: 10px; }
+        }
+        @media (max-width: 300px) {
+          .responsive-text { font-size: 9px; }
+          .responsive-title { font-size: 14px; }
+          .responsive-label { font-size: 9px; }
+          .responsive-stat-value { font-size: 14px; }
+          .responsive-button { height: 28px; font-size: 8px; padding: 0 4px; }
+          .responsive-input { height: 28px; font-size: 9px; }
+          .responsive-table-text { font-size: 9px; }
+          .responsive-icon { width: 12px; height: 12px; }
+        }
+      `}</style>
       {/* HEADER */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => router.back()}
-          className="hover:bg-white hover:shadow-sm transition-all"
+          className="hover:bg-white hover:shadow-sm transition-all h-8 w-8 sm:h-10 sm:w-10"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 responsive-icon" />
         </Button>
         <div>
-          <h1 className="text-3xl md:text-3xl font-bold ">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold responsive-title">
             Pay History
           </h1>
-          <p className="text-sm text-slate-600 mt-1">
+          <p className="text-[10px] sm:text-sm text-slate-600 mt-0.5 sm:mt-1 responsive-text">
             View completed salary payments and transaction details
           </p>
         </div>
       </div>
 
       {/* STATISTICS CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
+        <div className="bg-white rounded-xl p-3 sm:p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between gap-2">
             <div>
-              <p className="text-sm font-medium text-slate-600">Total Payments</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">{stats.totalPayments}</p>
+              <p className="text-[10px] sm:text-sm font-medium text-slate-600 responsive-label">Total Payments</p>
+              <p className="text-lg sm:text-3xl font-bold text-slate-900 mt-0.5 sm:mt-2 responsive-stat-value">{stats.totalPayments}</p>
             </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <Receipt className="w-6 h-6 text-blue-600" />
+            <div className="w-8 h-8 sm:w-12 sm:h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <Receipt className="w-4 h-4 sm:w-6 sm:h-6 text-blue-600 responsive-icon" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
+        <div className="bg-white rounded-xl p-3 sm:p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between gap-2">
             <div>
-              <p className="text-sm font-medium text-slate-600">Total Amount Paid</p>
-              <p className="text-3xl font-bold text-green-600 mt-2">AED {stats.totalAmount.toLocaleString()}</p>
+              <p className="text-[10px] sm:text-sm font-medium text-slate-600 responsive-label">Total Amount Paid</p>
+              <p className="text-lg sm:text-3xl font-bold text-green-600 mt-0.5 sm:mt-2 responsive-stat-value">AED {stats.totalAmount.toLocaleString()}</p>
             </div>
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-green-600" />
+            <div className="w-8 h-8 sm:w-12 sm:h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <DollarSign className="w-4 h-4 sm:w-6 sm:h-6 text-green-600 responsive-icon" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
+        <div className="bg-white rounded-xl p-3 sm:p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between gap-2">
             <div>
-              <p className="text-sm font-medium text-slate-600">Average Payment</p>
-              <p className="text-3xl font-bold text-indigo-600 mt-2">AED {Math.round(stats.avgPayment).toLocaleString()}</p>
+              <p className="text-[10px] sm:text-sm font-medium text-slate-600 responsive-label">Average Payment</p>
+              <p className="text-lg sm:text-3xl font-bold text-indigo-600 mt-0.5 sm:mt-2 responsive-stat-value">AED {Math.round(stats.avgPayment).toLocaleString()}</p>
             </div>
-            <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-indigo-600" />
+            <div className="w-8 h-8 sm:w-12 sm:h-12 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <TrendingUp className="w-4 h-4 sm:w-6 sm:h-6 text-indigo-600 responsive-icon" />
             </div>
           </div>
         </div>
       </div>
 
       {/* FILTER BAR */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-        <div className="flex flex-col md:flex-row gap-3">
+      <div className="bg-white rounded-xl p-2 sm:p-4 shadow-sm border border-slate-200">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-slate-400 responsive-icon" />
             <Input
-              placeholder="Search employee, department, period..."
+              placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 border-slate-200 focus:border-blue-500 focus:ring-blue-500 h-11"
+              className="pl-8 sm:pl-10 border-slate-200 focus:border-blue-500 focus:ring-blue-500 h-9 sm:h-11 responsive-input"
             />
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="border-slate-200 hover:bg-slate-50 h-11">
-                <Calendar className="w-4 h-4 mr-2" />
-                {dateFilter === 'all' ? 'All Time' :
-                  dateFilter === 'month' ? 'This Month' :
-                    dateFilter === 'quarter' ? 'This Quarter' : 'This Year'}
-                <ChevronDown className="w-4 h-4 ml-2" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setDateFilter("all")}>
-                All Time
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDateFilter("month")}>
-                This Month
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDateFilter("quarter")}>
-                This Quarter
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDateFilter("year")}>
-                This Year
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex-1 sm:flex-none border-slate-200 hover:bg-slate-50 h-9 sm:h-11 responsive-button">
+                  <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 responsive-icon" />
+                  <span className="responsive-text">
+                    {dateFilter === 'all' ? 'All' :
+                      dateFilter === 'month' ? 'Month' :
+                        dateFilter === 'quarter' ? 'Quarter' : 'Year'}
+                  </span>
+                  <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4 ml-1 sm:ml-2 responsive-icon" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setDateFilter("all")}>All Time</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setDateFilter("month")}>This Month</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setDateFilter("quarter")}>This Quarter</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setDateFilter("year")}>This Year</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-          <Button
-            variant="outline"
-            onClick={exportCSV}
-            className="border-slate-200 hover:bg-slate-50 h-11"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export CSV
-          </Button>
+            <Button
+              variant="outline"
+              onClick={exportCSV}
+              className="flex-1 sm:flex-none border-slate-200 hover:bg-slate-50 h-9 sm:h-11 responsive-button"
+            >
+              <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 responsive-icon" />
+              <span className="responsive-text">Export</span>
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -482,57 +516,58 @@ export default function PayHistoryPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50 hover:bg-slate-50">
-                  <TableHead className="font-semibold text-slate-700">
-                    <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4" />
+                  <TableHead className="font-semibold text-slate-700 py-2 sm:py-4 px-2 sm:px-4 whitespace-nowrap text-[10px] sm:text-sm responsive-table-text">EMP ID</TableHead>
+                  <TableHead className="font-semibold text-slate-700 py-2 sm:py-4 px-2 sm:px-4 text-[10px] sm:text-sm responsive-table-text">
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <Users className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
                       Employee
                     </div>
                   </TableHead>
-                  <TableHead className="font-semibold text-slate-700">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="w-4 h-4" />
+                  <TableHead className="font-semibold text-slate-700 py-2 sm:py-4 px-2 sm:px-4 text-[10px] sm:text-sm responsive-table-text">
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <Building2 className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
                       Department
                     </div>
                   </TableHead>
-                  <TableHead className="font-semibold text-slate-700">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      Pay Period
+                  <TableHead className="font-semibold text-slate-700 px-2 sm:px-4 text-[10px] sm:text-sm responsive-table-text whitespace-nowrap">
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
+                      Period
                     </div>
                   </TableHead>
-                  <TableHead className="font-semibold text-slate-700">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="w-4 h-4" />
+                  <TableHead className="font-semibold text-slate-700 px-2 sm:px-4 text-[10px] sm:text-sm responsive-table-text">
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
                       Basic
                     </div>
                   </TableHead>
-                  <TableHead className="font-semibold text-slate-700">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4" />
-                      Allowances
+                  <TableHead className="font-semibold text-slate-700 px-2 sm:px-4 text-[10px] sm:text-sm responsive-table-text">
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
+                      Allow.
                     </div>
                   </TableHead>
-                  <TableHead className="font-semibold text-slate-700 bg-slate-50">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="w-4 h-4" />
+                  <TableHead className="font-semibold text-slate-700 bg-slate-50 px-2 sm:px-4 text-[10px] sm:text-sm responsive-table-text">
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
                       Gross
                     </div>
                   </TableHead>
-                  <TableHead className="font-semibold text-slate-700">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="w-4 h-4" />
-                      Deductions
+                  <TableHead className="font-semibold text-slate-700 px-2 sm:px-4 text-[10px] sm:text-sm responsive-table-text">
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
+                      Deduc.
                     </div>
                   </TableHead>
-                  <TableHead className="font-semibold text-slate-700 bg-blue-50/50">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="w-4 h-4" />
+                  <TableHead className="font-semibold text-slate-700 bg-blue-50/50 px-2 sm:px-4 text-[10px] sm:text-sm responsive-table-text font-bold">
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
                       Net Pay
                     </div>
                   </TableHead>
-                  <TableHead className="font-semibold text-slate-700">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
+                  <TableHead className="font-semibold text-slate-700 px-2 sm:px-4 text-[10px] sm:text-sm responsive-table-text whitespace-nowrap">
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
                       Paid Date
                     </div>
                   </TableHead>
@@ -541,31 +576,36 @@ export default function PayHistoryPage() {
 
               <TableBody>
                 {filteredHistory.map((r, index) => (
-                  <TableRow key={r.id} className={`hover:bg-slate-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
-                    }`}>
-                    <TableCell className="font-medium text-slate-900">
-                      {r.employeeName}
+                  <TableRow key={r.id} className={`hover:bg-slate-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
+                    <TableCell className="py-2 sm:py-4 px-2 sm:px-4 font-medium text-slate-900 whitespace-nowrap text-[10px] sm:text-sm responsive-table-text">
+                      {r.employeeNumber}
                     </TableCell>
-                    <TableCell className="text-slate-600">{r.department}</TableCell>
-                    <TableCell className="text-slate-600 text-sm">
+                    <TableCell className="py-2 sm:py-4 px-2 sm:px-4">
+                      <div className="flex flex-col">
+                        <span className="font-medium text-slate-900 text-[10px] sm:text-sm responsive-table-text">{r.employeeName}</span>
+                        <span className="text-[9px] sm:text-xs text-slate-500 whitespace-nowrap">{r.designation}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-slate-600 px-2 sm:px-4 text-[10px] sm:text-sm responsive-table-text whitespace-nowrap">{r.department}</TableCell>
+                    <TableCell className="text-slate-600 px-2 sm:px-4 text-[9px] sm:text-sm responsive-table-text whitespace-nowrap">
                       {r.payPeriodStart} to {r.payPeriodEnd}
                     </TableCell>
-                    <TableCell className="font-medium text-slate-900">
-                      AED {r.basicSalary.toLocaleString()}
+                    <TableCell className="font-medium text-slate-900 px-2 sm:px-4 text-[10px] sm:text-sm responsive-table-text whitespace-nowrap">
+                      {r.basicSalary.toLocaleString()}
                     </TableCell>
-                    <TableCell className="font-medium text-green-600">
+                    <TableCell className="font-medium text-green-600 px-2 sm:px-4 text-[10px] sm:text-sm responsive-table-text whitespace-nowrap">
                       {r.totalAllowances.toLocaleString()}
                     </TableCell>
-                    <TableCell className="font-bold text-slate-900 bg-slate-50">
+                    <TableCell className="font-bold text-slate-900 bg-slate-50 px-2 sm:px-4 text-[10px] sm:text-sm responsive-table-text whitespace-nowrap">
                       {r.grossSalary.toLocaleString()}
                     </TableCell>
-                    <TableCell className="font-medium text-red-600">
+                    <TableCell className="font-medium text-red-600 px-2 sm:px-4 text-[10px] sm:text-sm responsive-table-text whitespace-nowrap">
                       {r.totalDeductions.toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-blue-600 font-bold bg-blue-50/50">
-                      AED {r.netPay.toLocaleString()}
+                    <TableCell className="text-blue-600 font-bold bg-blue-50/50 px-2 sm:px-4 text-[10px] sm:text-sm responsive-table-text whitespace-nowrap">
+                      {r.netPay.toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-slate-600">
+                    <TableCell className="text-slate-600 px-2 sm:px-4 text-[10px] sm:text-sm responsive-table-text whitespace-nowrap">
                       {r.paidDate.toLocaleDateString()}
                     </TableCell>
                   </TableRow>
@@ -578,27 +618,24 @@ export default function PayHistoryPage() {
 
       {/* PAGINATION */}
       {!loading && filteredHistory.length > 0 && (
-        <div className="flex justify-between items-center bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-          <div className="text-sm text-slate-600">
-            Showing page {currentPage} of {totalPages}
+        <div className="flex flex-col sm:flex-row justify-between items-center bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-slate-200 gap-3">
+          <div className="text-[10px] sm:text-sm text-slate-600 responsive-text">
+            Page {currentPage} of {totalPages}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button
               variant="outline"
               disabled={currentPage === 1}
               onClick={() => setCurrentPage((p) => p - 1)}
-              className="border-slate-200 hover:bg-slate-50 disabled:opacity-50"
+              className="flex-1 sm:flex-none border-slate-200 hover:bg-slate-50 disabled:opacity-50 h-8 sm:h-10 responsive-button"
             >
-              Previous
+              Prev
             </Button>
-            <span className="text-sm font-medium text-slate-700 px-4">
-              Page {currentPage} of {totalPages}
-            </span>
             <Button
               variant="outline"
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage((p) => p + 1)}
-              className="border-slate-200 hover:bg-slate-50 disabled:opacity-50"
+              className="flex-1 sm:flex-none border-slate-200 hover:bg-slate-50 disabled:opacity-50 h-8 sm:h-10 responsive-button"
             >
               Next
             </Button>
@@ -609,66 +646,66 @@ export default function PayHistoryPage() {
       {/* DETAILS MODAL */}
       {viewDetails && (
         <Dialog open onOpenChange={() => setViewDetails(null)}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader className="border-b pb-4">
-              <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+          <DialogContent className="max-w-2xl w-[95vw] sm:w-full p-3 sm:p-6 overflow-y-auto max-h-[90vh]">
+            <DialogHeader className="border-b pb-2 sm:pb-4">
+              <DialogTitle className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent responsive-title">
                 Payment Details
               </DialogTitle>
             </DialogHeader>
 
             <div className="space-y-6 pt-2">
               {/* Employee Info Card */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-200">
-                <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Employee Information
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-3 sm:p-5 border border-blue-200">
+                <h3 className="font-semibold text-blue-900 mb-2 sm:mb-3 flex items-center gap-2 text-xs sm:text-base">
+                  <Users className="w-4 h-4 sm:w-5 sm:h-5 responsive-icon" />
+                  Employee Info
                 </h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-2 gap-2 sm:gap-4 text-[10px] sm:text-sm">
                   <div>
-                    <p className="text-blue-600 font-medium mb-1">Name</p>
-                    <p className="text-blue-900 font-semibold">{viewDetails.employeeName}</p>
+                    <p className="text-blue-600 font-medium mb-0.5 sm:mb-1 responsive-label">Name</p>
+                    <p className="text-blue-900 font-semibold truncate">{viewDetails.employeeName}</p>
                   </div>
                   <div>
-                    <p className="text-blue-600 font-medium mb-1">Department</p>
-                    <p className="text-blue-900">{viewDetails.department}</p>
+                    <p className="text-blue-600 font-medium mb-0.5 sm:mb-1 responsive-label">Dept</p>
+                    <p className="text-blue-900 truncate">{viewDetails.department}</p>
                   </div>
                   <div>
-                    <p className="text-blue-600 font-medium mb-1">Designation</p>
-                    <p className="text-blue-900">{viewDetails.designation}</p>
+                    <p className="text-blue-600 font-medium mb-0.5 sm:mb-1 responsive-label">Desig</p>
+                    <p className="text-blue-900 truncate">{viewDetails.designation}</p>
                   </div>
                   <div>
-                    <p className="text-blue-600 font-medium mb-1">Pay Period</p>
-                    <p className="text-blue-900">{viewDetails.payPeriodStart} to {viewDetails.payPeriodEnd}</p>
+                    <p className="text-blue-600 font-medium mb-0.5 sm:mb-1 responsive-label">Period</p>
+                    <p className="text-blue-900 text-[9px] sm:text-sm">{viewDetails.payPeriodStart} - {viewDetails.payPeriodEnd}</p>
                   </div>
                 </div>
               </div>
 
               {/* Payment Summary Card */}
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-5 border border-green-200">
-                <h3 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
-                  <DollarSign className="w-5 h-5" />
-                  Payment Summary
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-3 sm:p-5 border border-green-200">
+                <h3 className="font-semibold text-green-900 mb-2 sm:mb-3 flex items-center gap-2 text-xs sm:text-base">
+                  <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 responsive-icon" />
+                  Summary
                 </h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center pb-2 border-b border-green-200">
-                    <span className="text-green-700 font-medium">Basic Salary</span>
-                    <span className="text-green-900 font-bold">AED {viewDetails.basicSalary.toLocaleString()}</span>
+                <div className="space-y-2 sm:space-y-3 text-[10px] sm:text-sm">
+                  <div className="flex justify-between items-center pb-1 sm:pb-2 border-b border-green-200">
+                    <span className="text-green-700 font-medium responsive-label">Basic</span>
+                    <span className="text-green-900 font-bold responsive-stat-value">{viewDetails.basicSalary.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between items-center pb-2 border-b border-green-200">
-                    <span className="text-green-700 font-medium">Total Allowances</span>
-                    <span className="text-blue-600 font-bold">{viewDetails.totalAllowances.toLocaleString()}</span>
+                  <div className="flex justify-between items-center pb-1 sm:pb-2 border-b border-green-200">
+                    <span className="text-green-700 font-medium responsive-label">Allow.</span>
+                    <span className="text-blue-600 font-bold responsive-stat-value">{viewDetails.totalAllowances.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between items-center pb-2 border-b border-green-200">
-                    <span className="text-green-700 font-medium">Gross Salary</span>
-                    <span className="text-slate-900 font-bold text-lg">{viewDetails.grossSalary.toLocaleString()}</span>
+                  <div className="flex justify-between items-center pb-1 sm:pb-2 border-b border-green-200">
+                    <span className="text-green-700 font-medium responsive-label">Gross</span>
+                    <span className="text-slate-900 font-bold responsive-stat-value">{viewDetails.grossSalary.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between items-center pb-2 border-b border-green-200">
-                    <span className="text-green-700 font-medium">Total Deductions</span>
-                    <span className="text-red-600 font-bold">{viewDetails.totalDeductions.toLocaleString()}</span>
+                  <div className="flex justify-between items-center pb-1 sm:pb-2 border-b border-green-200">
+                    <span className="text-green-700 font-medium responsive-label">Deduc.</span>
+                    <span className="text-red-600 font-bold responsive-stat-value">{viewDetails.totalDeductions.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between items-center pt-2">
-                    <span className="text-green-700 font-semibold text-lg">Net Pay</span>
-                    <span className="text-blue-700 font-bold text-2xl">AED {viewDetails.netPay.toLocaleString()}</span>
+                  <div className="flex justify-between items-center pt-1 sm:pt-2">
+                    <span className="text-green-700 font-semibold text-xs sm:text-lg">Net Pay</span>
+                    <span className="text-blue-700 font-bold text-sm sm:text-2xl">AED {viewDetails.netPay.toLocaleString()}</span>
                   </div>
                 </div>
               </div>
@@ -726,24 +763,24 @@ export default function PayHistoryPage() {
               </div>
 
               {/* Transaction Info Card */}
-              <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-5 border border-slate-200">
-                <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                  <CreditCard className="w-5 h-5" />
-                  Transaction Information
+              <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-3 sm:p-5 border border-slate-200">
+                <h3 className="font-semibold text-slate-900 mb-2 sm:mb-3 flex items-center gap-2 text-xs sm:text-base">
+                  <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 responsive-icon" />
+                  Transaction
                 </h3>
-                <div className="space-y-2 text-sm">
+                <div className="space-y-1.5 sm:space-y-2 text-[10px] sm:text-sm">
                   <div className="flex justify-between">
-                    <span className="text-slate-600">Payment Method</span>
+                    <span className="text-slate-600 responsive-label">Method</span>
                     <span className="text-slate-900 font-semibold">{viewDetails.paymentMethod}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Transaction ID</span>
-                    <span className="text-slate-900 font-mono text-xs bg-slate-200 px-2 py-1 rounded">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-600 responsive-label">ID</span>
+                    <span className="text-slate-900 font-mono text-[9px] sm:text-xs bg-slate-200 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded truncate max-w-[120px] sm:max-w-none">
                       {viewDetails.transactionId || "N/A"}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-600">Payment Date</span>
+                    <span className="text-slate-600 responsive-label">Date</span>
                     <span className="text-slate-900 font-semibold">{viewDetails.paidDate.toLocaleDateString()}</span>
                   </div>
                 </div>

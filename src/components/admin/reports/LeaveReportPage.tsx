@@ -29,7 +29,7 @@ export default function LeaveReportPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [employeeMap, setEmployeeMap] = useState<{ [key: string]: string }>({});
+  const [employeeMap, setEmployeeMap] = useState<{ [key: string]: any }>({});
 
   // Alert State
   const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
@@ -62,14 +62,21 @@ export default function LeaveReportPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const employees = Array.isArray(response.data) ? response.data : (response.data.data || []);
-      const mapping: { [key: string]: string } = {};
+      const mapping: { [key: string]: any } = {};
       employees.forEach((emp: any) => {
         const fullName = emp.fullName ||
           `${emp.firstName || ''} ${emp.lastName || ''}`.trim() ||
           emp.name ||
           emp.email ||
           'Unknown';
-        mapping[emp.id] = fullName;
+        const id = emp.id || emp._id;
+        if (id) {
+          mapping[String(id)] = {
+            ...emp,
+            displayName: fullName,
+            displayNumber: emp.employeeNumber || emp.employeeId || 'N/A'
+          };
+        }
       });
       setEmployeeMap(mapping);
     } catch (error) {
@@ -129,11 +136,12 @@ export default function LeaveReportPage() {
 
       // Transform and enrich the data
       const enrichedLeaves = leaves.map((leave: any) => {
-        const employeeId = leave.employeeId || leave.employee?.id;
-        const employeeNumber = leave.employee?.employeeNumber || leave.employeeNumber || 'N/A';
+        const employeeId = leave.employeeId || leave.employee?.id || leave.employee?._id;
+        const empMapData = employeeId ? employeeMap[String(employeeId)] : null;
+        const employeeNumber = leave.employee?.employeeNumber || leave.employeeNumber || empMapData?.displayNumber || 'N/A';
         const employeeName = leave.employeeName ||
           (leave.employee && (leave.employee.fullName || leave.employee.name || `${leave.employee.firstName || ''} ${leave.employee.lastName || ''}`.trim())) ||
-          employeeMap[employeeId] ||
+          empMapData?.displayName ||
           'Unknown';
 
         // Calculate days if not present
@@ -348,7 +356,7 @@ export default function LeaveReportPage() {
   const uniqueLeaveTypes = Array.from(new Set(leaveData.map(l => l.leaveTypeCode)));
 
   return (
-    <div className="h-[calc(100vh-64px)] overflow-hidden flex flex-col bg-gray-50">
+    <div className="h-[calc(100vh-64px)] overflow-hidden flex flex-col bg-white">
       <div className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
@@ -512,6 +520,9 @@ export default function LeaveReportPage() {
                       />
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      EMP ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Employee
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -537,7 +548,7 @@ export default function LeaveReportPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {loading ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                      <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                         <div className="flex items-center justify-center">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                           <span className="ml-3">Loading...</span>
@@ -546,7 +557,7 @@ export default function LeaveReportPage() {
                     </tr>
                   ) : filteredLeaves.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                      <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                         <Search className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                         <p className="text-lg font-medium">No leave records found</p>
                         <p className="text-sm mt-1">Try adjusting your search or filters</p>
@@ -566,6 +577,9 @@ export default function LeaveReportPage() {
                             onChange={() => handleSelectRecord(index)}
                             className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                           />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
+                          {leave.employeeNumber || "N/A"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {leave.employeeName || "N/A"}

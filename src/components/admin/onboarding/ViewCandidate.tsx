@@ -68,7 +68,7 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
 
 
     return (
-        <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+        <div className="min-h-screen bg-gray-50 p-2 sm:p-4 md:p-8">
             <div className="max-w-5xl mx-auto">
                 <div className="flex justify-between items-center mb-6 gap-4">
                     <h1 className="text-xl md:text-2xl font-bold">Candidate Details</h1>
@@ -80,7 +80,7 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
                     </button>
                 </div>
 
-                <div className="bg-white rounded-lg shadow p-4 md:p-8 space-y-8">
+                <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-8 space-y-6 sm:space-y-8">
                     {/* Personal Details Section */}
                     <div>
                         <div className="flex items-center gap-2 mb-6">
@@ -177,7 +177,7 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
                             </div>
                             <h2 className="text-lg font-semibold">Address Details</h2>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
                             <div className="space-y-3">
                                 <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Present Address</h3>
                                 <div className="p-4 bg-gray-50 rounded-lg border border-gray-100 space-y-1">
@@ -398,7 +398,7 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-500 mb-3">Allowances</label>
                                     <div className="space-y-2">

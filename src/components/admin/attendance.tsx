@@ -462,25 +462,46 @@ const AttendanceTracker: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white p-4 md:p-8">
+    <div className="min-h-screen bg-white p-1 sm:p-4 md:p-8">
+      <style jsx>{`
+        @media (max-width: 480px) {
+          .responsive-text { font-size: 11px; }
+          .responsive-title { font-size: 18px; }
+          .responsive-button { padding: 4px 8px; font-size: 10px; }
+          .responsive-stat-value { font-size: 16px; }
+          .responsive-stat-label { font-size: 9px; }
+          .responsive-table-text { font-size: 10px; }
+          .responsive-input { font-size: 11px; height: 32px; }
+        }
+        @media (max-width: 300px) {
+          .responsive-text { font-size: 9px; }
+          .responsive-title { font-size: 14px; }
+          .responsive-button { padding: 2px 4px; font-size: 8px; }
+          .responsive-stat-value { font-size: 14px; }
+          .responsive-stat-label { font-size: 8px; }
+          .responsive-table-text { font-size: 9px; }
+          .responsive-input { font-size: 9px; height: 28px; }
+          .responsive-icon { width: 12px; height: 12px; }
+        }
+      `}</style>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 md:mb-8 gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 md:mb-8 gap-2">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">Attendance Tracker</h1>
-            <p className="text-sm md:text-base text-gray-500">Track and manage employee attendance records</p>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-1 responsive-title">Attendance Tracker</h1>
+            <p className="text-xs sm:text-sm md:text-base text-gray-500 responsive-text">Track and manage employee attendance records</p>
           </div>
         </div>
 
         {/* Filters and Navigation */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex p-1 bg-gray-100 rounded-lg w-fit overflow-x-auto">
+            <div className="flex p-1 bg-gray-100 rounded-lg w-fit overflow-x-auto responsive-gap">
               {(['daily', 'weekly', 'monthly', 'yearly'] as ViewMode[]).map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setViewMode(mode)}
-                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${viewMode === mode
+                  className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-sm font-medium rounded-md transition-all whitespace-nowrap ${viewMode === mode
                     ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-500 hover:text-gray-700'
                     }`}
@@ -490,24 +511,24 @@ const AttendanceTracker: React.FC = () => {
               ))}
             </div>
 
-            <div className="flex items-center gap-4 relative">
+            <div className="flex items-center gap-1 sm:gap-4 relative">
               <button
                 onClick={handlePrevious}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-1 sm:p-2 hover:bg-gray-100 rounded-full transition-colors"
               >
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
+                <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 responsive-icon" />
               </button>
 
               <div ref={calendarRef}>
                 <button
                   onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-                  className="px-4 py-2 hover:bg-gray-50 rounded-lg transition-colors text-sm md:text-base font-semibold text-gray-900 min-w-[150px] text-center border border-transparent hover:border-gray-200"
+                  className="px-2 sm:px-4 py-1 sm:py-2 hover:bg-gray-50 rounded-lg transition-colors text-xs sm:text-sm md:text-base font-semibold text-gray-900 min-w-[100px] sm:min-w-[150px] text-center border border-transparent hover:border-gray-200 responsive-text"
                 >
                   {getPeriodLabel()}
                 </button>
 
                 {isCalendarOpen && (
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 bg-white shadow-xl rounded-xl border border-gray-200 p-2">
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 bg-white shadow-xl rounded-xl border border-gray-200 p-1 sm:p-2 scale-[0.85] sm:scale-100">
                     <Calendar
                       mode="single"
                       selected={currentDate}
@@ -525,32 +546,32 @@ const AttendanceTracker: React.FC = () => {
 
               <button
                 onClick={handleNext}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-1 sm:p-2 hover:bg-gray-100 rounded-full transition-colors"
               >
-                <ChevronRight className="w-5 h-5 text-gray-600" />
+                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 responsive-icon" />
               </button>
             </div>
           </div>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 md:gap-4 mb-6 md:mb-8">
+        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-4 mb-4 sm:mb-8">
           {stats.map((stat, idx) => (
-            <div key={idx} className="bg-white rounded-xl shadow-sm p-4 md:p-6 text-center">
-              <stat.icon className={`w-5 h-5 md:w-6 md:h-6 mx-auto mb-2 md:mb-3 ${stat.color}`} />
-              <div className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">{stat.value}</div>
-              <div className="text-xs text-gray-500 text-nowrap">{stat.label}</div>
+            <div key={idx} className="bg-white rounded-xl shadow-sm p-2 sm:p-4 md:p-6 text-center border border-gray-100">
+              <stat.icon className={`w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 mx-auto mb-1 sm:mb-2 md:mb-3 ${stat.color} responsive-icon`} />
+              <div className="text-base sm:text-2xl md:text-3xl font-bold text-gray-900 mb-0.5 responsive-stat-value">{stat.value}</div>
+              <div className="text-[10px] sm:text-xs text-gray-500 truncate responsive-stat-label">{stat.label}</div>
             </div>
           ))}
         </div>
 
         {/* Admin Personal Attendance History */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-8">
-          <div className="p-4 md:p-6 border-b border-gray-200 flex items-center gap-4">
-            <h2 className="text-lg md:text-xl font-bold text-gray-900">My Attendance History</h2>
-            <Button onClick={handleExportPersonalCSV} variant="outline" size="sm" className="flex items-center gap-2">
-              <Download className="w-4 h-4" />
-              Export CSV
+          <div className="p-3 sm:p-4 md:p-6 border-b border-gray-200 flex items-center justify-between gap-2">
+            <h2 className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 responsive-text">My Attendance History</h2>
+            <Button onClick={handleExportPersonalCSV} variant="outline" size="sm" className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 h-8 sm:h-9 responsive-button">
+              <Download className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
+              <span className="responsive-text">Export CSV</span>
             </Button>
           </div>
 
@@ -558,10 +579,10 @@ const AttendanceTracker: React.FC = () => {
             <table className="w-full">
               <thead className="bg-white border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-3 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-black whitespace-nowrap">Date</th>
-                  <th className="px-4 py-3 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-black whitespace-nowrap">Check In</th>
-                  <th className="px-4 py-3 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-black whitespace-nowrap">Check Out</th>
-                  <th className="px-4 py-3 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-black whitespace-nowrap">Hours Worked</th>
+                  <th className="px-2 py-2 sm:px-6 sm:py-4 text-left text-[10px] sm:text-sm font-medium text-black whitespace-nowrap responsive-header">Date</th>
+                  <th className="px-2 py-2 sm:px-6 sm:py-4 text-left text-[10px] sm:text-sm font-medium text-black whitespace-nowrap responsive-header">Check In</th>
+                  <th className="px-2 py-2 sm:px-6 sm:py-4 text-left text-[10px] sm:text-sm font-medium text-black whitespace-nowrap responsive-header">Check Out</th>
+                  <th className="px-2 py-2 sm:px-6 sm:py-4 text-left text-[10px] sm:text-sm font-medium text-black whitespace-nowrap responsive-header">Hours Worked</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -576,16 +597,16 @@ const AttendanceTracker: React.FC = () => {
                     const recordDate = record.date ? (typeof record.date === 'string' && record.date.includes('T') ? format(new Date(record.date), 'yyyy-MM-dd') : record.date) : '-';
                     return (
                       <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3 md:px-6 md:py-4 text-sm font-medium text-gray-900 whitespace-nowrap">
+                        <td className="px-2 py-2 sm:px-6 sm:py-4 text-[10px] sm:text-sm font-medium text-gray-900 whitespace-nowrap responsive-cell">
                           {recordDate}
                         </td>
-                        <td className="px-4 py-3 md:px-6 md:py-4 text-sm text-gray-700 whitespace-nowrap">
+                        <td className="px-2 py-2 sm:px-6 sm:py-4 text-[10px] sm:text-sm text-gray-700 whitespace-nowrap responsive-cell">
                           {record.checkInTime ? format(new Date(record.checkInTime), 'hh:mm a') : '-'}
                         </td>
-                        <td className="px-4 py-3 md:px-6 md:py-4 text-sm text-gray-700 whitespace-nowrap">
+                        <td className="px-2 py-2 sm:px-6 sm:py-4 text-[10px] sm:text-sm text-gray-700 whitespace-nowrap responsive-cell">
                           {record.checkOutTime ? format(new Date(record.checkOutTime), 'hh:mm a') : '-'}
                         </td>
-                        <td className="px-4 py-3 md:px-6 md:py-4 text-sm text-gray-700 whitespace-nowrap">
+                        <td className="px-2 py-2 sm:px-6 sm:py-4 text-[10px] sm:text-sm text-gray-700 whitespace-nowrap responsive-cell">
                           {record.totalHours ? `${record.totalHours}h` : '-'}
                         </td>
                       </tr>
@@ -605,23 +626,23 @@ const AttendanceTracker: React.FC = () => {
 
         {/* Daily Attendance History (All Employees) */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <div className="p-4 md:p-6 border-b border-gray-200">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <h2 className="text-lg md:text-xl font-bold text-gray-900">All Employees Attendance</h2>
-                <Button onClick={handleExportTeamCSV} variant="outline" size="sm" className="flex items-center gap-2">
-                  <Download className="w-4 h-4" />
-                  Export CSV
+          <div className="p-3 sm:p-4 md:p-6 border-b border-gray-200">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
+              <div className="flex items-center justify-between sm:justify-start gap-4 w-full sm:w-auto">
+                <h2 className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 responsive-text">All Employees</h2>
+                <Button onClick={handleExportTeamCSV} variant="outline" size="sm" className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 h-8 sm:h-9 responsive-button">
+                  <Download className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
+                  <span className="responsive-text">Export CSV</span>
                 </Button>
               </div>
               <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
                 {/* Employee Dropdown */}
                 <div className="relative w-full sm:w-64">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <User className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-gray-400 responsive-icon" />
                   <select
                     value={selectedEmployee}
                     onChange={(e) => setSelectedEmployee(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+                    className="w-full pl-8 sm:pl-10 pr-4 py-1.5 sm:py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none responsive-input"
                   >
                     <option value="all">All Employees</option>
                     {employees.map((emp) => (
@@ -632,15 +653,14 @@ const AttendanceTracker: React.FC = () => {
                   </select>
                 </div>
 
-                {/* Status Dropdown */}
                 <div className="relative w-full sm:w-48">
-                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Filter className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-gray-400 responsive-icon" />
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+                    className="w-full pl-8 sm:pl-10 pr-4 py-1.5 sm:py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none responsive-input"
                   >
-                    <option value="all">All Employees</option>
+                    <option value="all">All Status</option>
                     <option value="Present">Present</option>
                     <option value="Absent">Absent</option>
                     <option value="Late">Late</option>
@@ -650,15 +670,14 @@ const AttendanceTracker: React.FC = () => {
                   </select>
                 </div>
 
-                {/* Search Input */}
                 <div className="relative w-full md:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-gray-400 responsive-icon" />
                   <input
                     type="text"
-                    placeholder="Search by name..."
+                    placeholder="Search..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-8 sm:pl-10 pr-4 py-1.5 sm:py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 responsive-input"
                   />
                 </div>
               </div>
@@ -669,12 +688,12 @@ const AttendanceTracker: React.FC = () => {
             <table className="w-full">
               <thead className="bg-white border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-3 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-black whitespace-nowrap">Employee</th>
-                  <th className="px-4 py-3 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-black whitespace-nowrap">Date</th>
-                  <th className="px-4 py-3 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-black whitespace-nowrap">Check In</th>
-                  <th className="px-4 py-3 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-black whitespace-nowrap">Check Out</th>
-                  <th className="px-4 py-3 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-black whitespace-nowrap text-center">Status</th>
-                  <th className="px-4 py-3 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-black whitespace-nowrap text-center">Action</th>
+                  <th className="px-2 py-2 sm:px-6 sm:py-4 text-left text-[10px] sm:text-sm font-medium text-black whitespace-nowrap responsive-header">Employee</th>
+                  <th className="px-2 py-2 sm:px-6 sm:py-4 text-left text-[10px] sm:text-sm font-medium text-black whitespace-nowrap responsive-header">Date</th>
+                  <th className="px-2 py-2 sm:px-6 sm:py-4 text-left text-[10px] sm:text-sm font-medium text-black whitespace-nowrap responsive-header">Check In</th>
+                  <th className="px-2 py-2 sm:px-6 sm:py-4 text-left text-[10px] sm:text-sm font-medium text-black whitespace-nowrap responsive-header">Check Out</th>
+                  <th className="px-2 py-2 sm:px-6 sm:py-4 text-left text-[10px] sm:text-sm font-medium text-black whitespace-nowrap text-center responsive-header">Status</th>
+                  <th className="px-2 py-2 sm:px-6 sm:py-4 text-left text-[10px] sm:text-sm font-medium text-black whitespace-nowrap text-center responsive-header">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -687,29 +706,29 @@ const AttendanceTracker: React.FC = () => {
                 ) : filteredRecords.length > 0 ? (
                   filteredRecords.map((record, idx) => (
                     <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 md:px-6 md:py-4 text-sm font-medium text-gray-900 whitespace-nowrap">
+                      <td className="px-2 py-2 sm:px-6 sm:py-4 text-[10px] sm:text-sm font-medium text-gray-900 whitespace-nowrap responsive-cell">
                         {record.employeeName}
                       </td>
-                      <td className="px-4 py-3 md:px-6 md:py-4 text-sm text-gray-600 whitespace-nowrap">
+                      <td className="px-2 py-2 sm:px-6 sm:py-4 text-[10px] sm:text-sm text-gray-600 whitespace-nowrap responsive-cell">
                         {record.date}
                       </td>
-                      <td className="px-4 py-3 md:px-6 md:py-4 text-sm text-gray-700 whitespace-nowrap">{record.checkIn}</td>
-                      <td className="px-4 py-3 md:px-6 md:py-4 text-sm text-gray-700 whitespace-nowrap">{record.checkOut}</td>
-                      <td className="px-4 py-3 md:px-6 md:py-4 text-center whitespace-nowrap">
-                        <span className={`inline-block px-3 py-1 rounded-md text-xs font-medium ${getStatusColor(record.status)}`}>
+                      <td className="px-2 py-2 sm:px-6 sm:py-4 text-[10px] sm:text-sm text-gray-700 whitespace-nowrap responsive-cell">{record.checkIn}</td>
+                      <td className="px-2 py-2 sm:px-6 sm:py-4 text-[10px] sm:text-sm text-gray-700 whitespace-nowrap responsive-cell">{record.checkOut}</td>
+                      <td className="px-2 py-2 sm:px-6 sm:py-4 text-center whitespace-nowrap responsive-cell">
+                        <span className={`inline-block px-1.5 sm:px-3 py-0.5 sm:py-1 rounded-md text-[9px] sm:text-xs font-medium ${getStatusColor(record.status)}`}>
                           {record.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 md:px-6 md:py-4 text-center whitespace-nowrap">
+                      <td className="px-2 py-2 sm:px-6 sm:py-4 text-center whitespace-nowrap responsive-cell">
                         <button
                           onClick={() => {
                             setViewingRecord(record);
                             setIsViewDialogOpen(true);
                           }}
-                          className="p-1.5 hover:bg-gray-100 rounded-lg text-blue-600 transition-colors"
+                          className="p-1 sm:p-1.5 hover:bg-gray-100 rounded-lg text-blue-600 transition-colors"
                           title="View Details"
                         >
-                          <Eye className="w-4 h-4" />
+                          <Eye className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
                         </button>
                       </td>
                     </tr>
