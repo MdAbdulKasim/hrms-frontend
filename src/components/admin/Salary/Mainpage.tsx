@@ -64,6 +64,7 @@ export interface Deduction {
 
 export interface SalaryEmployee {
   id: string
+  employeeNumber: string
   name: string
   department: string
   designation: string
@@ -398,6 +399,7 @@ export default function SalaryPage() {
 
           return {
             id: empId,
+            employeeNumber: emp.employeeNumber || emp.employeeId || "N/A",
             name: emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "",
             department: deptName || "N/A",
             designation: desigName || "N/A",
@@ -644,6 +646,7 @@ export default function SalaryPage() {
   const handleExportCSV = () => {
     const csv = [
       [
+        "EMP ID",
         "NAME",
         "DEPARTMENT",
         "DESIGNATION",
@@ -658,6 +661,7 @@ export default function SalaryPage() {
       ...employees.map((e) => {
         const calc = calculateEmployeeSalary(e)
         return [
+          e.employeeNumber,
           e.name,
           e.department,
           e.designation,
@@ -976,6 +980,7 @@ export default function SalaryPage() {
                           className="border-slate-300"
                         />
                       </TableHead>
+                      <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm">EMP ID</TableHead>
                       <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm">NAME</TableHead>
                       <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm hidden sm:table-cell">DEPT</TableHead>
                       <TableHead className="font-semibold text-slate-700 px-2 xs:px-4 text-xs xs:text-sm hidden lg:table-cell">DESIGNATION</TableHead>
@@ -1000,6 +1005,9 @@ export default function SalaryPage() {
                               onCheckedChange={(v) => toggleSelectOne(e.id, Boolean(v))}
                               className="border-slate-300"
                             />
+                          </TableCell>
+                          <TableCell className="font-medium text-slate-900 px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap">
+                            {e.employeeNumber}
                           </TableCell>
                           <TableCell className="font-medium text-slate-900 px-2 xs:px-4 text-xs xs:text-sm truncate max-w-[120px]">
                             <div className="flex flex-col">

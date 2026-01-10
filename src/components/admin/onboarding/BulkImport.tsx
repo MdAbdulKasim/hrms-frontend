@@ -683,7 +683,7 @@ const BulkImport: React.FC<BulkImportProps> = ({
 
                 {/* Progress Stepper */}
                 <div className="px-4 sm:px-8 py-4 sm:py-6 bg-gray-50/50 border-b border-gray-100 overflow-x-auto no-scrollbar">
-                    <div className="flex items-center justify-between min-w-[300px] max-w-3xl mx-auto relative">
+                    <div className="flex items-center justify-between min-w-[200px] max-w-3xl mx-auto relative px-4">
                         {STEPS.map((step, idx) => {
                             const Icon = step.icon;
                             const isActive = currentStep === step.id;
@@ -721,57 +721,59 @@ const BulkImport: React.FC<BulkImportProps> = ({
                     {currentStep === 1 && (
                         <div className="max-w-3xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-500">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                                <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                                    <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                        <Download className="w-5 h-5 text-blue-500" />
-                                        Get Template
-                                    </h3>
-                                    <div className="flex flex-col gap-2 sm:gap-3">
-                                        <button onClick={() => handleInternalDownloadTemplate('excel')} className="w-full py-2.5 sm:py-3 px-4 rounded-xl border border-blue-100 text-blue-600 bg-blue-50/50 hover:bg-blue-50 font-semibold flex items-center justify-center gap-2 transition-all text-xs sm:text-sm">
-                                            <FileSpreadsheet className="w-4 h-4" /> Download Excel
-                                        </button>
-                                        <button onClick={() => handleInternalDownloadTemplate('csv')} className="w-full py-2.5 sm:py-3 px-4 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold flex items-center justify-center gap-2 transition-all text-xs sm:text-sm">
-                                            <FileText className="w-4 h-4" /> Download CSV
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100">
-                                    <h3 className="font-bold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
-                                        <Sparkles className="w-5 h-5 text-amber-500" />
-                                        Import Type
-                                    </h3>
-                                    <div className="space-y-3 sm:space-y-4">
-                                        {['new', 'existing'].map((type) => (
-                                            <label key={type} className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border cursor-pointer transition-all ${importType === type ? 'border-blue-600 bg-blue-50/30' : 'border-gray-100 hover:border-blue-200'
-                                                }`}>
-                                                <input
-                                                    type="radio"
-                                                    name="importType"
-                                                    checked={importType === type}
-                                                    onChange={() => setImportType(type)}
-                                                    className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600"
-                                                />
-                                                <div>
-                                                    <span className="block font-bold capitalize text-sm sm:text-base text-gray-900">{type} Employees</span>
-                                                </div>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="relative">
-                                <input id="bulk-upload" type="file" className="hidden" accept=".csv,.xlsx,.xls" onChange={onFileUpload} />
-                                <label htmlFor="bulk-upload" className="group cursor-pointer">
-                                    <div className="border-2 border-dashed border-gray-200 rounded-3xl p-16 text-center bg-white hover:border-blue-400 hover:bg-blue-50/30 transition-all duration-300">
-                                        <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 duration-300 transition-transform">
-                                            <Upload className="w-10 h-10 text-blue-600" />
+                                <div className="space-y-4 sm:space-y-6">
+                                    <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                                        <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                            <Download className="w-5 h-5 text-blue-500" />
+                                            Get Template
+                                        </h3>
+                                        <div className="flex flex-col gap-2 sm:gap-3">
+                                            <button onClick={() => handleInternalDownloadTemplate('excel')} className="w-full py-2.5 sm:py-3 px-4 rounded-xl border border-blue-100 text-blue-600 bg-blue-50/50 hover:bg-blue-50 font-semibold flex items-center justify-center gap-2 transition-all text-xs sm:text-sm">
+                                                <FileSpreadsheet className="w-4 h-4" /> Download Excel
+                                            </button>
+                                            <button onClick={() => handleInternalDownloadTemplate('csv')} className="w-full py-2.5 sm:py-3 px-4 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold flex items-center justify-center gap-2 transition-all text-xs sm:text-sm">
+                                                <FileText className="w-4 h-4" /> Download CSV
+                                            </button>
                                         </div>
-                                        <h3 className="text-xl font-bold text-gray-900 mb-2">Upload your file</h3>
-                                        <p className="text-gray-500">Drag and drop your Excel or CSV here, or click to browse</p>
                                     </div>
-                                </label>
+
+                                    <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                                        <h3 className="font-bold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
+                                            <Sparkles className="w-5 h-5 text-amber-500" />
+                                            Import Type
+                                        </h3>
+                                        <div className="space-y-3 sm:space-y-4">
+                                            {['new', 'existing'].map((type) => (
+                                                <label key={type} className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border cursor-pointer transition-all ${importType === type ? 'border-blue-600 bg-blue-50/30' : 'border-gray-100 hover:border-blue-200'}`}>
+                                                    <input
+                                                        type="radio"
+                                                        name="importType"
+                                                        checked={importType === type}
+                                                        onChange={() => setImportType(type)}
+                                                        className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600"
+                                                    />
+                                                    <div>
+                                                        <span className="block font-bold capitalize text-sm sm:text-base text-gray-900">{type} Employees</span>
+                                                    </div>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="relative">
+                                    <input id="bulk-upload" type="file" className="hidden" accept=".csv,.xlsx,.xls" onChange={onFileUpload} />
+                                    <label htmlFor="bulk-upload" className="group cursor-pointer">
+                                        <div className="-m-6 sm:-m-16 absolute inset-0 bg-white/0 pointer-events-none" />
+                                        <div className="border-2 border-dashed border-gray-200 rounded-3xl p-6 sm:p-16 text-center group-hover:border-blue-400 transition-all duration-300 bg-gray-50/50 group-hover:bg-blue-50/30">
+                                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
+                                                <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
+                                            </div>
+                                            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1">Click to upload or drag and drop</h3>
+                                            <p className="text-xs sm:text-sm text-gray-500">Excel or CSV files only (Max. 10MB)</p>
+                                        </div>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     )}

@@ -245,7 +245,16 @@ export default function EmployeeReportPage() {
 
       const employees = Array.isArray(data) ? data : [];
 
-      setEmployeeData(employees);
+      const formattedEmployees = employees.map((emp: any) => {
+        return {
+          ...emp,
+          id: emp.id || emp._id,
+          employeeNumber: emp.employeeNumber || emp.employeeId || 'N/A',
+          fullName: getFullName(emp)
+        } as EmployeeRecord;
+      });
+
+      setEmployeeData(formattedEmployees);
 
       if (employees.length === 0) {
         console.warn('No employee records found');
@@ -448,7 +457,7 @@ export default function EmployeeReportPage() {
   const uniqueDesignations = Array.from(new Set(employeeData.map(e => getDesignationName(e)).filter(Boolean)));
 
   return (
-    <div className="h-[calc(100vh-64px)] overflow-hidden flex flex-col bg-gray-50">
+    <div className="h-[calc(100vh-64px)] overflow-hidden flex flex-col bg-white">
       <div className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-6">
@@ -627,6 +636,9 @@ export default function EmployeeReportPage() {
                       />
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      EMP ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Full Name
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -652,7 +664,7 @@ export default function EmployeeReportPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {loading ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                      <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                         <div className="flex items-center justify-center">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                           <span className="ml-3">Loading...</span>
@@ -661,7 +673,7 @@ export default function EmployeeReportPage() {
                     </tr>
                   ) : filteredEmployees.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                      <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                         <User className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                         <p className="text-lg font-medium">No employees found</p>
                         <p className="text-sm mt-1">Try adjusting your search or filters</p>
@@ -680,6 +692,9 @@ export default function EmployeeReportPage() {
                             onChange={() => handleSelectRecord(index)}
                             className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                           />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                          {employee.employeeNumber || "N/A"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {getFullName(employee)}

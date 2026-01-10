@@ -349,8 +349,6 @@ const LeaveTracker = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           {leaveTypes.map((leave) => (
             <div key={leave.id} className="relative overflow-hidden bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 group transition-all duration-300">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 opacity-[0.05] -mr-8 -mt-8 rounded-full" />
-
               <div className="flex items-center gap-4 mb-8 relative">
                 <div className={`${leave.bgColor || 'bg-gray-50'} ${leave.color || 'text-gray-600'} w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm`}>
                   {leave.icon}
@@ -373,7 +371,7 @@ const LeaveTracker = () => {
                 </div>
                 <div className="bg-[#F8FAFC] rounded-2xl p-4 text-center border border-[#F1F5F9] transition-colors">
                   <div className="text-3xl font-black text-[#0F172A]">{leave.booked}</div>
-                  <div className="text-[10px] uppercase tracking-widest font-black text-[#F97316] mt-1">Booked</div>
+                  <div className="text-[10px] uppercase tracking-widest font-black text-[#F97316] mt-1">Taken</div>
                 </div>
               </div>
             </div>

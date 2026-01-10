@@ -42,6 +42,7 @@ interface Deduction {
 
 interface PayrollEmployee {
   id: string
+  employeeNumber: string
   name: string
   department: string
   designation: string
@@ -186,7 +187,8 @@ export default function PayrunViewPage() {
                 </h1>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4">
+              <InfoBadge icon={<Briefcase className="w-4 h-4" />} label="EMP ID" value={employee.employeeNumber} />
               <InfoBadge icon={<Briefcase className="w-4 h-4" />} label="Designation" value={employee.designation} />
               <InfoBadge icon={<Building className="w-4 h-4" />} label="Department" value={employee.department} />
               <InfoBadge icon={<MapPin className="w-4 h-4" />} label="Location" value={employee.location} />

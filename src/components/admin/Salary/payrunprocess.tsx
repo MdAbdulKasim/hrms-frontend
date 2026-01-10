@@ -60,6 +60,7 @@ interface Deduction {
 
 interface PayrollEmployee {
   id: string
+  employeeNumber: string
   name: string
   department: string
   designation: string
@@ -233,6 +234,7 @@ export default function PayRunProcess() {
 
           return {
             id: emp.id || emp._id,
+            employeeNumber: emp.employeeNumber || emp.employeeId || "N/A",
             name: emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "",
             department: emp.department?.departmentName || emp.department?.name || "N/A",
             designation: emp.designation?.designationName || emp.designation?.name || "N/A",
@@ -757,6 +759,7 @@ export default function PayRunProcess() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50 hover:bg-slate-50">
+                  <TableHead className="font-semibold text-slate-700 py-4 px-4 whitespace-nowrap">EMP ID</TableHead>
                   <TableHead className="font-semibold text-slate-700 py-4 px-4 min-w-[150px]">NAME</TableHead>
                   <TableHead className="font-semibold text-slate-700 py-4 px-4 min-w-[120px]">DEPARTMENT</TableHead>
                   <TableHead className="font-semibold text-slate-700 py-4 px-4 min-w-[120px]">DESIGNATION</TableHead>
@@ -775,6 +778,9 @@ export default function PayRunProcess() {
                   const calc = calculateEmployeeSalary(emp)
                   return (
                     <TableRow key={emp.id} className="hover:bg-slate-50 transition-colors">
+                      <TableCell className="py-4 px-4 font-medium text-slate-900 whitespace-nowrap">
+                        {emp.employeeNumber}
+                      </TableCell>
                       <TableCell className="py-4 px-4 font-medium text-slate-900 truncate max-w-[150px]">{emp.name}</TableCell>
                       <TableCell className="py-4 px-4 text-slate-600 truncate max-w-[120px]">{emp.department}</TableCell>
                       <TableCell className="py-4 px-4 text-slate-600 truncate max-w-[120px]">{emp.designation}</TableCell>
