@@ -68,7 +68,7 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
 
 
     return (
-        <div className="min-h-screen bg-gray-50 p-2 sm:p-4 md:p-8">
+        <div className="min-h-screen bg-white p-2 sm:p-4 md:p-8">
             <div className="max-w-5xl mx-auto">
                 <div className="flex justify-between items-center mb-6 gap-4">
                     <h1 className="text-xl md:text-2xl font-bold">Candidate Details</h1>

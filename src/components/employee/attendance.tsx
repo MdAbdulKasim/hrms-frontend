@@ -119,7 +119,8 @@ const AttendanceTracker: React.FC = () => {
             if (finalizedData && (finalizedData.checkInTime || finalizedData.checkIn)) {
               const r = finalizedData;
               const hasCheckedIn = !!(r.checkInTime || r.checkIn);
-              const transformedStatus = hasCheckedIn ? 'Present' : (r.status || 'Absent');
+              const hasCheckedOut = !!(r.checkOutTime || r.checkOut);
+              const transformedStatus = hasCheckedIn ? (hasCheckedOut ? 'Present' : 'Present') : (r.status || 'Absent');
 
               const transformed: AttendanceRecord = {
                 date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : format(currentDate, 'yyyy-MM-dd'),
@@ -170,9 +171,9 @@ const AttendanceTracker: React.FC = () => {
                 status = isToday ? 'Present' : 'Absent';
               }
             } else {
-              status = 'Absent';
               if (rawStatus === 'late') status = 'Late';
               else if (rawStatus === 'present') status = 'Present';
+              else status = 'Absent';
             }
 
             // Override with special statuses if applicable

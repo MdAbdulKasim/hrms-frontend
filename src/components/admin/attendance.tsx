@@ -168,12 +168,26 @@ const AttendanceTracker: React.FC = () => {
 
           if (foundMyRecord) {
             // Found in daily list data
+            const hasCheckedIn = !!(foundMyRecord.checkInTime || foundMyRecord.checkIn);
+            const hasCheckedOut = !!(foundMyRecord.checkOutTime || foundMyRecord.checkOut);
+            const isToday = isSameDay(new Date(), parse(startDateStr, 'yyyy-MM-dd', new Date()));
+
+            let status = 'Absent';
+            if (hasCheckedIn) {
+              if (hasCheckedOut) {
+                status = 'Present';
+                if (foundMyRecord.status === 'Late') status = 'Late';
+              } else {
+                status = isToday ? 'Present' : 'Absent';
+              }
+            }
+
             const record = {
               date: startDateStr,
               checkInTime: foundMyRecord.checkInTime || foundMyRecord.checkIn,
               checkOutTime: foundMyRecord.checkOutTime || foundMyRecord.checkOut,
               totalHours: foundMyRecord.totalHours || foundMyRecord.hoursWorked,
-              status: foundMyRecord.status || (foundMyRecord.checkInTime ? 'Present' : 'Absent')
+              status: foundMyRecord.status || status
             };
             setAdminRecords([record]);
             adminRealTimeRecord = record;
@@ -226,13 +240,26 @@ const AttendanceTracker: React.FC = () => {
           // Use the ALREADY FETCHED dailyAttendanceData
           employeeRecords = dailyAttendanceData.map((r: any) => {
             const rawStatus = r.status?.toLowerCase();
-            let status = r.checkInTime ? 'Present' : 'Absent';
+            const hasCheckedIn = !!(r.checkInTime || r.checkIn);
+            const hasCheckedOut = !!(r.checkOutTime || r.checkOut);
+            const isToday = isSameDay(new Date(), parse(startDateStr, 'yyyy-MM-dd', new Date()));
+
+            let status = 'Absent';
+            if (hasCheckedIn) {
+              if (hasCheckedOut) {
+                status = 'Present';
+                if (rawStatus === 'late') status = 'Late';
+              } else {
+                status = isToday ? 'Present' : 'Absent';
+              }
+            } else {
+              if (rawStatus === 'late') status = 'Late';
+              else if (rawStatus === 'present') status = 'Present';
+            }
 
             if (rawStatus === 'holiday') status = 'Holiday';
             else if (rawStatus === 'leave') status = 'Leave';
             else if (rawStatus === 'weekend') status = 'Weekend';
-            else if (rawStatus === 'present' || r.checkInTime) status = 'Present';
-            else if (rawStatus === 'late') status = 'Late';
             else if (rawStatus === 'absent') status = 'Absent';
 
             return {
@@ -286,12 +313,27 @@ const AttendanceTracker: React.FC = () => {
 
             employeeRecords = data.map((r: any) => {
               const rawStatus = r.status?.toLowerCase();
-              let status = r.checkInTime ? 'Present' : 'Absent';
+              const hasCheckedIn = !!(r.checkInTime || r.checkIn);
+              const hasCheckedOut = !!(r.checkOutTime || r.checkOut);
+              const recordDateStr = r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : startDateStr;
+              const isToday = isSameDay(new Date(), parse(recordDateStr, 'yyyy-MM-dd', new Date()));
+
+              let status = 'Absent';
+              if (hasCheckedIn) {
+                if (hasCheckedOut) {
+                  status = 'Present';
+                  if (rawStatus === 'late') status = 'Late';
+                } else {
+                  status = isToday ? 'Present' : 'Absent';
+                }
+              } else {
+                if (rawStatus === 'late') status = 'Late';
+                else if (rawStatus === 'present') status = 'Present';
+              }
+
               if (rawStatus === 'holiday') status = 'Holiday';
               else if (rawStatus === 'leave') status = 'Leave';
               else if (rawStatus === 'weekend') status = 'Weekend';
-              else if (rawStatus === 'present' || r.checkInTime) status = 'Present';
-              else if (rawStatus === 'late') status = 'Late';
               else if (rawStatus === 'absent') status = 'Absent';
 
               return {

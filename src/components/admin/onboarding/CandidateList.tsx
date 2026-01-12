@@ -319,13 +319,13 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                                     >
                                                         <Pencil className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
                                                     </button>
-                                                    <button
+                                                    {/* <button
                                                         onClick={() => onDelete(employee.id)}
                                                         className="text-red-600 hover:text-red-800"
                                                         title="Delete Candidate"
                                                     >
                                                         <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
-                                                    </button>
+                                                    </button> */}
                                                 </div>
                                             </td>
                                         </tr>
