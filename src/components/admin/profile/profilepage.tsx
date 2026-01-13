@@ -11,7 +11,9 @@ import { getApiUrl, getAuthToken, getOrgId, getEmployeeId, getUserRole } from "@
 import { CustomAlertDialog } from "@/components/ui/custom-dialogs"
 import ChangePassword from "./ChangePassword"
 import ProfileForm from "./ProfileForm"
+import OrgProfilePage from "./OrgProfilePage"
 import { type FormData as ProfileFormData, initialFormData } from "./types"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const sanitizeDate = (val: any) => {
   if (!val) return "";
@@ -543,7 +545,7 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
   }
 
   return (
-    <div className="min-h-screen bg-white p-6">
+    <div className="min-h-screen bg-white p-4 sm:p-6">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -557,17 +559,17 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
               Back to Dashboard
             </Button>
           )}
-          <div className="flex justify-between items-start mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Complete Your Profile</h1>
-              <p className="text-gray-600">Please complete these steps to finish your employee profile setup.</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Profile Settings</h1>
+              <p className="text-gray-600 text-sm sm:text-base">Manage your personal and organization profile information.</p>
             </div>
-            <div className="flex gap-3">
-              <Button onClick={() => setShowPasswordChange(true)} variant="outline" className="flex items-center gap-2">
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={() => setShowPasswordChange(true)} variant="outline" className="flex items-center gap-2 text-sm">
                 Change Password
               </Button>
               {!isEditing && (
-                <Button onClick={() => setIsEditing(true)} variant="outline" className="flex items-center gap-2">
+                <Button onClick={() => setIsEditing(true)} variant="outline" className="flex items-center gap-2 text-sm">
                   <Edit className="w-4 h-4" />
                   Edit
                 </Button>
@@ -576,23 +578,55 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
           </div>
         </div>
 
-        <ProfileForm
-          formData={formData}
-          isEditing={isEditing}
-          userRole={userRole}
-          profilePicUrl={profilePicUrl}
-          selectedProfilePicFile={selectedProfilePicFile}
-          handleInputChange={handleInputChange}
-          handleSelectChange={handleSelectChange}
-          handleFileChange={handleFileChange}
-          handleAddWorkExperienceEntry={handleAddWorkExperienceEntry}
-          handleRemoveWorkExperienceEntry={handleRemoveWorkExperienceEntry}
-          handleWorkExperienceEntryChange={handleWorkExperienceEntryChange}
-          handleAddEducationEntry={handleAddEducationEntry}
-          handleRemoveEducationEntry={handleRemoveEducationEntry}
-          handleEducationEntryChange={handleEducationEntryChange}
-          handleSave={handleSave}
-        />
+        <Tabs defaultValue="your-profile" className="w-full">
+          <TabsList className="mb-8 w-full justify-start border-b rounded-none bg-transparent p-0 h-auto">
+            <TabsTrigger
+              value="your-profile"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent px-6 py-3"
+              onClick={() => setIsEditing(false)}
+            >
+              Your Profile
+            </TabsTrigger>
+            {userRole === 'admin' && (
+              <TabsTrigger
+                value="org-profile"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent px-6 py-3"
+                onClick={() => setIsEditing(false)}
+              >
+                Org Profile
+              </TabsTrigger>
+            )}
+          </TabsList>
+
+          <TabsContent value="your-profile">
+            <ProfileForm
+              formData={formData}
+              isEditing={isEditing}
+              userRole={userRole}
+              profilePicUrl={profilePicUrl}
+              selectedProfilePicFile={selectedProfilePicFile}
+              handleInputChange={handleInputChange}
+              handleSelectChange={handleSelectChange}
+              handleFileChange={handleFileChange}
+              handleAddWorkExperienceEntry={handleAddWorkExperienceEntry}
+              handleRemoveWorkExperienceEntry={handleRemoveWorkExperienceEntry}
+              handleWorkExperienceEntryChange={handleWorkExperienceEntryChange}
+              handleAddEducationEntry={handleAddEducationEntry}
+              handleRemoveEducationEntry={handleRemoveEducationEntry}
+              handleEducationEntryChange={handleEducationEntryChange}
+              handleSave={handleSave}
+            />
+          </TabsContent>
+
+          {userRole === 'admin' && (
+            <TabsContent value="org-profile">
+              <OrgProfilePage
+                isEditing={isEditing}
+                setIsEditing={setIsEditing}
+              />
+            </TabsContent>
+          )}
+        </Tabs>
       </div>
 
       <CustomAlertDialog

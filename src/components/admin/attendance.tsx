@@ -734,8 +734,8 @@ const AttendanceTracker: React.FC = () => {
                   <th className="px-2 py-2 sm:px-6 sm:py-4 text-left text-[10px] sm:text-sm font-medium text-black whitespace-nowrap responsive-header">Date</th>
                   <th className="px-2 py-2 sm:px-6 sm:py-4 text-left text-[10px] sm:text-sm font-medium text-black whitespace-nowrap responsive-header">Check In</th>
                   <th className="px-2 py-2 sm:px-6 sm:py-4 text-left text-[10px] sm:text-sm font-medium text-black whitespace-nowrap responsive-header">Check Out</th>
-                  <th className="px-2 py-2 sm:px-6 sm:py-4 text-left text-[10px] sm:text-sm font-medium text-black whitespace-nowrap text-center responsive-header">Status</th>
-                  <th className="px-2 py-2 sm:px-6 sm:py-4 text-left text-[10px] sm:text-sm font-medium text-black whitespace-nowrap text-center responsive-header">Action</th>
+                  <th className="px-2 py-2 sm:px-6 sm:py-4 text-left text-[10px] sm:text-sm font-medium text-black whitespace-nowrap responsive-header">Status</th>
+                  <th className="px-2 py-2 sm:px-6 sm:py-4 text-left text-[10px] sm:text-sm font-medium text-black whitespace-nowrap responsive-header">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -756,12 +756,12 @@ const AttendanceTracker: React.FC = () => {
                       </td>
                       <td className="px-2 py-2 sm:px-6 sm:py-4 text-[10px] sm:text-sm text-gray-700 whitespace-nowrap responsive-cell">{record.checkIn}</td>
                       <td className="px-2 py-2 sm:px-6 sm:py-4 text-[10px] sm:text-sm text-gray-700 whitespace-nowrap responsive-cell">{record.checkOut}</td>
-                      <td className="px-2 py-2 sm:px-6 sm:py-4 text-center whitespace-nowrap responsive-cell">
+                      <td className="px-2 py-2 sm:px-6 sm:py-4 text-left whitespace-nowrap responsive-cell">
                         <span className={`inline-block px-1.5 sm:px-3 py-0.5 sm:py-1 rounded-md text-[9px] sm:text-xs font-medium ${getStatusColor(record.status)}`}>
                           {record.status}
                         </span>
                       </td>
-                      <td className="px-2 py-2 sm:px-6 sm:py-4 text-center whitespace-nowrap responsive-cell">
+                      <td className="px-2 py-2 sm:px-6 sm:py-4 text-left whitespace-nowrap responsive-cell">
                         <button
                           onClick={() => {
                             setViewingRecord(record);
