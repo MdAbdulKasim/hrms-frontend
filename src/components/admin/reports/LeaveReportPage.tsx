@@ -356,89 +356,91 @@ export default function LeaveReportPage() {
   const uniqueLeaveTypes = Array.from(new Set(leaveData.map(l => l.leaveTypeCode)));
 
   return (
-    <div className="h-[calc(100vh-64px)] overflow-hidden flex flex-col bg-white">
-      <div className="flex-1 overflow-y-auto p-4 md:p-8">
-        <div className="max-w-7xl mx-auto">
+    <div className="min-h-[calc(100vh-64px)] overflow-hidden flex flex-col bg-white">
+      <div className="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4 lg:p-6 xl:p-8">
+        <div className="w-full mx-auto max-w-full">
           {/* Header */}
-          <div className="mb-6">
+          <div className="mb-4 sm:mb-5 md:mb-6">
             <button
               onClick={handleBack}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+              className="flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base text-gray-600 hover:text-gray-900 mb-2 sm:mb-3 md:mb-4 transition-colors"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="font-medium">Back</span>
             </button>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">
+            <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-0.5 sm:mb-1">
               Leave Report
             </h1>
-            <p className="text-sm md:text-base text-gray-500">
+            <p className="text-xs sm:text-sm md:text-base text-gray-500">
               Monitor leave balances, absences, and time-off patterns
             </p>
           </div>
 
           {/* Search Bar */}
-          <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-200">
-            <div className="flex flex-col md:flex-row gap-3">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 mb-4 sm:mb-5 md:mb-6 border border-gray-200">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <div className="flex-1 relative min-w-0">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search by employee, type, status, reason..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              <button
-                type="button"
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium transition-colors"
-              >
-                <Filter className="w-4 h-4" />
-                Filters
-              </button>
-              <div className="relative">
+              <div className="flex gap-2 sm:gap-3">
                 <button
-                  onClick={() => setShowExportDropdown(!showExportDropdown)}
-                  disabled={filteredLeaves.length === 0}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  type="button"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium transition-colors flex-shrink-0"
                 >
-                  <Download className="w-4 h-4" />
-                  Export
+                  <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="hidden xs:inline">Filters</span>
                 </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowExportDropdown(!showExportDropdown)}
+                    disabled={filteredLeaves.length === 0}
+                    className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex-shrink-0"
+                  >
+                    <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span className="hidden xs:inline">Export</span>
+                  </button>
 
-                {showExportDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                    <button
-                      onClick={handleExportPDF}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-gray-700 font-medium transition-colors rounded-t-lg border-b border-gray-100"
-                    >
-                      <Download className="w-4 h-4 text-red-600" />
-                      Export as PDF
-                    </button>
-                    <button
-                      onClick={handleExportExcel}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-gray-700 font-medium transition-colors rounded-b-lg"
-                    >
-                      <Download className="w-4 h-4 text-green-600" />
-                      Export as Excel
-                    </button>
-                  </div>
-                )}
+                  {showExportDropdown && (
+                    <div className="absolute right-0 mt-2 w-40 sm:w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                      <button
+                        onClick={handleExportPDF}
+                        className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-gray-50 text-left text-sm sm:text-base text-gray-700 font-medium transition-colors rounded-t-lg border-b border-gray-100"
+                      >
+                        <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600" />
+                        <span className="truncate">Export as PDF</span>
+                      </button>
+                      <button
+                        onClick={handleExportExcel}
+                        className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-gray-50 text-left text-sm sm:text-base text-gray-700 font-medium transition-colors rounded-b-lg"
+                      >
+                        <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
+                        <span className="truncate">Export as Excel</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
             {showFilters && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                       Status
                     </label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="">All Statuses</option>
                       <option value="pending">Pending</option>
@@ -446,14 +448,14 @@ export default function LeaveReportPage() {
                       <option value="rejected">Rejected</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <div className="min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                       Leave Type
                     </label>
                     <select
                       value={filterLeaveType}
                       onChange={(e) => setFilterLeaveType(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="">All Types</option>
                       {uniqueLeaveTypes.map((type) => (
@@ -464,11 +466,11 @@ export default function LeaveReportPage() {
                     </select>
                   </div>
                 </div>
-                <div className="mt-3 flex justify-end">
+                <div className="mt-2 sm:mt-3 flex justify-end">
                   <button
                     type="button"
                     onClick={handleClearFilters}
-                    className="text-sm text-gray-600 hover:text-gray-900 font-medium"
+                    className="text-xs sm:text-sm text-gray-600 hover:text-gray-900 font-medium"
                   >
                     Clear Filters
                   </button>
@@ -477,21 +479,6 @@ export default function LeaveReportPage() {
             )}
           </div>
 
-          {selectedRecords.size > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-center justify-between">
-              <p className="text-sm font-medium text-blue-900">
-                {selectedRecords.size} record{selectedRecords.size !== 1 ? 's' : ''} selected
-              </p>
-              <button
-                onClick={handleCancelSelection}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-              >
-                <X className="w-4 h-4" />
-                Cancel Selection
-              </button>
-            </div>
-          )}
-
           {showExportDropdown && (
             <div
               className="fixed inset-0 z-0"
@@ -499,125 +486,144 @@ export default function LeaveReportPage() {
             />
           )}
 
+          {selectedRecords.size > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-5 md:mb-6 flex flex-col xs:flex-row items-start xs:items-center justify-between gap-2 sm:gap-3">
+              <p className="text-xs sm:text-sm font-medium text-blue-900">
+                {selectedRecords.size} record{selectedRecords.size !== 1 ? 's' : ''} selected
+              </p>
+              <button
+                onClick={handleCancelSelection}
+                className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors w-full xs:w-auto"
+              >
+                <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                Cancel Selection
+              </button>
+            </div>
+          )}
+
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg mb-4 sm:mb-5 md:mb-6 text-sm sm:text-base">
               <p className="font-medium">Error: {error}</p>
             </div>
           )}
 
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
-                  <tr>
-                    <th className="px-6 py-3 text-left">
-                      <input
-                        type="checkbox"
-                        checked={selectAll}
-                        onChange={handleSelectAll}
-                        disabled={filteredLeaves.length === 0}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      EMP ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Employee
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Leave Type
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Start Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      End Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Days
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Reason
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {loading ? (
+            <div className="overflow-x-auto w-full">
+              <div className="min-w-[800px] sm:min-w-0">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
-                        <div className="flex items-center justify-center">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                          <span className="ml-3">Loading...</span>
-                        </div>
-                      </td>
+                      <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-2.5 md:py-3 text-left">
+                        <input
+                          type="checkbox"
+                          checked={selectAll}
+                          onChange={handleSelectAll}
+                          disabled={filteredLeaves.length === 0}
+                          className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                      </th>
+                      <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-2.5 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        EMP ID
+                      </th>
+                      <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-2.5 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        Employee
+                      </th>
+                      <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-2.5 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        Leave Type
+                      </th>
+                      <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-2.5 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        Start Date
+                      </th>
+                      <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-2.5 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        End Date
+                      </th>
+                      <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-2.5 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        Days
+                      </th>
+                      <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-2.5 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        Status
+                      </th>
+                      <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-2.5 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        Reason
+                      </th>
                     </tr>
-                  ) : filteredLeaves.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
-                        <Search className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                        <p className="text-lg font-medium">No leave records found</p>
-                        <p className="text-sm mt-1">Try adjusting your search or filters</p>
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredLeaves.map((leave, index) => (
-                      <tr
-                        key={leave.id}
-                        className={`hover:bg-gray-50 transition-colors ${selectedRecords.has(index) ? 'bg-blue-50' : ''
-                          }`}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <input
-                            type="checkbox"
-                            checked={selectedRecords.has(index)}
-                            onChange={() => handleSelectRecord(index)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
-                          {leave.employeeNumber || "N/A"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {leave.employeeName || "N/A"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {leave.leaveTypeCode}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(leave.startDate).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(leave.endDate).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {leave.totalDays || 0}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                              leave.status
-                            )}`}
-                          >
-                            {leave.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                          {leave.reason || "-"}
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={9} className="px-2 sm:px-3 md:px-4 lg:px-6 py-8 sm:py-10 md:py-12 text-center text-gray-500">
+                          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
+                            <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-600"></div>
+                            <span className="text-sm sm:text-base">Loading...</span>
+                          </div>
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : filteredLeaves.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="px-2 sm:px-3 md:px-4 lg:px-6 py-8 sm:py-10 md:py-12 text-center text-gray-500">
+                          <div className="flex flex-col items-center justify-center">
+                            <Search className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 mx-auto mb-2 sm:mb-3 text-gray-400" />
+                            <p className="text-base sm:text-lg md:text-lg font-medium">No leave records found</p>
+                            <p className="text-xs sm:text-sm md:text-sm mt-1">Try adjusting your search or filters</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredLeaves.map((leave, index) => (
+                        <tr
+                          key={leave.id}
+                          className={`hover:bg-gray-50 transition-colors ${selectedRecords.has(index) ? 'bg-blue-50' : ''
+                            }`}
+                        >
+                          <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              checked={selectedRecords.has(index)}
+                              onChange={() => handleSelectRecord(index)}
+                              className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 font-bold truncate max-w-[60px] sm:max-w-[80px] md:max-w-none">
+                            {leave.employeeNumber || "N/A"}
+                          </td>
+                          <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900 truncate max-w-[80px] sm:max-w-[120px] md:max-w-none">
+                            {leave.employeeName || "N/A"}
+                          </td>
+                          <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 truncate max-w-[80px] sm:max-w-[120px] md:max-w-none">
+                            {leave.leaveTypeCode}
+                          </td>
+                          <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
+                            {new Date(leave.startDate).toLocaleDateString()}
+                          </td>
+                          <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
+                            {new Date(leave.endDate).toLocaleDateString()}
+                          </td>
+                          <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                            {leave.totalDays || 0}
+                          </td>
+                          <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap">
+                            <span
+                              className={`px-1.5 sm:px-2 py-0.5 sm:py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
+                                leave.status
+                              )}`}
+                            >
+                              {leave.status}
+                            </span>
+                          </td>
+                          <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 text-xs sm:text-sm text-gray-500 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                            {leave.reason || "-"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
           {!loading && filteredLeaves.length > 0 && (
-            <div className="mt-4 text-sm text-gray-600 text-center">
+            <div className="mt-3 sm:mt-4 text-xs sm:text-sm text-gray-600 text-center">
               Showing {filteredLeaves.length} of {leaveData.length} records
             </div>
           )}
