@@ -62,12 +62,14 @@ export default function WPSSIFPage() {
     try {
       const headers = { Authorization: `Bearer ${token}` }
 
-      // Fetch employees and salary records in parallel
-      const [empRes, salaryRes] = await Promise.all([
+      // Fetch organization, employees and salary records in parallel
+      const [orgRes, empRes, salaryRes] = await Promise.all([
+        axios.get(`${apiUrl}/org/${orgId}`, { headers }),
         axios.get(`${apiUrl}/org/${orgId}/employees`, { headers }),
         axios.get(`${apiUrl}/org/${orgId}/salaries`, { headers })
       ])
 
+      const orgData = orgRes.data.data || orgRes.data || {}
       const empData = empRes.data.data || empRes.data || []
       const salaryRecords = salaryRes.data.data || salaryRes.data || []
 
@@ -76,10 +78,9 @@ export default function WPSSIFPage() {
       const currentYear = selectedYear
 
       // Set Summary from organization data
-      const orgData = empData[0]?.organization
       setSummary({
         payrollMonth: `${String(currentMonth).padStart(2, '0')}-${currentYear}`,
-        companyMolCode: orgData?.molCode || "12345",
+        companyMolCode: orgData?.molCode || "N/A",
       })
 
       // Filter salary records for current month/year and "Paid" status

@@ -10,8 +10,15 @@ interface Location {
     code: string;
     city: string;
     country: string;
-    addressLine1?: string;
-    addressLine2?: string;
+    sites?: {
+        id: string;
+        name: string;
+        buildings: {
+            id: string;
+            name: string;
+            floor?: string;
+        }[];
+    }[];
 }
 
 interface LocationTabProps {
@@ -45,11 +52,24 @@ export default function LocationTab({
             const apiUrl = getApiUrl();
             if (!orgId || !token) return;
 
+            const siteId = Math.random().toString(36).substring(2, 11);
+            const buildingId = Math.random().toString(36).substring(2, 11);
+
             const payload = {
                 name: locForm.name,
                 code: locForm.code,
-                addressLine1: locForm.site,
-                addressLine2: locForm.building,
+                sites: [
+                    {
+                        id: siteId,
+                        name: locForm.site,
+                        buildings: [
+                            {
+                                id: buildingId,
+                                name: locForm.building
+                            }
+                        ]
+                    }
+                ],
                 city: locForm.city,
                 state: locForm.state,
                 country: locForm.country,
@@ -169,8 +189,8 @@ export default function LocationTab({
                                     locations.map((loc) => (
                                         <tr key={loc.id} className="hover:bg-blue-50/30 transition-colors group">
                                             <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{loc.name}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{loc.addressLine1 || "-"}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{loc.addressLine2 || "-"}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{loc.sites?.[0]?.name || "-"}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{loc.sites?.[0]?.buildings?.[0]?.name || "-"}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{loc.city}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{loc.country}</td>
                                             <td className="px-6 py-4 whitespace-nowrap">
@@ -200,9 +220,9 @@ export default function LocationTab({
                                         <div className="space-y-1">
                                             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Address</p>
                                             <p className="text-xs text-gray-600">
-                                                {loc.addressLine1 || loc.addressLine2
-                                                    ? `${loc.addressLine1 || ''}${loc.addressLine1 && loc.addressLine2 ? ', ' : ''}${loc.addressLine2 || ''}`
-                                                    : 'No address details'}
+                                                {loc.sites?.[0]?.name || loc.sites?.[0]?.buildings?.[0]?.name
+                                                    ? `${loc.sites[0].name || ''}${loc.sites[0].name && loc.sites[0].buildings?.[0]?.name ? ', ' : ''}${loc.sites[0].buildings?.[0]?.name || ''}`
+                                                    : 'No site/building details'}
                                             </p>
                                         </div>
                                         <div className="space-y-1">
