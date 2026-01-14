@@ -7,7 +7,7 @@ import { getApiUrl, getAuthToken, getOrgId } from "@/lib/auth";
 import DepartmentTab from "./DepartmentTab";
 import DesignationTab from "./DesignationTab";
 import LocationTab from "./LocationTab";
-import ShiftTab from "./ShiftTab";
+
 
 export default function ManageSection() {
     const [activeTab, setActiveTab] = useState("departments");
@@ -80,7 +80,7 @@ export default function ManageSection() {
                         { id: "departments", label: "Departments" },
                         { id: "designations", label: "Designations" },
                         { id: "locations", label: "Locations" },
-                        { id: "shifts", label: "Shifts" }
+                        
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -128,14 +128,7 @@ export default function ManageSection() {
                                 onRefresh={refreshData}
                             />
                         )}
-                        {activeTab === "shifts" && (
-                            <ShiftTab
-                                shifts={shifts}
-                                formVisible={formVisible}
-                                setFormVisible={setFormVisible}
-                                onRefresh={refreshData}
-                            />
-                        )}
+                        
                     </div>
                 )}
             </div>

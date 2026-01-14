@@ -382,7 +382,7 @@ const BulkImport: React.FC<BulkImportProps> = ({
                         role: 'employee',
                         empType: String(getColVal('empType') || 'permanent').trim().toLowerCase(),
                         timeZone: String(getColVal('timeZone') || 'Asia/Kolkata').trim(),
-                        employeeStatus: String(getColVal('employeeStatus') || 'Active').trim(),
+                        status: String(getColVal('employeeStatus') || 'Active').trim(),
                         allowances: {
                             homeClaimed: false, homeAllowancePercentage: 0,
                             foodClaimed: false, foodAllowancePercentage: 0,
@@ -527,7 +527,7 @@ const BulkImport: React.FC<BulkImportProps> = ({
 
                     // Direct mappings
                     const directFields = ['fullName', 'email', 'phoneNumber', 'dateOfJoining', 'contractType',
-                        'contractStartDate', 'contractEndDate', 'timeZone', 'employeeStatus', 'empType',
+                        'contractStartDate', 'contractEndDate', 'timeZone', 'empType',
                         'dateOfBirth', 'gender', 'maritalStatus', 'bloodGroup', 'passportNumber', 'teamPosition',
                         'iban', 'drivingLicenseNumber'
                     ];
@@ -536,6 +536,12 @@ const BulkImport: React.FC<BulkImportProps> = ({
                         const val = getColVal(field);
                         if (val !== undefined && val !== '') updateData[field] = String(val).trim();
                     });
+
+                    // Manual mapping for status
+                    const empStatus = getColVal('employeeStatus');
+                    if (empStatus !== undefined && empStatus !== '') {
+                        updateData.status = String(empStatus).trim();
+                    }
 
                     // Update Map for allowances and deductions
                     const allowType = String(getColVal('allowanceType') || '').toLowerCase().trim();

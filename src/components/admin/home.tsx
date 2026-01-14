@@ -98,6 +98,13 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, initialIsCh
     return () => { if (interval) clearInterval(interval); };
   }, [isCheckedIn]);
 
+  // Sync profile image from currentUser prop
+  useEffect(() => {
+    if (currentUser?.profileImage) {
+      setProfileImage(currentUser.profileImage);
+    }
+  }, [currentUser?.profileImage]);
+
   const formatTime = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -170,40 +177,13 @@ const ProfileCard = ({ currentUser, token, orgId, currentEmployeeId, initialIsCh
   return (
     <div className="bg-white rounded-xl shadow-sm p-6 flex flex-col items-center text-center border border-gray-100 w-full">
       <div className="relative group">
-        <input
-          type="file"
-          id="profile-upload"
-          accept="image/*"
-          onChange={handleImageUpload}
-          className="hidden"
-        />
-        <label
-          htmlFor="profile-upload"
-          className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-gray-400 cursor-pointer overflow-hidden hover:opacity-80 transition-opacity"
-        >
+        <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-gray-400 overflow-hidden">
           {profileImage ? (
             <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
           ) : (
             <User size={40} />
           )}
-        </label>
-        <div className="absolute bottom-3 right-0 bg-blue-500 rounded-full p-1 cursor-pointer z-10">
-          <label htmlFor="profile-upload" className="cursor-pointer flex">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-            </svg>
-          </label>
         </div>
-        {profileImage && (
-          <div
-            onClick={handleRemoveImage}
-            className="absolute bottom-3 left-0 bg-red-500 rounded-full p-1 cursor-pointer hover:bg-red-600 transition-colors z-10"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-          </div>
-        )}
       </div>
       <h2 className="text-gray-800 font-medium text-sm break-all">{currentUser?.firstName ? `${currentUser.firstName}${currentUser.lastName ? ' ' + currentUser.lastName : ''}` : 'Loading...'}</h2>
       <p className="text-gray-500 text-xs mt-1">{currentUser?.designation || 'N/A'}</p>
@@ -632,8 +612,26 @@ export default function Dashboard() {
           firstName: firstName || '',
           lastName: lastName || '',
           designation: (typeof userData.designation === 'object' ? userData.designation?.name : userData.designation) || 'N/A',
-          profileImage: userData.profileImage
+          profileImage: userData.profileImage || userData.profilePicUrl
         });
+
+        // Fetch profile picture if available
+        if (userData.profileImage || userData.profilePicUrl) {
+          try {
+            // Use axios with explicit headers since we have the token
+            const picResponse = await axios.get(`${apiUrl}/org/${authOrgId}/employees/${authEmployeeId}/profile-pic`, {
+              headers: { Authorization: `Bearer ${authToken}` }
+            });
+
+            // Check if response has data.imageUrl
+            const picData = picResponse.data;
+            if (picData.success && picData.imageUrl) {
+              setCurrentUser(prev => prev ? { ...prev, profileImage: picData.imageUrl } : null);
+            }
+          } catch (picError) {
+            console.error("Failed to fetch specific profile picture:", picError);
+          }
+        }
 
         // Fetch attendance status for all employees
         let attendanceMap: Record<string, boolean> = {};
