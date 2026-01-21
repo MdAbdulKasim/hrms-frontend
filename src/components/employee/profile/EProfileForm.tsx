@@ -147,7 +147,7 @@ export default function EProfileForm({
                             name="emailAddress"
                             value={formData.emailAddress}
                             onChange={handleInputChange}
-                            disabled={!isEditing}
+                            disabled={true}
                             placeholder="Email Address"
                         />
                     </div>

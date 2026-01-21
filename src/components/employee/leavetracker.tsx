@@ -121,8 +121,11 @@ const LeaveTracker = () => {
           const usedDays = Number(type.usedDays) || 0;
           const pendingDays = Number(type.pendingDays) || 0;
           const totalDays = Number(type.defaultDays) || 0;
-          const booked = usedDays + pendingDays;
-          const available = Math.max(0, totalDays - booked);
+
+          // "Taken" shows only approved leaves
+          const booked = usedDays;
+          // "Available" only subtracts approved leaves; pending leaves remain available until approved
+          const available = Math.max(0, totalDays - usedDays);
 
           return {
             id: code,
@@ -263,9 +266,10 @@ const LeaveTracker = () => {
           const pendingDays = Number(type.pendingDays) || 0;
           const totalDays = Number(type.defaultDays) || 0;
 
-          // Calculate available days, ensuring it's never negative or NaN
-          const booked = usedDays + pendingDays;
-          const available = Math.max(0, totalDays - booked);
+          // "Taken" shows only approved leaves
+          const booked = usedDays;
+          // "Available" only subtracts approved leaves; pending leaves remain available until approved
+          const available = Math.max(0, totalDays - usedDays);
 
           return {
             id: code,

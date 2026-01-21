@@ -79,7 +79,7 @@ const ViewLeaveDetails: React.FC<ViewLeaveDetailsProps> = ({ leave, onClose }) =
                     <div className={`flex items-center justify-between p-4 rounded-xl border ${statusStyle.border} ${statusStyle.bg} ${statusStyle.text}`}>
                         <div className="flex items-center gap-3">
                             {statusStyle.icon}
-                            <span className="font-semibold capitalize">Status: {leave.status}</span>
+                            <span className="font-semibold capitalize">Status: {leave.status.toLowerCase() === 'approved' ? 'Taken' : leave.status}</span>
                         </div>
                         {leave.isLWP && (
                             <span className="text-[10px] bg-amber-500 text-white font-black px-2 py-1 rounded shadow-sm uppercase tracking-wider">Leave Without Pay</span>
