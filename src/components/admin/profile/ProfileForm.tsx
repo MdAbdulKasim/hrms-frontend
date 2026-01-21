@@ -149,7 +149,7 @@ export default function ProfileForm({
                             name="emailAddress"
                             value={formData.emailAddress}
                             onChange={handleInputChange}
-                            disabled={!isEditing}
+                            disabled={true}
                             placeholder="Email Address"
                         />
                     </div>
@@ -264,7 +264,7 @@ export default function ProfileForm({
                             name="site"
                             value={formData.site}
                             onChange={handleInputChange}
-                            disabled={true}
+                            disabled={!isEditing}
                             placeholder="Site"
                         />
                     </div>
@@ -274,7 +274,7 @@ export default function ProfileForm({
                             name="building"
                             value={formData.building}
                             onChange={handleInputChange}
-                            disabled={true}
+                            disabled={!isEditing}
                             placeholder="Building / Area"
                         />
                     </div>
@@ -952,7 +952,7 @@ export default function ProfileForm({
                         <Input
                             value={formData.bankDetails.bankName}
                             onChange={(e) => handleInputChange(e, "bankDetails", "bankName")}
-                            disabled={true}
+                            disabled={!isEditing}
                             placeholder="Bank Name"
                         />
                     </div>
@@ -961,7 +961,7 @@ export default function ProfileForm({
                         <Input
                             value={formData.bankDetails.branchName}
                             onChange={(e) => handleInputChange(e, "bankDetails", "branchName")}
-                            disabled={true}
+                            disabled={!isEditing}
                             placeholder="Branch Name"
                         />
                     </div>
@@ -972,7 +972,7 @@ export default function ProfileForm({
                         <Input
                             value={formData.bankDetails.accountNumber}
                             onChange={(e) => handleInputChange(e, "bankDetails", "accountNumber")}
-                            disabled={true}
+                            disabled={!isEditing}
                             placeholder="Account Number"
                         />
                     </div>
@@ -981,7 +981,7 @@ export default function ProfileForm({
                         <Input
                             value={formData.bankDetails.accountHolderName}
                             onChange={(e) => handleInputChange(e, "bankDetails", "accountHolderName")}
-                            disabled={true}
+                            disabled={!isEditing}
                             placeholder="Account Holder Name"
                         />
                     </div>
@@ -992,7 +992,7 @@ export default function ProfileForm({
                         <Input
                             value={formData.bankDetails.ifscCode}
                             onChange={(e) => handleInputChange(e, "bankDetails", "ifscCode")}
-                            disabled={true}
+                            disabled={!isEditing}
                             placeholder="IFSC Code"
                         />
                     </div>

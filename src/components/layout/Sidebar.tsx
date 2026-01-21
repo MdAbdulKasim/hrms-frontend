@@ -115,18 +115,16 @@ export default function Sidebar({
         }`}
     >
       {/* Brand Section */}
-      <div className={`h-16 md:h-20 flex items-center justify-between px-6 ${isDesktopCollapsed ? "md:justify-center md:px-0" : ""}`}>
+      <div className={`h-20 md:h-28 flex items-center justify-between px-25 ${isDesktopCollapsed ? "md:justify-center md:px-0" : ""}`}>
         <div
-          className="flex items-center gap-3 cursor-pointer group"
+          className={`flex items-center cursor-pointer group w-full ${isDesktopCollapsed ? "justify-center" : "justify-start"}`}
           onClick={() => window.location.href = userRole === 'admin' ? '/admin/my-space/overview' : '/employee/my-space/overview'}
         >
-          <div className="w-10 h-10 bg-blue-600 rounded-xl text-white flex items-center justify-center font-bold text-lg shadow-lg shadow-blue-600/20 group-hover:scale-105 transition-transform shrink-0">
-            HR
-          </div>
-          <div className={`flex flex-col overflow-hidden transition-all duration-300 ${isDesktopCollapsed ? "md:w-0 md:opacity-0" : "w-auto opacity-100"}`}>
-            <span className="text-xl font-bold text-gray-900 tracking-tight leading-none">HRMS</span>
-            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">Enterprise</span>
-          </div>
+          <img
+            src="/logo.png"
+            alt="Logo"
+            className={`transition-all duration-300 object-contain ${isDesktopCollapsed ? "w-12 h-12" : "w-24 h-24 md:w-56 md:h-56"}`}
+          />
         </div>
 
         <button
