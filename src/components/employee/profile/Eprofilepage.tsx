@@ -70,6 +70,28 @@ export default function EmployeeProfilePage() {
 
         const employee = response.data?.data || response.data
 
+        // Handle bankDetails - backend can return it as array or object
+        const bankData = (employee.bankDetails && Array.isArray(employee.bankDetails) && employee.bankDetails.length > 0)
+          ? employee.bankDetails[0]
+          : (typeof employee.bankDetails === 'object' && employee.bankDetails !== null && !Array.isArray(employee.bankDetails))
+            ? employee.bankDetails
+            : null
+
+        // Helper function to get site name from location
+        const getSiteName = (loc: any, siteId: string) => {
+          if (!loc || !loc.sites || !siteId) return "";
+          const site = loc.sites.find((s: any) => s.id === siteId || s._id === siteId || s.name === siteId);
+          return site ? (site.name || site.siteName || "") : siteId;
+        };
+
+        // Helper function to get building name from location
+        const getBuildingName = (loc: any, siteId: string, buildingId: string) => {
+          if (!loc || !loc.sites || !siteId || !buildingId) return "";
+          const site = loc.sites.find((s: any) => s.id === siteId || s._id === siteId || s.name === siteId);
+          if (!site || !site.buildings) return buildingId;
+          const building = site.buildings.find((b: any) => b.id === buildingId || b._id === buildingId || b.name === buildingId);
+          return building ? (building.name || building.buildingName || "") : buildingId;
+        };
 
         setFormData({
           fullName: employee.fullName ||
@@ -89,8 +111,8 @@ export default function EmployeeProfilePage() {
           teamPosition: employee.teamPosition || "",
           shift: employee.shiftType || employee.shift?.name || employee.shift || "",
           location: employee.location?.name || "",
-          site: employee.site?.name || employee.site || "",
-          building: employee.building?.name || employee.building || "",
+          site: getSiteName(employee.location, employee.siteId) || "",
+          building: getBuildingName(employee.location, employee.siteId, employee.buildingId) || "",
           timeZone: employee.timeZone || "",
           dateOfBirth: sanitizeDate(employee.dateOfBirth),
           gender: employee.gender || "",
@@ -116,11 +138,11 @@ export default function EmployeeProfilePage() {
           drivingLicenseDocUrl: employee.drivingLicenseDocUrl || "",
           basicSalary: employee.basicSalary || "",
           bankDetails: {
-            bankName: employee.bankDetails?.bankName || employee.bankName || "",
-            branchName: employee.bankDetails?.branchName || employee.branchName || "",
-            accountNumber: employee.bankDetails?.accountNumber || employee.accountNumber || "",
-            accountHolderName: employee.bankDetails?.accountHolderName || employee.accountHolderName || "",
-            ifscCode: employee.bankDetails?.ifscCode || employee.ifscCode || "",
+            bankName: bankData?.bankName || employee.bankName || "",
+            branchName: bankData?.branchName || employee.branchName || "",
+            accountNumber: bankData?.accountNumber || employee.accountNumber || "",
+            accountHolderName: bankData?.accountHolderName || employee.accountHolderName || "",
+            ifscCode: bankData?.ifscCode || employee.ifscCode || "",
           },
           workExperience: (employee.experience || []).map((exp: any) => ({
             companyName: exp.companyName || "",
@@ -155,6 +177,8 @@ export default function EmployeeProfilePage() {
         })
 
 
+
+
         if (employee.profilePicUrl) {
           try {
             const picResponse = await axios.get(`${apiUrl}/org/${orgId}/employees/${employeeId}/profile-pic`, {
@@ -168,6 +192,30 @@ export default function EmployeeProfilePage() {
           }
         } else {
           setProfilePicUrl(null)
+        }
+
+        // Fetch contract data
+        if (employee.employeeNumber) {
+          try {
+            const contractResponse = await axios.get(`${apiUrl}/org/${orgId}/contracts/employee/${employee.employeeNumber}/active`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+
+            if (contractResponse.data && typeof contractResponse.data !== 'string') {
+              const contract = contractResponse.data.data || contractResponse.data
+
+              // Update form data with contract information
+              setFormData(prev => ({
+                ...prev,
+                contractType: contract.contractType || "",
+                contractStartDate: sanitizeDate(contract.startDate),
+                contractEndDate: sanitizeDate(contract.endDate),
+              }))
+            }
+          } catch (error) {
+            console.log("No active contract found or failed to fetch contract data")
+            // Contract is optional, so we don't show an error
+          }
         }
       } catch (error: any) {
         console.error("Failed to fetch employee data:", error)
@@ -337,89 +385,78 @@ export default function EmployeeProfilePage() {
       Object.keys(formData).forEach(key => {
         const value = formData[key as keyof ProfileFormData]
 
-        // Backend expects 'presentAddress' for the address fields, not 'address'
+        // Backend expects 'presentAddress' for the address fields
         if (key === 'address') {
           formDataToSend.append('presentAddress', JSON.stringify(value))
           return
         }
 
-        // Handle bankDetails: Send as JSON array to match backend expectation
+        // Handle emergencyContact - backend expects specific field names
+        if (key === 'emergencyContact') {
+          formDataToSend.append('emergencyContact', JSON.stringify(value))
+          return
+        }
+
+        // Handle bankDetails - send as object, not array
         if (key === 'bankDetails') {
-          const bankDetailsArray = Array.isArray(value) ? value : [value];
-          formDataToSend.append('bankDetails', JSON.stringify(bankDetailsArray))
+          formDataToSend.append('bankDetails', JSON.stringify(value))
           return
         }
 
-        // Handle site and building mapping
-        if (key === 'site') {
-          formDataToSend.append('siteId', String(value || ''))
-          return
-        }
-        if (key === 'building') {
-          formDataToSend.append('buildingId', String(value || ''))
+        // Handle workExperience - backend expects 'experience'
+        if (key === 'workExperience') {
+          formDataToSend.append('workExperience', JSON.stringify(value))
           return
         }
 
-        // Map employeeStatus -> status
-        if (key === 'employeeStatus') {
-          formDataToSend.append('status', String(value || ''))
+        // Handle education
+        if (key === 'education') {
+          formDataToSend.append('education', JSON.stringify(value))
           return
         }
 
-        // Exclude read-only or handled differently fields
+        // Exclude read-only fields and document URLs (handled separately)
         if ([
+          'employeeNumber', 'role', 'department', 'designation', 'reportingTo',
+          'location', 'site', 'building', 'employeeStatus',
           'contractType', 'contractStartDate', 'contractEndDate',
           'uanDocUrl', 'panDocUrl', 'aadhaarDocUrl',
           'passportDocUrl', 'drivingLicenseDocUrl', 'ibanDocUrl',
-          'uan', 'pan', 'aadhaarNumber'
+          'uan', 'pan', 'aadhaarNumber', 'basicSalary'
         ].includes(key)) {
           return
         }
 
-        if ((key === 'basicSalary' || key === 'salary') && !value) {
+        // Handle date fields - only send if valid
+        const dateFields = ['dateOfBirth', 'dateOfJoining'];
+        if (dateFields.includes(key)) {
+          if (value && value !== "" && !String(value).includes("NaN")) {
+            formDataToSend.append(key, String(value))
+          }
           return
         }
 
-        if (
-          key === 'workExperience' ||
-          key === 'education' ||
-          key === 'emergencyContact'
-        ) {
-          formDataToSend.append(key, JSON.stringify(value))
-        } else {
-          // Robust handling for dates and numeric fields to prevent 500 errors
-          const dateFields = ['dateOfBirth', 'dateOfJoining', 'contractStartDate', 'contractEndDate'];
-          const numericFields = ['basicSalary', 'salary', 'totalExperience', 'currentExperience'];
-
-          const isDate = dateFields.includes(key);
-          const isNumeric = numericFields.includes(key);
-
-          if (isDate && (value === "" || String(value).includes("NaN"))) {
-            return;
-          }
-
-          if (isNumeric && (!value || value === "" || isNaN(Number(value)))) {
-            return;
-          }
-
+        // Send all other editable fields
+        if (value !== null && value !== undefined && value !== '') {
           if (typeof value === 'boolean') {
             formDataToSend.append(key, String(value));
           } else {
-            formDataToSend.append(key, String(value || ''))
+            formDataToSend.append(key, String(value))
           }
         }
-
-
       })
 
+      // Add profile picture if selected
       if (selectedProfilePicFile) {
         formDataToSend.append('profilePic', selectedProfilePicFile)
       }
 
+      // Add other document files
       Object.keys(selectedFiles).forEach(fieldName => {
         formDataToSend.append(fieldName, selectedFiles[fieldName])
       })
 
+      // Send update request
       await axios.put(`${apiUrl}/org/${orgId}/employees/${employeeId}`, formDataToSend, {
         headers: {
           Authorization: `Bearer ${token}`
@@ -429,20 +466,154 @@ export default function EmployeeProfilePage() {
       setIsEditing(false)
       setSelectedFiles({})
 
-      // Refresh data
+      // Refresh employee data
       const refreshResponse = await axios.get(`${apiUrl}/org/${orgId}/employees/${employeeId}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      const refreshedEmployee = refreshResponse.data?.data || refreshResponse.data
+      const employee = refreshResponse.data?.data || refreshResponse.data
 
-      // Re-map the data
-      // (Similar to useEffect fetch logic - keep it updated)
-      // I'll skip the full re-mapping here for brevity as the logic is identical to useEffect
-      // but ideally you'd encapsulate the mapping logic.
+      // Handle bankDetails - backend can return it as array or object
+      const bankData = (employee.bankDetails && Array.isArray(employee.bankDetails) && employee.bankDetails.length > 0)
+        ? employee.bankDetails[0]
+        : (typeof employee.bankDetails === 'object' && employee.bankDetails !== null && !Array.isArray(employee.bankDetails))
+          ? employee.bankDetails
+          : null
+
+      // Helper function to get site name from location
+      const getSiteName = (loc: any, siteId: string) => {
+        if (!loc || !loc.sites || !siteId) return "";
+        const site = loc.sites.find((s: any) => s.id === siteId || s._id === siteId || s.name === siteId);
+        return site ? (site.name || site.siteName || "") : siteId;
+      };
+
+      // Helper function to get building name from location
+      const getBuildingName = (loc: any, siteId: string, buildingId: string) => {
+        if (!loc || !loc.sites || !siteId || !buildingId) return "";
+        const site = loc.sites.find((s: any) => s.id === siteId || s._id === siteId || s.name === siteId);
+        if (!site || !site.buildings) return buildingId;
+        const building = site.buildings.find((b: any) => b.id === buildingId || b._id === buildingId || b.name === buildingId);
+        return building ? (building.name || building.buildingName || "") : buildingId;
+      };
+
+      // Update form data with refreshed data
+      setFormData({
+        fullName: employee.fullName ||
+          (employee.firstName && employee.lastName
+            ? `${employee.firstName} ${employee.lastName}`.trim()
+            : ""),
+        employeeNumber: employee.employeeNumber || employee.employeeId || "",
+        emailAddress: employee.email || "",
+        mobileNumber: employee.phoneNumber || employee.mobileNumber || "",
+        role: employee.role || "",
+        department: employee.department?.departmentName || employee.department?.name || "",
+        designation: employee.designation?.name || "",
+        reportingTo: employee.reportingTo?.fullName ||
+          (employee.reportingTo?.firstName && employee.reportingTo?.lastName
+            ? `${employee.reportingTo.firstName} ${employee.reportingTo.lastName}`.trim()
+            : employee.reportingTo?.name || ""),
+        teamPosition: employee.teamPosition || "",
+        shift: employee.shiftType || employee.shift?.name || employee.shift || "",
+        location: employee.location?.name || "",
+        site: getSiteName(employee.location, employee.siteId) || "",
+        building: getBuildingName(employee.location, employee.siteId, employee.buildingId) || "",
+        timeZone: employee.timeZone || "",
+        dateOfBirth: sanitizeDate(employee.dateOfBirth),
+        gender: employee.gender || "",
+        maritalStatus: employee.maritalStatus || "",
+        bloodGroup: employee.bloodGroup || "",
+        empType: employee.empType || "",
+        employeeStatus: employee.employeeStatus || employee.status || "",
+        dateOfJoining: sanitizeDate(employee.dateOfJoining),
+        contractType: employee.contractType || "",
+        contractStartDate: sanitizeDate(employee.contractStartDate),
+        contractEndDate: sanitizeDate(employee.contractEndDate),
+        iban: employee.iban || "",
+        ibanDocUrl: employee.ibanDocUrl || "",
+        passportNumber: employee.passportNumber || "",
+        passportDocUrl: employee.passportDocUrl || "",
+        drivingLicenseNumber: employee.drivingLicenseNumber || "",
+        drivingLicenseDocUrl: employee.drivingLicenseDocUrl || "",
+        basicSalary: employee.basicSalary || "",
+        bankDetails: {
+          bankName: bankData?.bankName || employee.bankName || "",
+          branchName: bankData?.branchName || employee.branchName || "",
+          accountNumber: bankData?.accountNumber || employee.accountNumber || "",
+          accountHolderName: bankData?.accountHolderName || employee.accountHolderName || "",
+          ifscCode: bankData?.ifscCode || employee.ifscCode || "",
+        },
+        workExperience: (employee.experience || []).map((exp: any) => ({
+          companyName: exp.companyName || "",
+          jobTitle: exp.jobTitle || "",
+          fromDate: sanitizeDate(exp.fromDate),
+          toDate: sanitizeDate(exp.toDate),
+          currentlyWorkHere: !exp.toDate,
+          jobDescription: exp.jobDescription || "",
+          documentUrl: exp.documentUrl || "",
+        })),
+        education: (employee.education || []).map((edu: any) => ({
+          instituteName: edu.instituteName || "",
+          degree: edu.degree || "",
+          fieldOfStudy: edu.specialization || edu.fieldOfStudy || "",
+          startYear: sanitizeYear(edu.startyear || edu.startYear),
+          endYear: sanitizeYear(edu.dateOfCompletion || edu.endyear || edu.endYear),
+          documentUrl: edu.documentUrl || "",
+        })),
+        address: {
+          addressLine1: employee.presentAddressLine1 || employee.presentAddress?.addressLine1 || "",
+          addressLine2: employee.presentAddressLine2 || employee.presentAddress?.addressLine2 || "",
+          city: employee.presentCity || employee.presentAddress?.city || "",
+          state: employee.presentState || employee.presentAddress?.state || "",
+          country: employee.presentCountry || employee.presentAddress?.country || "",
+          pinCode: employee.presentPinCode || employee.presentAddress?.pinCode || "",
+        },
+        emergencyContact: {
+          contactName: employee.emergencyContactName || employee.emergencyContact?.contactName || "",
+          relation: employee.emergencyContactRelation || employee.emergencyContact?.relation || "",
+          contactNumber: employee.emergencyContactNumber || employee.emergencyContact?.contactNumber || "",
+        },
+      })
+
+      // Refresh profile picture
+      if (employee.profilePicUrl) {
+        try {
+          const picResponse = await axios.get(`${apiUrl}/org/${orgId}/employees/${employeeId}/profile-pic`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (picResponse.data.success && picResponse.data.imageUrl) {
+            setProfilePicUrl(picResponse.data.imageUrl)
+          }
+        } catch (error) {
+          console.error("Failed to fetch profile picture:", error)
+        }
+      } else {
+        setProfilePicUrl(null)
+      }
+
+      // Refresh contract data
+      if (employee.employeeNumber) {
+        try {
+          const contractResponse = await axios.get(`${apiUrl}/org/${orgId}/contracts/employee/${employee.employeeNumber}/active`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+
+          if (contractResponse.data && typeof contractResponse.data !== 'string') {
+            const contract = contractResponse.data.data || contractResponse.data
+
+            // Update form data with contract information
+            setFormData(prev => ({
+              ...prev,
+              contractType: contract.contractType || "",
+              contractStartDate: sanitizeDate(contract.startDate),
+              contractEndDate: sanitizeDate(contract.endDate),
+            }))
+          }
+        } catch (error) {
+          console.log("No active contract found or failed to fetch contract data")
+          // Contract is optional, so we don't show an error
+        }
+      }
 
       showAlert("Success", "Profile updated successfully!", "success")
-      // Quick way to sync: reload page or better yet re-fetch
-      window.location.reload();
     } catch (error: any) {
       console.error("Failed to save profile:", error)
       showAlert("Error", error.response?.data?.error || "Failed to save profile. Please try again.", "error")

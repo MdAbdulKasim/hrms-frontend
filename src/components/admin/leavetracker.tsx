@@ -253,8 +253,10 @@ const LeaveTracker = () => {
         const totalDays = Number(type.defaultDays) || 0;
 
         // Calculate available days, ensuring it's never negative or NaN
-        const booked = usedDays + pendingDays;
-        const available = Math.max(0, totalDays - booked);
+        // "Taken" shows only approved leaves
+        const booked = usedDays;
+        // "Available" subtracts both approved and pending leaves
+        const available = Math.max(0, totalDays - usedDays - pendingDays);
 
         return {
           id: type.code || type.id,
@@ -578,6 +580,12 @@ const LeaveTracker = () => {
     }
   };
 
+  const getStatusLabel = (status: string) => {
+    const statusLower = status.toLowerCase();
+    if (statusLower === 'approved') return 'Taken';
+    return status;
+  };
+
   // Get unique employees, locations, departments for filters
   const uniqueEmployees = Array.from(new Set(allLeaves.map(l => l.employeeId).filter(Boolean)));
   const uniqueLocations = Array.from(new Set(allLeaves.map(l => l.locationId).filter(Boolean)));
@@ -783,7 +791,7 @@ const LeaveTracker = () => {
                       </td>
                       <td className="py-4 px-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${getStatusBadge(leave.status)}`}>
-                          {leave.status}
+                          {getStatusLabel(leave.status)}
                         </span>
                       </td>
                       <td className="py-4 px-4 whitespace-nowrap">
