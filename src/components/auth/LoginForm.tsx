@@ -238,13 +238,14 @@ export default function LoginForm() {
       <div className="w-full max-w-[440px] animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="bg-white rounded-2xl shadow-xl shadow-blue-900/5 p-6 sm:p-10">
 
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-blue-600 rounded-xl text-white flex items-center justify-center font-bold text-xl shadow-lg shadow-blue-600/20">
-              HR
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">HRMS</h1>
-              <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Enterprise Suite</p>
+          <div className="flex flex-col items-center mb-8">
+            <img
+              src="/logo.png"
+              alt="Logo"
+              className="w-24 h-24 object-contain mb-2"
+            />
+            <div className="text-center">
+              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">H R M S</h1>
             </div>
           </div>
 

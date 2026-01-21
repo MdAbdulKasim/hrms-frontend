@@ -78,6 +78,29 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
 
         const employee = response.data?.data || response.data
 
+        // Handle bankDetails - backend can return it as array or object
+        const bankData = (employee.bankDetails && Array.isArray(employee.bankDetails) && employee.bankDetails.length > 0)
+          ? employee.bankDetails[0]
+          : (typeof employee.bankDetails === 'object' && employee.bankDetails !== null && !Array.isArray(employee.bankDetails))
+            ? employee.bankDetails
+            : null
+
+        // Helper function to get site name from location
+        const getSiteName = (loc: any, siteId: string) => {
+          if (!loc || !loc.sites || !siteId) return "";
+          const site = loc.sites.find((s: any) => s.id === siteId || s._id === siteId || s.name === siteId);
+          return site ? (site.name || site.siteName || "") : siteId;
+        };
+
+        // Helper function to get building name from location
+        const getBuildingName = (loc: any, siteId: string, buildingId: string) => {
+          if (!loc || !loc.sites || !siteId || !buildingId) return "";
+          const site = loc.sites.find((s: any) => s.id === siteId || s._id === siteId || s.name === siteId);
+          if (!site || !site.buildings) return buildingId;
+          const building = site.buildings.find((b: any) => b.id === buildingId || b._id === buildingId || b.name === buildingId);
+          return building ? (building.name || building.buildingName || "") : buildingId;
+        };
+
 
         setFormData({
           fullName: employee.fullName ||
@@ -97,8 +120,8 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
           teamPosition: employee.teamPosition || "",
           shift: employee.shiftType || employee.shift?.name || employee.shift || "",
           location: employee.location?.name || "",
-          site: employee.site?.name || employee.site || "",
-          building: employee.building?.name || employee.building || "",
+          site: getSiteName(employee.location, employee.siteId) || employee.site?.name || employee.site || "",
+          building: getBuildingName(employee.location, employee.siteId, employee.buildingId) || employee.building?.name || employee.building || "",
           timeZone: employee.timeZone || "",
           dateOfBirth: sanitizeDate(employee.dateOfBirth),
           gender: employee.gender || "",
@@ -126,11 +149,11 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
           drivingLicenseDocUrl: employee.drivingLicenseDocUrl || "",
           basicSalary: employee.basicSalary || "",
           bankDetails: {
-            bankName: employee.bankDetails?.bankName || employee.bankName || "",
-            branchName: employee.bankDetails?.branchName || employee.branchName || "",
-            accountNumber: employee.bankDetails?.accountNumber || employee.accountNumber || "",
-            accountHolderName: employee.bankDetails?.accountHolderName || employee.accountHolderName || "",
-            ifscCode: employee.bankDetails?.ifscCode || employee.ifscCode || "",
+            bankName: bankData?.bankName || employee.bankName || "",
+            branchName: bankData?.branchName || employee.branchName || "",
+            accountNumber: bankData?.accountNumber || employee.accountNumber || "",
+            accountHolderName: bankData?.accountHolderName || employee.accountHolderName || "",
+            ifscCode: bankData?.ifscCode || employee.ifscCode || "",
           },
           workExperience: (employee.experience || []).map((exp: any) => ({
             companyName: exp.companyName || "",
@@ -440,6 +463,29 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
       })
       const refreshedEmployee = refreshResponse.data?.data || refreshResponse.data
 
+      // Handle bankDetails - backend can return it as array or object
+      const bankData = (refreshedEmployee.bankDetails && Array.isArray(refreshedEmployee.bankDetails) && refreshedEmployee.bankDetails.length > 0)
+        ? refreshedEmployee.bankDetails[0]
+        : (typeof refreshedEmployee.bankDetails === 'object' && refreshedEmployee.bankDetails !== null && !Array.isArray(refreshedEmployee.bankDetails))
+          ? refreshedEmployee.bankDetails
+          : null
+
+      // Helper function to get site name from location
+      const getSiteName = (loc: any, siteId: string) => {
+        if (!loc || !loc.sites || !siteId) return "";
+        const site = loc.sites.find((s: any) => s.id === siteId || s._id === siteId || s.name === siteId);
+        return site ? (site.name || site.siteName || "") : siteId;
+      };
+
+      // Helper function to get building name from location
+      const getBuildingName = (loc: any, siteId: string, buildingId: string) => {
+        if (!loc || !loc.sites || !siteId || !buildingId) return "";
+        const site = loc.sites.find((s: any) => s.id === siteId || s._id === siteId || s.name === siteId);
+        if (!site || !site.buildings) return buildingId;
+        const building = site.buildings.find((b: any) => b.id === buildingId || b._id === buildingId || b.name === buildingId);
+        return building ? (building.name || building.buildingName || "") : buildingId;
+      };
+
       setFormData(prev => ({
         ...prev,
         fullName: refreshedEmployee.fullName ||
@@ -456,8 +502,8 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
             ? `${refreshedEmployee.reportingTo.firstName} ${refreshedEmployee.reportingTo.lastName}`.trim()
             : refreshedEmployee.reportingTo?.name || prev.reportingTo),
         location: refreshedEmployee.location?.name || prev.location,
-        site: refreshedEmployee.site?.name || refreshedEmployee.site || prev.site,
-        building: refreshedEmployee.building?.name || refreshedEmployee.building || prev.building,
+        site: getSiteName(refreshedEmployee.location, refreshedEmployee.siteId) || refreshedEmployee.site?.name || refreshedEmployee.site || prev.site,
+        building: getBuildingName(refreshedEmployee.location, refreshedEmployee.siteId, refreshedEmployee.buildingId) || refreshedEmployee.building?.name || refreshedEmployee.building || prev.building,
         role: refreshedEmployee.role || prev.role,
         shift: refreshedEmployee.shiftType || refreshedEmployee.shift?.name || refreshedEmployee.shift || prev.shift,
         uid: refreshedEmployee.uid || prev.uid,
@@ -474,11 +520,11 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
         drivingLicenseDocUrl: refreshedEmployee.drivingLicenseDocUrl || prev.drivingLicenseDocUrl,
         basicSalary: refreshedEmployee.basicSalary || prev.basicSalary,
         bankDetails: {
-          bankName: refreshedEmployee.bankDetails?.bankName || refreshedEmployee.bankName || prev.bankDetails.bankName,
-          branchName: refreshedEmployee.bankDetails?.branchName || refreshedEmployee.branchName || prev.bankDetails.branchName,
-          accountNumber: refreshedEmployee.bankDetails?.accountNumber || refreshedEmployee.accountNumber || prev.bankDetails.accountNumber,
-          accountHolderName: refreshedEmployee.bankDetails?.accountHolderName || refreshedEmployee.accountHolderName || prev.bankDetails.accountHolderName,
-          ifscCode: refreshedEmployee.bankDetails?.ifscCode || refreshedEmployee.ifscCode || prev.bankDetails.ifscCode,
+          bankName: bankData?.bankName || refreshedEmployee.bankName || prev.bankDetails.bankName,
+          branchName: bankData?.branchName || refreshedEmployee.branchName || prev.bankDetails.branchName,
+          accountNumber: bankData?.accountNumber || refreshedEmployee.accountNumber || prev.bankDetails.accountNumber,
+          accountHolderName: bankData?.accountHolderName || refreshedEmployee.accountHolderName || prev.bankDetails.accountHolderName,
+          ifscCode: bankData?.ifscCode || refreshedEmployee.ifscCode || prev.bankDetails.ifscCode,
         },
         workExperience: (refreshedEmployee.experience || []).map((exp: any) => ({
           companyName: exp.companyName || "",

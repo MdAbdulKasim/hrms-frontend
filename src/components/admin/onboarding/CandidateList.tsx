@@ -145,20 +145,12 @@ const CandidateList: React.FC<CandidateListProps> = ({
                     }
                 }
             `}</style>
-            
+
             <div className="max-w-7xl mx-auto w-full flex flex-col h-full">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-2 sm:mb-6 gap-2 md:gap-0">
                     <h1 className="text-lg sm:text-xl md:text-2xl font-bold responsive-text">Employee Onboarding</h1>
                     <div className="flex flex-col sm:flex-row w-full md:w-auto gap-1 sm:gap-3 responsive-gap">
-                        {selectedIds.length > 0 && (
-                            <button
-                                onClick={onBulkDelete}
-                                className="px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center gap-1 sm:gap-2 w-full sm:w-auto text-xs responsive-text responsive-button"
-                            >
-                                <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
-                                <span className="whitespace-nowrap">Delete ({selectedIds.length})</span>
-                            </button>
-                        )}
+
                         <button
                             onClick={onExportCSV}
                             className="px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-1 sm:gap-2 w-full sm:w-auto text-xs responsive-text responsive-button"
@@ -240,14 +232,7 @@ const CandidateList: React.FC<CandidateListProps> = ({
                         <table className="w-full whitespace-nowrap responsive-table">
                             <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                                 <tr>
-                                    <th className="px-1 sm:px-2 md:px-6 py-2 sm:py-3 text-left bg-gray-50 responsive-header">
-                                        <input
-                                            type="checkbox"
-                                            className="rounded w-3 h-3 sm:w-4 sm:h-4"
-                                            checked={employees.length > 0 && selectedIds.length === employees.length}
-                                            onChange={onSelectAll}
-                                        />
-                                    </th>
+
                                     <th className="px-1 sm:px-2 md:px-6 py-2 sm:py-3 text-left text-[9px] xs:text-[10px] sm:text-xs font-medium text-black uppercase tracking-wider cursor-pointer hover:bg-gray-100 responsive-header" onClick={() => setSortConfig({ key: 'employeeNumber', direction: sortConfig.key === 'employeeNumber' && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
                                         <div className="flex items-center gap-0.5 sm:gap-1">
                                             Emp ID
@@ -287,14 +272,7 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                 {currentEmployees.length > 0 ? (
                                     currentEmployees.map((employee) => (
                                         <tr key={employee.id} className="hover:bg-gray-50">
-                                            <td className="px-1 sm:px-2 md:px-6 py-2 sm:py-4 responsive-cell">
-                                                <input
-                                                    type="checkbox"
-                                                    className="rounded w-3 h-3 sm:w-4 sm:h-4"
-                                                    checked={selectedIds.includes(employee.id)}
-                                                    onChange={() => onSelectOne(employee.id)}
-                                                />
-                                            </td>
+
                                             <td className="px-1 sm:px-2 md:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-900 font-medium responsive-cell">{employee.employeeNumber}</td>
                                             <td className="px-1 sm:px-2 md:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-900 responsive-cell">{employee.fullName || `${employee.firstName} ${employee.lastName}`}</td>
                                             <td className="px-1 sm:px-2 md:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-900 responsive-cell truncate max-w-[80px] sm:max-w-none">{employee.officialEmail || employee.emailId}</td>
@@ -332,7 +310,7 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={10} className="px-2 sm:px-4 md:px-6 py-6 sm:py-8 text-center text-gray-500 italic text-sm responsive-text">
+                                        <td colSpan={9} className="px-2 sm:px-4 md:px-6 py-6 sm:py-8 text-center text-gray-500 italic text-sm responsive-text">
                                             No candidates found matching your criteria
                                         </td>
                                     </tr>
