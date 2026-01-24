@@ -11,11 +11,37 @@ export interface Employee {
     phoneNumber?: string;
     dateOfJoining?: string;
     sourceOfHire: string;
-    // panCard: string;
-    // aadhaar: string;
-    // uan: string;
     fullName?: string;
     employeeNumber?: string;
+    // Additional fields for export/UI
+    mobileNumber?: string;
+    email?: string;
+    departmentId?: string;
+    designationId?: string;
+    locationId?: string;
+    siteId?: string;
+    buildingId?: string;
+    reportingToId?: string;
+    empType?: string;
+    status?: string;
+    shiftType?: string;
+    contractType?: string;
+    contractStartDate?: string;
+    contractEndDate?: string;
+    timeZone?: string;
+    basicSalary?: string;
+    allowances?: any;
+    deductions?: any;
+    bankDetails?: any;
+    insuranceType?: string;
+    insurancePercentage?: number;
+    accommodationAllowances?: AccommodationAllowance[];
+    insurances?: Insurance[];
+    bankName?: string;
+    branchName?: string;
+    accountNumber?: string;
+    accountHolderName?: string;
+    ifscCode?: string;
 }
 
 export interface AccommodationAllowance {
@@ -53,6 +79,8 @@ export interface WorkExperience {
 }
 
 export interface CandidateForm {
+    id?: string;
+    _id?: string;
     employeeNumber?: string; // Auto-generated employee ID (e.g., EMP 001)
     fullName: string;
     email: string;
@@ -91,6 +119,15 @@ export interface CandidateForm {
     visaNumber?: string;
     passportNumber?: string;
     drivingLicenseNumber?: string;
+    iqamaId?: string;
+    // Identity Document Copies (File names or Keys from API)
+    passportCopy?: string | File | null;
+    emiratesIdCopy?: string | File | null;
+    visaCopy?: string | File | null;
+    labourCardCopy?: string | File | null;
+    drivingLicenseCopy?: string | File | null;
+    uidCopy?: string | File | null;
+    iqamaCopy?: string | File | null;
     // Address Information
     presentAddress?: {
         addressLine1: string;

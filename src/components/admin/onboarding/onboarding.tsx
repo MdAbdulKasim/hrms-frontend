@@ -260,9 +260,15 @@ const EmployeeOnboardingSystem: React.FC = () => {
           designation: designationName || '',
           department: departmentName || '',
           location: locationName || '',
-          dateOfJoining: emp.dateOfJoining || '',
           onboardingStatus: String(emp.onboardingStatus || emp.status || 'Active'),
-          sourceOfHire: String(emp.sourceOfHire || 'Direct')
+          sourceOfHire: String(emp.sourceOfHire || 'Direct'),
+          // Document Copies
+          passportCopy: emp.passportCopyUrl || '',
+          emiratesIdCopy: emp.emiratesIdCopyUrl || '',
+          visaCopy: emp.visaCopyUrl || '',
+          labourCardCopy: emp.labourCardCopyUrl || '',
+          drivingLicenseCopy: emp.drivingLicenseCopyUrl || '',
+          uidCopy: emp.uidCopyUrl || '',
         };
       });
 
@@ -274,8 +280,37 @@ const EmployeeOnboardingSystem: React.FC = () => {
     }
   };
 
-  const handleInputChange = (field: keyof CandidateForm, value: string) => {
-    setCandidateForm(prev => ({ ...prev, [field]: value }));
+  const handleInputChange = (field: keyof CandidateForm, value: any) => {
+    let finalValue = value;
+
+    // Formatting / Validation Masks
+    if (field === 'uid') {
+      finalValue = String(value).replace(/[^0-9]/g, '').slice(0, 9);
+    } else if (field === 'labourNumber') {
+      finalValue = String(value).replace(/[^0-9]/g, '').slice(0, 10);
+    } else if (field === 'eid') {
+      // Emirates ID Format: 784-YYYY-XXXXXXX-X
+      let val = String(value).replace(/\D/g, "");
+      if (val.length > 15) val = val.slice(0, 15);
+      let formatted = val;
+      if (val.length > 3) formatted = val.slice(0, 3) + "-" + val.slice(3);
+      if (val.length > 7) formatted = formatted.slice(0, 8) + "-" + formatted.slice(8);
+      if (val.length > 14) formatted = formatted.slice(0, 16) + "-" + formatted.slice(16);
+      finalValue = formatted;
+    } else if (field === 'iqamaId') {
+      // 10 digits, starts with 2
+      let digits = String(value).replace(/[^0-9]/g, '').slice(0, 10);
+      if (digits.length > 0 && digits[0] !== '2') {
+        return; // Don't allow if not starting with 2
+      }
+      finalValue = digits;
+    } else if (field === 'passportNumber' || field === 'drivingLicenseNumber') {
+      finalValue = String(value).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15);
+    } else if (field === 'visaNumber') {
+      finalValue = String(value).replace(/[^0-9]/g, '').slice(0, 15);
+    }
+
+    setCandidateForm(prev => ({ ...prev, [field]: finalValue }));
   };
 
   const sendOnboardingEmail = (name: string, email: string, role: string, department: string) => {
@@ -329,74 +364,119 @@ const EmployeeOnboardingSystem: React.FC = () => {
       // Helper to handle empty strings for optional fields
       const cleanValue = (val: any) => (val === '' ? null : val);
 
-      const payload: any = {
-        fullName: candidateForm.fullName,
-        email: candidateForm.email,
-        phoneNumber: candidateForm.phoneNumber || candidateForm.mobileNumber || '',
-        status: candidateForm.employeeStatus || 'Active',
-        role: "employee",
-        departmentId: cleanValue(candidateForm.departmentId),
-        designationId: cleanValue(candidateForm.designationId),
-        locationId: cleanValue(candidateForm.locationId),
-        reportingToId: cleanValue(candidateForm.reportingToId),
-        siteId: cleanValue(candidateForm.siteId),
-        buildingId: cleanValue(candidateForm.buildingId),
-        dateOfJoining: cleanValue(candidateForm.dateOfJoining),
-        dateOfBirth: cleanValue(candidateForm.dateOfBirth),
-        gender: cleanValue(candidateForm.gender),
-        maritalStatus: cleanValue(candidateForm.maritalStatus),
-        bloodGroup: cleanValue(candidateForm.bloodGroup),
-        shiftType: cleanValue(candidateForm.shiftType),
-        timeZone: cleanValue(candidateForm.timeZone),
-        empType: cleanValue(candidateForm.empType),
-        employeeNumber: cleanValue(candidateForm.employeeNumber),
-        experience: candidateForm.experience || [],
-        education: candidateForm.education || [],
-        // Include address and contact details
-        presentAddress: candidateForm.presentAddress,
-        permanentAddress: candidateForm.permanentAddress,
-        emergencyContact: candidateForm.emergencyContact,
-        passportNumber: candidateForm.passportNumber,
-        drivingLicenseNumber: candidateForm.drivingLicenseNumber,
-        // Map allowances and deductions correctly for backend
-        // Map allowances and deductions using the detailed dictionary format
-        allowances: (candidateForm.accommodationAllowances || []).reduce((acc: any, curr) => {
-          if (curr.type && curr.percentage) {
-            acc[curr.type] = {
-              enabled: true,
-              percentage: parseFloat(curr.percentage),
-              amount: 0
-            };
-          }
-          return acc;
-        }, {}),
-        deductions: (candidateForm.insurances || []).reduce((acc: any, curr) => {
-          if (curr.type && curr.percentage) {
-            acc[curr.type] = {
-              enabled: true,
-              percentage: parseFloat(curr.percentage),
-              amount: 0
-            };
-          }
-          return acc;
-        }, {})
+      const formData = new FormData();
+
+      // Append basic fields
+      formData.append('fullName', candidateForm.fullName);
+      formData.append('email', candidateForm.email);
+      formData.append('phoneNumber', candidateForm.phoneNumber || candidateForm.mobileNumber || '');
+      formData.append('status', candidateForm.employeeStatus || 'Active');
+      formData.append('role', 'employee');
+
+      const appendOptional = (key: string, val: any) => {
+        if (val !== undefined && val !== null && val !== '') {
+          formData.append(key, val);
+        }
       };
 
-      // Handle numeric fields: don't send empty strings
-      if (candidateForm.basicSalary && candidateForm.basicSalary !== '') {
-        payload.basicSalary = parseFloat(candidateForm.basicSalary);
+      appendOptional('departmentId', candidateForm.departmentId);
+      appendOptional('designationId', candidateForm.designationId);
+      appendOptional('locationId', candidateForm.locationId);
+      appendOptional('reportingToId', candidateForm.reportingToId);
+      appendOptional('siteId', candidateForm.siteId);
+      appendOptional('buildingId', candidateForm.buildingId);
+      appendOptional('dateOfJoining', candidateForm.dateOfJoining);
+      appendOptional('dateOfBirth', candidateForm.dateOfBirth);
+      appendOptional('gender', candidateForm.gender);
+      appendOptional('maritalStatus', candidateForm.maritalStatus);
+      appendOptional('bloodGroup', candidateForm.bloodGroup);
+      appendOptional('shiftType', candidateForm.shiftType);
+      appendOptional('timeZone', candidateForm.timeZone);
+      appendOptional('empType', candidateForm.empType);
+      appendOptional('employeeNumber', candidateForm.employeeNumber);
+      appendOptional('passportNumber', candidateForm.passportNumber);
+      appendOptional('drivingLicenseNumber', candidateForm.drivingLicenseNumber);
+      appendOptional('uidNumber', candidateForm.uid);
+      appendOptional('labourNumber', candidateForm.labourNumber);
+      appendOptional('emiratesId', candidateForm.eid);
+      appendOptional('visaNumber', candidateForm.visaNumber);
+      appendOptional('iqamaId', candidateForm.iqamaId);
+
+      if (candidateForm.basicSalary) {
+        formData.append('basicSalary', candidateForm.basicSalary);
       }
 
-      // Handle bankDetails: backend expects an array of objects
+      // Append complex objects as JSON strings
+      formData.append('experience', JSON.stringify(candidateForm.experience || []));
+      formData.append('education', JSON.stringify(candidateForm.education || []));
+
+      // Flatten Address fields
+      if (candidateForm.presentAddress) {
+        formData.append('presentAddressLine1', candidateForm.presentAddress.addressLine1 || '');
+        formData.append('presentAddressLine2', candidateForm.presentAddress.addressLine2 || '');
+        formData.append('presentCity', candidateForm.presentAddress.city || '');
+        formData.append('presentState', candidateForm.presentAddress.state || '');
+        formData.append('presentCountry', candidateForm.presentAddress.country || '');
+        formData.append('presentPinCode', candidateForm.presentAddress.pinCode || '');
+      }
+
+      if (candidateForm.permanentAddress) {
+        formData.append('permanentAddressLine1', candidateForm.permanentAddress.addressLine1 || '');
+        formData.append('permanentAddressLine2', candidateForm.permanentAddress.addressLine2 || '');
+        formData.append('permanentCity', candidateForm.permanentAddress.city || '');
+        formData.append('permanentState', candidateForm.permanentAddress.state || '');
+        formData.append('permanentCountry', candidateForm.permanentAddress.country || '');
+        formData.append('permanentPinCode', candidateForm.permanentAddress.pinCode || '');
+      }
+
+      // Flatten Emergency Contact
+      if (candidateForm.emergencyContact) {
+        formData.append('emergencyContactName', candidateForm.emergencyContact.contactName || '');
+        formData.append('emergencyContactRelation', candidateForm.emergencyContact.relation || '');
+        formData.append('emergencyContactNumber', candidateForm.emergencyContact.contactNumber || '');
+      }
+
+      // Flatten Bank Details
       if (candidateForm.bankDetails) {
-        payload.bankDetails = [candidateForm.bankDetails];
+        formData.append('bankName', candidateForm.bankDetails.bankName || '');
+        formData.append('branchName', candidateForm.bankDetails.branchName || '');
+        formData.append('accountNumber', candidateForm.bankDetails.accountNumber || '');
+        formData.append('accountHolderName', candidateForm.bankDetails.accountHolderName || '');
+        formData.append('ifscCode', candidateForm.bankDetails.ifscCode || '');
       }
 
-      console.log("ONBOARDING DEBUG: Sending cleaned payload", payload);
+      // Map allowances and deductions
+      const allowances = (candidateForm.accommodationAllowances || []).reduce((acc: any, curr) => {
+        if (curr.type && curr.percentage) {
+          acc[curr.type] = { enabled: true, percentage: parseFloat(curr.percentage), amount: 0 };
+        }
+        return acc;
+      }, {});
+      formData.append('allowances', JSON.stringify(allowances));
+
+      const deductions = (candidateForm.insurances || []).reduce((acc: any, curr) => {
+        if (curr.type && curr.percentage) {
+          acc[curr.type] = { enabled: true, percentage: parseFloat(curr.percentage), amount: 0 };
+        }
+        return acc;
+      }, {});
+      formData.append('deductions', JSON.stringify(deductions));
+
+      // Append Files
+      if (candidateForm.passportCopy instanceof File) formData.append('passportCopy', candidateForm.passportCopy);
+      if (candidateForm.emiratesIdCopy instanceof File) formData.append('emiratesIdCopy', candidateForm.emiratesIdCopy);
+      if (candidateForm.visaCopy instanceof File) formData.append('visaCopy', candidateForm.visaCopy);
+      if (candidateForm.labourCardCopy instanceof File) formData.append('labourCardCopy', candidateForm.labourCardCopy);
+      if (candidateForm.drivingLicenseCopy instanceof File) formData.append('drivingLicenseCopy', candidateForm.drivingLicenseCopy);
+      if (candidateForm.uidCopy instanceof File) formData.append('uidCopy', candidateForm.uidCopy);
+      if (candidateForm.iqamaCopy instanceof File) formData.append('iqamaCopy', candidateForm.iqamaCopy);
+
+      console.log("ONBOARDING DEBUG: Sending FormData");
 
       const response = await axios.post(
         `${apiUrl}/org/${orgId}/employees`,
-        payload
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
       );
 
       if (response.status === 200 || response.status === 201) {
@@ -436,7 +516,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
             accountNumber: '',
             accountHolderName: '',
             ifscCode: ''
-          }
+          },
+          iqamaId: '',
+          iqamaCopy: ''
         });
 
         return response.data.data || response.data;
@@ -486,6 +568,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
           };
 
       setCandidateForm({
+        id: id,
         employeeNumber: emp.employeeNumber || emp.employeeId || '',
         fullName: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
         email: emp.email || emp.emailId || '',
@@ -552,6 +635,12 @@ const EmployeeOnboardingSystem: React.FC = () => {
         // Add Identity fields for editing
         passportNumber: emp.passportNumber || '',
         drivingLicenseNumber: emp.drivingLicenseNumber || '',
+        uid: emp.uidNumber || '',
+        labourNumber: emp.labourNumber || '',
+        eid: emp.emiratesId || '',
+        visaNumber: emp.visaNumber || '',
+        iqamaId: emp.iqamaId || '',
+        iqamaCopy: emp.iqamaCopyUrl || '',
         // Add Personal fields
         gender: emp.gender || '',
         maritalStatus: emp.maritalStatus || '',
@@ -582,7 +671,14 @@ const EmployeeOnboardingSystem: React.FC = () => {
         },
         // Education & Experience
         education: emp.education || [],
-        experience: emp.experience || []
+        experience: emp.experience || [],
+        // Document Copies
+        passportCopy: emp.passportCopyUrl || '',
+        emiratesIdCopy: emp.emiratesIdCopyUrl || '',
+        visaCopy: emp.visaCopyUrl || '',
+        labourCardCopy: emp.labourCardCopyUrl || '',
+        drivingLicenseCopy: emp.drivingLicenseCopyUrl || '',
+        uidCopy: emp.uidCopyUrl || '',
       });
       setEditingEmployeeId(id);
       setCurrentView('addCandidate');
@@ -609,86 +705,162 @@ const EmployeeOnboardingSystem: React.FC = () => {
       const orgId = getOrgId();
       const apiUrl = getApiUrl();
 
-      // Helper to handle empty strings for optional fields
-      const cleanValue = (val: any) => (val === '' ? null : val);
+      const formData = new FormData();
 
-      // Prepare sanitized payload following the patterns in profilepage.tsx
-      const payload: any = {
-        fullName: candidateForm.fullName,
-        email: candidateForm.email,
-        phoneNumber: candidateForm.phoneNumber || candidateForm.mobileNumber || '',
-        status: candidateForm.employeeStatus || 'Active',
-        role: "employee",
-        departmentId: cleanValue(candidateForm.departmentId),
-        designationId: cleanValue(candidateForm.designationId),
-        locationId: cleanValue(candidateForm.locationId),
-        reportingToId: cleanValue(candidateForm.reportingToId),
-        siteId: cleanValue(candidateForm.siteId),
-        buildingId: cleanValue(candidateForm.buildingId),
-        dateOfJoining: cleanValue(candidateForm.dateOfJoining),
-        dateOfBirth: cleanValue(candidateForm.dateOfBirth),
-        gender: cleanValue(candidateForm.gender),
-        maritalStatus: cleanValue(candidateForm.maritalStatus),
-        bloodGroup: cleanValue(candidateForm.bloodGroup),
-        shiftType: cleanValue(candidateForm.shiftType),
-        timeZone: cleanValue(candidateForm.timeZone),
-        empType: cleanValue(candidateForm.empType),
-        employeeNumber: cleanValue(candidateForm.employeeNumber),
-        experience: candidateForm.experience || [],
-        education: candidateForm.education || [],
-        // Include address and contact details which were missing
-        presentAddress: candidateForm.presentAddress,
-        permanentAddress: candidateForm.permanentAddress,
-        emergencyContact: candidateForm.emergencyContact,
-        passportNumber: candidateForm.passportNumber,
-        drivingLicenseNumber: candidateForm.drivingLicenseNumber,
-        // Map allowances and deductions correctly for backend
-        // Map allowances and deductions using the detailed dictionary format
-        allowances: (candidateForm.accommodationAllowances || []).reduce((acc: any, curr) => {
-          if (curr.type && curr.percentage) {
-            acc[curr.type] = {
-              enabled: true,
-              percentage: parseFloat(curr.percentage),
-              amount: 0
-            };
-          }
-          return acc;
-        }, {}),
-        deductions: (candidateForm.insurances || []).reduce((acc: any, curr) => {
-          if (curr.type && curr.percentage) {
-            acc[curr.type] = {
-              enabled: true,
-              percentage: parseFloat(curr.percentage),
-              amount: 0
-            };
-          }
-          return acc;
-        }, {})
+      // Append basic fields
+      formData.append('fullName', candidateForm.fullName);
+      formData.append('email', candidateForm.email);
+      formData.append('phoneNumber', candidateForm.phoneNumber || candidateForm.mobileNumber || '');
+      formData.append('status', candidateForm.employeeStatus || 'Active');
+      formData.append('role', 'employee');
+
+      const appendOptional = (key: string, val: any) => {
+        if (val !== undefined && val !== null && val !== '') {
+          formData.append(key, val);
+        }
       };
 
-      // Handle numeric fields: don't send empty strings
-      if (candidateForm.basicSalary && candidateForm.basicSalary !== '') {
-        payload.basicSalary = parseFloat(candidateForm.basicSalary);
+      appendOptional('departmentId', candidateForm.departmentId);
+      appendOptional('designationId', candidateForm.designationId);
+      appendOptional('locationId', candidateForm.locationId);
+      appendOptional('reportingToId', candidateForm.reportingToId);
+      appendOptional('siteId', candidateForm.siteId);
+      appendOptional('buildingId', candidateForm.buildingId);
+      appendOptional('dateOfJoining', candidateForm.dateOfJoining);
+      appendOptional('dateOfBirth', candidateForm.dateOfBirth);
+      appendOptional('gender', candidateForm.gender);
+      appendOptional('maritalStatus', candidateForm.maritalStatus);
+      appendOptional('bloodGroup', candidateForm.bloodGroup);
+      appendOptional('shiftType', candidateForm.shiftType);
+      appendOptional('timeZone', candidateForm.timeZone);
+      appendOptional('empType', candidateForm.empType);
+      appendOptional('employeeNumber', candidateForm.employeeNumber);
+      appendOptional('passportNumber', candidateForm.passportNumber);
+      appendOptional('drivingLicenseNumber', candidateForm.drivingLicenseNumber);
+      appendOptional('uidNumber', candidateForm.uid);
+      appendOptional('labourNumber', candidateForm.labourNumber);
+      appendOptional('emiratesId', candidateForm.eid);
+      appendOptional('visaNumber', candidateForm.visaNumber);
+      appendOptional('iqamaId', candidateForm.iqamaId);
+
+      if (candidateForm.basicSalary) {
+        formData.append('basicSalary', candidateForm.basicSalary);
       }
 
-      // Handle bankDetails: backend expects an array of objects
+      // Append complex objects as JSON strings
+      formData.append('experience', JSON.stringify(candidateForm.experience || []));
+      formData.append('education', JSON.stringify(candidateForm.education || []));
+
+      // Flatten Address fields
+      if (candidateForm.presentAddress) {
+        formData.append('presentAddressLine1', candidateForm.presentAddress.addressLine1 || '');
+        formData.append('presentAddressLine2', candidateForm.presentAddress.addressLine2 || '');
+        formData.append('presentCity', candidateForm.presentAddress.city || '');
+        formData.append('presentState', candidateForm.presentAddress.state || '');
+        formData.append('presentCountry', candidateForm.presentAddress.country || '');
+        formData.append('presentPinCode', candidateForm.presentAddress.pinCode || '');
+      }
+
+      if (candidateForm.permanentAddress) {
+        formData.append('permanentAddressLine1', candidateForm.permanentAddress.addressLine1 || '');
+        formData.append('permanentAddressLine2', candidateForm.permanentAddress.addressLine2 || '');
+        formData.append('permanentCity', candidateForm.permanentAddress.city || '');
+        formData.append('permanentState', candidateForm.permanentAddress.state || '');
+        formData.append('permanentCountry', candidateForm.permanentAddress.country || '');
+        formData.append('permanentPinCode', candidateForm.permanentAddress.pinCode || '');
+      }
+
+      // Flatten Emergency Contact
+      if (candidateForm.emergencyContact) {
+        formData.append('emergencyContactName', candidateForm.emergencyContact.contactName || '');
+        formData.append('emergencyContactRelation', candidateForm.emergencyContact.relation || '');
+        formData.append('emergencyContactNumber', candidateForm.emergencyContact.contactNumber || '');
+      }
+
+      // Flatten Bank Details
       if (candidateForm.bankDetails) {
-        payload.bankDetails = [candidateForm.bankDetails];
+        formData.append('bankName', candidateForm.bankDetails.bankName || '');
+        formData.append('branchName', candidateForm.bankDetails.branchName || '');
+        formData.append('accountNumber', candidateForm.bankDetails.accountNumber || '');
+        formData.append('accountHolderName', candidateForm.bankDetails.accountHolderName || '');
+        formData.append('ifscCode', candidateForm.bankDetails.ifscCode || '');
       }
 
-      console.log('ONBOARDING UPDATE: Sending payload', payload);
+      // Map allowances and deductions
+      const allowances = (candidateForm.accommodationAllowances || []).reduce((acc: any, curr) => {
+        if (curr.type && curr.percentage) {
+          acc[curr.type] = { enabled: true, percentage: parseFloat(curr.percentage), amount: 0 };
+        }
+        return acc;
+      }, {});
+      formData.append('allowances', JSON.stringify(allowances));
+
+      const deductions = (candidateForm.insurances || []).reduce((acc: any, curr) => {
+        if (curr.type && curr.percentage) {
+          acc[curr.type] = { enabled: true, percentage: parseFloat(curr.percentage), amount: 0 };
+        }
+        return acc;
+      }, {});
+      formData.append('deductions', JSON.stringify(deductions));
+
+      // Append Files or Deletion Signals
+      if (candidateForm.passportCopy instanceof File) {
+        formData.append('passportCopy', candidateForm.passportCopy);
+      } else if (candidateForm.passportCopy === null) {
+        formData.append('passportCopyUrl', '');
+      }
+
+      if (candidateForm.emiratesIdCopy instanceof File) {
+        formData.append('emiratesIdCopy', candidateForm.emiratesIdCopy);
+      } else if (candidateForm.emiratesIdCopy === null) {
+        formData.append('emiratesIdCopyUrl', '');
+      }
+
+      if (candidateForm.visaCopy instanceof File) {
+        formData.append('visaCopy', candidateForm.visaCopy);
+      } else if (candidateForm.visaCopy === null) {
+        formData.append('visaCopyUrl', '');
+      }
+
+      if (candidateForm.labourCardCopy instanceof File) {
+        formData.append('labourCardCopy', candidateForm.labourCardCopy);
+      } else if (candidateForm.labourCardCopy === null) {
+        formData.append('labourCardCopyUrl', '');
+      }
+
+      if (candidateForm.drivingLicenseCopy instanceof File) {
+        formData.append('drivingLicenseCopy', candidateForm.drivingLicenseCopy);
+      } else if (candidateForm.drivingLicenseCopy === null) {
+        formData.append('drivingLicenseCopyUrl', '');
+      }
+
+      if (candidateForm.uidCopy instanceof File) {
+        formData.append('uidCopy', candidateForm.uidCopy);
+      } else if (candidateForm.uidCopy === null) {
+        formData.append('uidCopyUrl', '');
+      }
+
+      if (candidateForm.iqamaCopy instanceof File) {
+        formData.append('iqamaCopy', candidateForm.iqamaCopy);
+      } else if (candidateForm.iqamaCopy === null) {
+        formData.append('iqamaCopyUrl', '');
+      }
+
+      console.log('ONBOARDING UPDATE: Sending FormData');
 
       try {
         await axios.put(
           `${apiUrl}/org/${orgId}/employees/${editingEmployeeId}`,
-          payload
+          formData,
+          { headers: { 'Content-Type': 'multipart/form-data' } }
         );
       } catch (putError: any) {
         if (putError.response && putError.response.status === 404) {
           console.warn("PUT update failed with 404, attempting PATCH fallback...");
           await axios.patch(
             `${apiUrl}/org/${orgId}/employees/${editingEmployeeId}`,
-            payload
+            formData,
+            { headers: { 'Content-Type': 'multipart/form-data' } }
           );
         } else {
           throw putError;
@@ -726,7 +898,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
           accountNumber: '',
           accountHolderName: '',
           ifscCode: ''
-        }
+        },
+        iqamaId: '',
+        iqamaCopy: ''
       });
       setEditingEmployeeId(null);
       setCurrentView('list');
@@ -857,6 +1031,12 @@ const EmployeeOnboardingSystem: React.FC = () => {
         // Identity Information
         passportNumber: emp.passportNumber || '',
         drivingLicenseNumber: emp.drivingLicenseNumber || '',
+        uid: emp.uidNumber || '',
+        labourNumber: emp.labourNumber || '',
+        eid: emp.emiratesId || '',
+        visaNumber: emp.visaNumber || '',
+        iqamaId: emp.iqamaId || '',
+        iqamaCopy: emp.iqamaCopyUrl || '',
         // Address Information
         presentAddress: {
           addressLine1: emp.presentAddressLine1 || '',
@@ -981,33 +1161,146 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
 
   const handleExportCSV = () => {
-    if (employees.length === 0) {
-      showAlert("Info", "No data to export", "info");
+    const dataToExport = selectedIds.length > 0
+      ? employees.filter(emp => selectedIds.includes(emp.id))
+      : employees;
+
+    if (dataToExport.length === 0) {
+      showAlert("Info", "No data to export. Please select employees first.", "info");
       return;
     }
 
     const headers = [
-      'Employee ID', 'Full Name', 'Email ID', 'Official Email', 'Department'
+      'Employee ID', 'Full Name', 'Email Address', 'Mobile Number', 'Role/Designation',
+      'Department', 'Location', 'Site', 'Building / Area', 'Reporting Manager',
+      'Employee Type', 'Employee Status', 'Date of Joining', 'Shift', 'Contract Type',
+      'Contract Start Date', 'Contract End Date', 'Time Zone', 'Basic Salary',
+      'Insurance Type', 'Insurance Percentage', 'Allowance Type', 'Allowance Percentage',
+      'Bank Name', 'Branch Name', 'Account Number', 'Account Holder Name', 'IFSC Code'
     ];
 
-    const csvRows = employees.map(emp => [
-      emp.employeeNumber || 'N/A',
-      emp.fullName || `${emp.firstName} ${emp.lastName}`,
-      emp.emailId,
-      emp.officialEmail,
-      emp.department
-    ].map(val => `"${val}"`).join(','));
+    const getManagerName = (id: string) => {
+      const mgr = reportingManagers.find(m => String(m.id || m._id) === String(id));
+      return mgr ? (mgr.fullName || `${mgr.firstName} ${mgr.lastName}`) : 'N/A';
+    };
+
+    const getShiftName = (id: string) => {
+      if (id === 'morning') return 'Morning';
+      if (id === 'evening') return 'Evening';
+      if (id === 'night') return 'Night';
+      const shift = shifts.find(s => String(s.id || s._id) === String(id));
+      return shift ? (shift.shiftName || shift.name) : id || 'N/A';
+    };
+
+    const getSiteName = (locId: string, siteId: string) => {
+      const loc = locations.find(l => String(l.id || l._id) === String(locId));
+      if (!loc || !loc.sites) return siteId || 'N/A';
+      const site = loc.sites.find((s: any) => String(s.id || s._id) === String(siteId) || s.name === siteId);
+      return site ? (site.name || site.siteName) : siteId || 'N/A';
+    };
+
+    const getBuildingName = (locId: string, siteId: string, bldId: string) => {
+      const loc = locations.find(l => String(l.id || l._id) === String(locId));
+      if (!loc || !loc.sites) return bldId || 'N/A';
+      const site = loc.sites.find((s: any) => String(s.id || s._id) === String(siteId) || s.name === siteId);
+      if (!site || !site.buildings) return bldId || 'N/A';
+      const bld = site.buildings.find((b: any) => String(b.id || b._id) === String(bldId) || b.name === bldId);
+      return bld ? (bld.name || bld.buildingName) : bldId || 'N/A';
+    };
+
+    const csvRows = dataToExport.map(emp => {
+      // Extract bank details
+      const bank = emp.bankDetails?.[0] || emp.bankDetails || {};
+
+      // Extract first allowance and insurance
+      let allowanceType = 'N/A';
+      let allowancePercent = '0';
+      if (emp.allowances) {
+        const firstType = Object.keys(emp.allowances).find(key =>
+          typeof emp.allowances[key] === 'object' && emp.allowances[key]?.enabled && !['homeClaimed', 'foodClaimed', 'travelClaimed'].includes(key)
+        );
+        if (firstType) {
+          allowanceType = firstType;
+          allowancePercent = String(emp.allowances[firstType].percentage || 0);
+        }
+      } else if (Array.isArray(emp.accommodationAllowances) && emp.accommodationAllowances.length > 0) {
+        allowanceType = emp.accommodationAllowances[0].type;
+        allowancePercent = emp.accommodationAllowances[0].percentage;
+      }
+
+      let insuranceType = 'N/A';
+      let insurancePercent = '0';
+      if (emp.deductions) {
+        const firstType = Object.keys(emp.deductions).find(key =>
+          typeof emp.deductions[key] === 'object' && emp.deductions[key]?.enabled && key !== 'insuranceDeductionPercentage'
+        );
+        if (firstType) {
+          insuranceType = firstType;
+          insurancePercent = String(emp.deductions[firstType].percentage || 0);
+        }
+      } else if (Array.isArray(emp.insurances) && emp.insurances.length > 0) {
+        insuranceType = emp.insurances[0].type;
+        insurancePercent = emp.insurances[0].percentage;
+      } else if (emp.insuranceType) {
+        insuranceType = emp.insuranceType;
+        insurancePercent = String(emp.insurancePercentage || 0);
+      }
+
+      const formatDate = (dateStr: string) => {
+        if (!dateStr) return 'N/A';
+        try {
+          return new Date(dateStr).toLocaleDateString();
+        } catch (e) {
+          return dateStr;
+        }
+      };
+
+      return [
+        emp.employeeNumber || 'N/A',
+        emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
+        emp.emailId || emp.email || 'N/A',
+        emp.phoneNumber || emp.mobileNumber || 'N/A',
+        emp.designation || 'N/A',
+        emp.department || 'N/A',
+        emp.location || 'N/A',
+        getSiteName(emp.locationId || '', emp.siteId || ''),
+        getBuildingName(emp.locationId || '', emp.siteId || '', emp.buildingId || ''),
+        getManagerName(emp.reportingToId || ''),
+        emp.empType || 'N/A',
+        emp.onboardingStatus || emp.status || 'Active',
+        formatDate(emp.dateOfJoining || ''),
+        getShiftName(emp.shiftType || ''),
+        emp.contractType || 'N/A',
+        formatDate(emp.contractStartDate || ''),
+        formatDate(emp.contractEndDate || ''),
+        emp.timeZone || 'Asia/Kolkata',
+        emp.basicSalary || '0',
+        insuranceType,
+        insurancePercent,
+        allowanceType,
+        allowancePercent,
+        bank.bankName || emp.bankName || 'N/A',
+        bank.branchName || emp.branchName || 'N/A',
+        bank.accountNumber || emp.accountNumber || 'N/A',
+        bank.accountHolderName || emp.accountHolderName || 'N/A',
+        bank.ifscCode || emp.ifscCode || 'N/A'
+      ].map(val => {
+        const str = String(val === null || val === undefined ? '' : val).replace(/"/g, '""');
+        return `"${str}"`;
+      }).join(',');
+    });
 
     const csvContent = [headers.join(','), ...csvRows].join('\n');
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `onboarding_employees_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `employee_export_${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
+
 
   const filteredEmployees = employees
     .filter(emp => {

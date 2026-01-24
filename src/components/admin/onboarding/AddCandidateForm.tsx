@@ -3,6 +3,7 @@ import React from 'react';
 import { X, ChevronDown, Check, Plus, Trash2 } from 'lucide-react';
 import { CandidateForm, AccommodationAllowance, Insurance, BankDetails } from './types';
 import SuccessDialog from './SuccessDialog';
+import { getAuthToken, getOrgId, getApiUrl } from '@/lib/auth';
 
 interface ComboboxProps {
     value: string;
@@ -94,6 +95,94 @@ const Combobox: React.FC<ComboboxProps> = ({
     );
 };
 
+interface FileUploaderProps {
+    label: string;
+    value: string | File | null;
+    onChange: (file: File | null) => void;
+    fieldName: string;
+    onView?: () => void;
+}
+
+const FileUploader: React.FC<FileUploaderProps> = ({ label, value, onChange, fieldName, onView }) => {
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            onChange(e.target.files[0]);
+        }
+    };
+
+    const getFileName = () => {
+        if (!value) return '';
+        if (value instanceof File) return value.name;
+        if (typeof value === 'string') return value.split('/').pop() || 'Uploaded Document';
+        return '';
+    };
+
+    const handleView = () => {
+        if (!value) return;
+
+        if (onView) {
+            onView();
+            return;
+        }
+
+        if (value instanceof File) {
+            const url = URL.createObjectURL(value);
+            window.open(url, '_blank');
+        } else if (typeof value === 'string') {
+            // Fallback if no specific view handler provided
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+            const cleanValue = value.startsWith('/') ? value.substring(1) : value;
+            // This fallback is likely what was failing, but we keep it for now or prefer onView
+            // Actually, we should probably warn or remove this if we want to force API usage
+            // But leaving it for backward compat where direct link might surely fail
+            window.open(`${apiUrl}/uploads/${cleanValue}`, '_blank');
+        }
+    };
+
+    return (
+        <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">{label}</label>
+            <div className="flex items-center gap-2">
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    className="hidden"
+                    accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
+                />
+                <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    {value ? 'Change File' : 'Upload File'}
+                </button>
+                {value && (
+                    <>
+                        <button
+                            type="button"
+                            onClick={handleView}
+                            className="px-3 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-100"
+                        >
+                            View
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onChange(null)}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </button>
+                    </>
+                )}
+            </div>
+
+        </div>
+    );
+};
+
 interface AddCandidateFormProps {
     candidateForm: CandidateForm;
     onInputChange: (field: keyof CandidateForm, value: any) => void;
@@ -123,14 +212,24 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
     shifts,
     isLoading,
     isEditing = false,
+    employees = [],
     onSuccess,
     onComplete,
 }) => {
     // State for success dialog
     const [showSuccessDialog, setShowSuccessDialog] = React.useState(false);
     const [generatedId, setGeneratedId] = React.useState('');
-
-    // Remove automatic ID generation - handled by backend now
+    const [identityView, setIdentityView] = React.useState<'number' | 'documents'>(isEditing ? 'documents' : 'number');
+    // Generate ID logic
+    const handleGenerateEmployeeId = () => {
+        const existingIds = (employees || []).map(emp => {
+            const match = emp.employeeNumber?.match(/\d+/);
+            return match ? parseInt(match[0], 10) : 0;
+        });
+        const maxId = existingIds.length > 0 ? Math.max(...existingIds) : 0;
+        const nextId = `EMP-${String(maxId + 1).padStart(3, '0')}`;
+        onInputChange('employeeNumber', nextId);
+    };
 
     // Calculate total salary
     const calculateTotalSalary = () => {
@@ -243,6 +342,103 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
         onInputChange('bankDetails', updatedBankDetails);
     };
 
+    // Education handlers
+    const handleAddEducation = () => {
+        const newEducation = [...(candidateForm.education || []), {
+            instituteName: '',
+            degree: '',
+            fieldOfStudy: '',
+            startYear: '',
+            endYear: ''
+        }];
+        onInputChange('education', newEducation);
+    };
+
+    const handleRemoveEducation = (index: number) => {
+        const newEducation = candidateForm.education?.filter((_, i) => i !== index);
+        onInputChange('education', newEducation);
+    };
+
+    const handleEducationChange = (index: number, field: string, value: string) => {
+        const newEducation = [...(candidateForm.education || [])];
+        newEducation[index] = { ...newEducation[index], [field]: value };
+        onInputChange('education', newEducation);
+    };
+
+    // Experience handlers
+    const handleAddExperience = () => {
+        const newExperience = [...(candidateForm.experience || []), {
+            companyName: '',
+            jobTitle: '',
+            fromDate: '',
+            toDate: '',
+            currentlyWorking: false,
+            jobDescription: ''
+        }];
+        onInputChange('experience', newExperience);
+    };
+
+    const handleRemoveExperience = (index: number) => {
+        const newExperience = candidateForm.experience?.filter((_, i) => i !== index);
+        onInputChange('experience', newExperience);
+    };
+
+    const handleExperienceChange = (index: number, field: string, value: any) => {
+        const newExperience = [...(candidateForm.experience || [])];
+        newExperience[index] = { ...newExperience[index], [field]: value };
+        onInputChange('experience', newExperience);
+    };
+
+    const handleViewDocument = async (documentType: string) => {
+        // If we are adding a NEW candidate (not editing), files are local File objects
+        // and FileUploader handles them via URL.createObjectURL.
+        // This function is for viewing EXISTING documents from the backend (editing mode).
+
+        if (!isEditing || (!candidateForm.id && !candidateForm._id)) return; // Should allow local view if File object, but FileUploader handles that.
+
+        try {
+            // We need to fetch the presigned URL
+            // Using the same endpoint pattern: /org/:orgId/employees/:employeeId/documents/:documentType
+            // But here we need to know the employee ID. 
+            // candidateForm typically has it. 
+            // Let's assume candidateForm has 'id' or we use a prop?
+            // Looking at usage, candidateForm matches the API response structure.
+
+            // Wait, AddCandidateForm is used for adding AND editing.
+            // If editing, we have an ID.
+            const token = getAuthToken();
+            const orgId = getOrgId();
+            const apiUrl = getApiUrl();
+
+            // Check if we have an employee ID
+            const empId = candidateForm.id || candidateForm._id;
+
+            if (!empId || !orgId || !token) {
+                console.error("Missing ID or credentials for viewing document");
+                return;
+            }
+
+            const response = await fetch(
+                `${apiUrl}/org/${orgId}/employees/${empId}/documents/${documentType}`,
+                {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                }
+            );
+
+            const data = await response.json();
+
+            if (data.success && data.documentUrl) {
+                window.open(data.documentUrl, '_blank');
+            } else {
+                alert("Document not found");
+            }
+
+        } catch (error) {
+            console.error("Error fetching document:", error);
+            alert("Failed to open document");
+        }
+    };
+
     return (
         <div className="min-h-screen bg-white p-2 sm:p-4 md:p-8">
             <div className="max-w-6xl mx-auto">
@@ -269,17 +465,16 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
+                            <div className="relative">
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Employee Number <span className="text-gray-400 text-xs ">({isEditing ? 'Existing' : 'Generated after creation'})</span>
+                                    Employee Number <span className="text-gray-400 text-xs ">({isEditing ? 'Existing' : 'Mandatory'})</span>
                                 </label>
                                 <input
                                     type="text"
-                                    placeholder={isEditing ? "EMP 001" : "Assigns automatically"}
+                                    placeholder="EMP-001"
                                     value={candidateForm.employeeNumber || ''}
                                     onChange={(e) => onInputChange('employeeNumber', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
-                                    readOnly={!isEditing}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                                 />
                             </div>
 
@@ -321,10 +516,220 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 />
                             </div>
+
+                            {isEditing && (
+                                <>
+                                    <Combobox
+                                        label="Gender"
+                                        value={candidateForm.gender || ''}
+                                        onChange={(val) => onInputChange('gender', val)}
+                                        placeholder="Select gender..."
+                                        options={[
+                                            { id: 'male', label: 'Male' },
+                                            { id: 'female', label: 'Female' },
+                                            { id: 'other', label: 'Other' },
+                                        ]}
+                                    />
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Date of Birth
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={candidateForm.dateOfBirth || ''}
+                                            onChange={(e) => onInputChange('dateOfBirth', e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+
+                                    <Combobox
+                                        label="Marital Status"
+                                        value={candidateForm.maritalStatus || ''}
+                                        onChange={(val) => onInputChange('maritalStatus', val)}
+                                        placeholder="Select status..."
+                                        options={[
+                                            { id: 'single', label: 'Single' },
+                                            { id: 'married', label: 'Married' },
+                                            { id: 'divorced', label: 'Divorced' },
+                                            { id: 'widowed', label: 'Widowed' },
+                                        ]}
+                                    />
+
+                                    <Combobox
+                                        label="Blood Group"
+                                        value={candidateForm.bloodGroup || ''}
+                                        onChange={(val) => onInputChange('bloodGroup', val)}
+                                        placeholder="Select blood group..."
+                                        options={[
+                                            { id: 'A+', label: 'A+' }, { id: 'A-', label: 'A-' },
+                                            { id: 'B+', label: 'B+' }, { id: 'B-', label: 'B-' },
+                                            { id: 'O+', label: 'O+' }, { id: 'O-', label: 'O-' },
+                                            { id: 'AB+', label: 'AB+' }, { id: 'AB-', label: 'AB-' },
+                                        ]}
+                                    />
+                                </>
+                            )}
                         </div>
                     </div>
 
-                    {/* Employment Details Section */}
+                    {isEditing && (
+                        <div>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+                                        </svg>
+                                    </div>
+                                    <h2 className="text-lg font-semibold">Identity Information</h2>
+                                </div>
+                                <div className="flex bg-gray-100 p-1 rounded-lg self-start sm:self-auto">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIdentityView('number')}
+                                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${identityView === 'number' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                    >
+                                        Number
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIdentityView('documents')}
+                                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${identityView === 'documents' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                    >
+                                        Documents
+                                    </button>
+                                </div>
+                            </div>
+
+                            {identityView === 'number' ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">UID Number</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Enter UID number"
+                                            value={candidateForm.uid || ''}
+                                            onChange={(e) => onInputChange('uid', e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Labour Number</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Enter labour number"
+                                            value={candidateForm.labourNumber || ''}
+                                            onChange={(e) => onInputChange('labourNumber', e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Emirates ID (EID)</label>
+                                        <input
+                                            type="text"
+                                            placeholder="784-YYYY-XXXXXXX-X"
+                                            value={candidateForm.eid || ''}
+                                            onChange={(e) => onInputChange('eid', e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Visa Number</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Enter visa number"
+                                            value={candidateForm.visaNumber || ''}
+                                            onChange={(e) => onInputChange('visaNumber', e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Iqama ID</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Starts with 2 (10 digits)"
+                                            value={candidateForm.iqamaId || ''}
+                                            onChange={(e) => onInputChange('iqamaId', e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Passport Number</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Enter passport number"
+                                            value={candidateForm.passportNumber || ''}
+                                            onChange={(e) => onInputChange('passportNumber', e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Driving License Number</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Enter driving license number"
+                                            value={candidateForm.drivingLicenseNumber || ''}
+                                            onChange={(e) => onInputChange('drivingLicenseNumber', e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
+                                    <FileUploader
+                                        label="UID Copy"
+                                        value={candidateForm.uidCopy || ''}
+                                        onChange={(file) => onInputChange('uidCopy', file)}
+                                        fieldName="uidCopy"
+                                        onView={typeof candidateForm.uidCopy === 'string' ? () => handleViewDocument('uid') : undefined}
+                                    />
+                                    <FileUploader
+                                        label="Labour Card Copy"
+                                        value={candidateForm.labourCardCopy || ''}
+                                        onChange={(file) => onInputChange('labourCardCopy', file)}
+                                        fieldName="labourCardCopy"
+                                        onView={typeof candidateForm.labourCardCopy === 'string' ? () => handleViewDocument('labourCard') : undefined}
+                                    />
+                                    <FileUploader
+                                        label="Emirates ID Copy"
+                                        value={candidateForm.emiratesIdCopy || ''}
+                                        onChange={(file) => onInputChange('emiratesIdCopy', file)}
+                                        fieldName="emiratesIdCopy"
+                                        onView={typeof candidateForm.emiratesIdCopy === 'string' ? () => handleViewDocument('emiratesId') : undefined}
+                                    />
+                                    <FileUploader
+                                        label="Visa Copy"
+                                        value={candidateForm.visaCopy || ''}
+                                        onChange={(file) => onInputChange('visaCopy', file)}
+                                        fieldName="visaCopy"
+                                        onView={typeof candidateForm.visaCopy === 'string' ? () => handleViewDocument('visa') : undefined}
+                                    />
+                                    <FileUploader
+                                        label="Passport Copy"
+                                        value={candidateForm.passportCopy || ''}
+                                        onChange={(file) => onInputChange('passportCopy', file)}
+                                        fieldName="passportCopy"
+                                        onView={typeof candidateForm.passportCopy === 'string' ? () => handleViewDocument('passport') : undefined}
+                                    />
+                                    <FileUploader
+                                        label="Driving License Copy"
+                                        value={candidateForm.drivingLicenseCopy || ''}
+                                        onChange={(file) => onInputChange('drivingLicenseCopy', file)}
+                                        fieldName="drivingLicenseCopy"
+                                        onView={typeof candidateForm.drivingLicenseCopy === 'string' ? () => handleViewDocument('drivingLicense') : undefined}
+                                    />
+                                    <FileUploader
+                                        label="Iqama Copy"
+                                        value={candidateForm.iqamaCopy || ''}
+                                        onChange={(file) => onInputChange('iqamaCopy', file)}
+                                        fieldName="iqamaCopy"
+                                        onView={typeof candidateForm.iqamaCopy === 'string' ? () => handleViewDocument('iqama') : undefined}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    )}
                     <div>
                         <div className="flex items-center gap-2 mb-6">
                             <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
@@ -518,6 +923,387 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                         </div>
                     </div>
 
+                    {isEditing && (
+                        <>
+                            {/* Address Information Section */}
+                            <div>
+                                <div className="flex items-center gap-2 mb-6">
+                                    <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                    </div>
+                                    <h2 className="text-lg font-semibold">Address Information</h2>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    {/* Present Address */}
+                                    <div className="space-y-4">
+                                        <h3 className="text-sm font-medium text-gray-900 border-b pb-2">Present Address</h3>
+                                        <div className="grid grid-cols-1 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1</label>
+                                                <input
+                                                    type="text"
+                                                    value={candidateForm.presentAddress?.addressLine1 || ''}
+                                                    onChange={(e) => onInputChange('presentAddress', { ...candidateForm.presentAddress, addressLine1: e.target.value })}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2</label>
+                                                <input
+                                                    type="text"
+                                                    value={candidateForm.presentAddress?.addressLine2 || ''}
+                                                    onChange={(e) => onInputChange('presentAddress', { ...candidateForm.presentAddress, addressLine2: e.target.value })}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                                                    <input
+                                                        type="text"
+                                                        value={candidateForm.presentAddress?.city || ''}
+                                                        onChange={(e) => onInputChange('presentAddress', { ...candidateForm.presentAddress, city: e.target.value })}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                                                    <input
+                                                        type="text"
+                                                        value={candidateForm.presentAddress?.state || ''}
+                                                        onChange={(e) => onInputChange('presentAddress', { ...candidateForm.presentAddress, state: e.target.value })}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                                                    <input
+                                                        type="text"
+                                                        value={candidateForm.presentAddress?.country || ''}
+                                                        onChange={(e) => onInputChange('presentAddress', { ...candidateForm.presentAddress, country: e.target.value })}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Pin Code</label>
+                                                    <input
+                                                        type="text"
+                                                        value={candidateForm.presentAddress?.pinCode || ''}
+                                                        onChange={(e) => onInputChange('presentAddress', { ...candidateForm.presentAddress, pinCode: e.target.value })}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Permanent Address */}
+                                    <div className="space-y-4">
+                                        <h3 className="text-sm font-medium text-gray-900 border-b pb-2">Permanent Address</h3>
+                                        <div className="grid grid-cols-1 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1</label>
+                                                <input
+                                                    type="text"
+                                                    value={candidateForm.permanentAddress?.addressLine1 || ''}
+                                                    onChange={(e) => onInputChange('permanentAddress', { ...candidateForm.permanentAddress, addressLine1: e.target.value })}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2</label>
+                                                <input
+                                                    type="text"
+                                                    value={candidateForm.permanentAddress?.addressLine2 || ''}
+                                                    onChange={(e) => onInputChange('permanentAddress', { ...candidateForm.permanentAddress, addressLine2: e.target.value })}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                                                    <input
+                                                        type="text"
+                                                        value={candidateForm.permanentAddress?.city || ''}
+                                                        onChange={(e) => onInputChange('permanentAddress', { ...candidateForm.permanentAddress, city: e.target.value })}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                                                    <input
+                                                        type="text"
+                                                        value={candidateForm.permanentAddress?.state || ''}
+                                                        onChange={(e) => onInputChange('permanentAddress', { ...candidateForm.permanentAddress, state: e.target.value })}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                                                    <input
+                                                        type="text"
+                                                        value={candidateForm.permanentAddress?.country || ''}
+                                                        onChange={(e) => onInputChange('permanentAddress', { ...candidateForm.permanentAddress, country: e.target.value })}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Pin Code</label>
+                                                    <input
+                                                        type="text"
+                                                        value={candidateForm.permanentAddress?.pinCode || ''}
+                                                        onChange={(e) => onInputChange('permanentAddress', { ...candidateForm.permanentAddress, pinCode: e.target.value })}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Emergency Contact Section */}
+                            <div>
+                                <div className="flex items-center gap-2 mb-6">
+                                    <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                    </div>
+                                    <h2 className="text-lg font-semibold">Emergency Contact</h2>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Contact Name</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Enter name"
+                                            value={candidateForm.emergencyContact?.contactName || ''}
+                                            onChange={(e) => onInputChange('emergencyContact', { ...candidateForm.emergencyContact, contactName: e.target.value })}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Relation</label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g., Spouse, Parent"
+                                            value={candidateForm.emergencyContact?.relation || ''}
+                                            onChange={(e) => onInputChange('emergencyContact', { ...candidateForm.emergencyContact, relation: e.target.value })}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Contact Number</label>
+                                        <input
+                                            type="tel"
+                                            placeholder="Enter phone number"
+                                            value={candidateForm.emergencyContact?.contactNumber || ''}
+                                            onChange={(e) => onInputChange('emergencyContact', { ...candidateForm.emergencyContact, contactNumber: e.target.value })}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Education Section */}
+                            <div>
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                                            <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path d="M12 14l9-5-9-5-9 5 9 5z" />
+                                                <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222" />
+                                            </svg>
+                                        </div>
+                                        <h2 className="text-lg font-semibold">Education</h2>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleAddEducation}
+                                        className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                        Add Education
+                                    </button>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {candidateForm.education?.map((edu: any, index: number) => (
+                                        <div key={index} className="p-4 bg-gray-50 rounded-lg relative">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveEducation(index)}
+                                                className="absolute top-2 right-2 p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Institute Name</label>
+                                                    <input
+                                                        type="text"
+                                                        value={edu.instituteName || ''}
+                                                        onChange={(e) => handleEducationChange(index, 'instituteName', e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Degree</label>
+                                                    <input
+                                                        type="text"
+                                                        value={edu.degree || ''}
+                                                        onChange={(e) => handleEducationChange(index, 'degree', e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Field of Study</label>
+                                                    <input
+                                                        type="text"
+                                                        value={edu.fieldOfStudy || ''}
+                                                        onChange={(e) => handleEducationChange(index, 'fieldOfStudy', e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Year</label>
+                                                    <input
+                                                        type="text"
+                                                        value={edu.startYear || ''}
+                                                        onChange={(e) => handleEducationChange(index, 'startYear', e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">End Year</label>
+                                                    <input
+                                                        type="text"
+                                                        value={edu.endYear || ''}
+                                                        onChange={(e) => handleEducationChange(index, 'endYear', e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {(!candidateForm.education || candidateForm.education.length === 0) && (
+                                        <div className="text-center py-6 text-gray-400 text-sm italic border-2 border-dashed border-gray-100 rounded-lg">
+                                            No education records added.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Work Experience Section */}
+                            <div>
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center">
+                                            <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                            </svg>
+                                        </div>
+                                        <h2 className="text-lg font-semibold">Work Experience</h2>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleAddExperience}
+                                        className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                        Add Experience
+                                    </button>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {candidateForm.experience?.map((exp: any, index: number) => (
+                                        <div key={index} className="p-4 bg-gray-50 rounded-lg relative">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveExperience(index)}
+                                                className="absolute top-2 right-2 p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+                                                    <input
+                                                        type="text"
+                                                        value={exp.companyName || ''}
+                                                        onChange={(e) => handleExperienceChange(index, 'companyName', e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Job Title</label>
+                                                    <input
+                                                        type="text"
+                                                        value={exp.jobTitle || ''}
+                                                        onChange={(e) => handleExperienceChange(index, 'jobTitle', e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                                                    <input
+                                                        type="date"
+                                                        value={exp.fromDate ? new Date(exp.fromDate).toISOString().split('T')[0] : ''}
+                                                        onChange={(e) => handleExperienceChange(index, 'fromDate', e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                                                    <input
+                                                        type="date"
+                                                        disabled={exp.currentlyWorking}
+                                                        value={exp.toDate ? new Date(exp.toDate).toISOString().split('T')[0] : ''}
+                                                        onChange={(e) => handleExperienceChange(index, 'toDate', e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-200"
+                                                    />
+                                                    <div className="mt-2 flex items-center gap-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={exp.currentlyWorking || false}
+                                                            onChange={(e) => handleExperienceChange(index, 'currentlyWorking', e.target.checked)}
+                                                            className="rounded border-gray-300"
+                                                        />
+                                                        <span className="text-xs text-gray-500">Currently working here</span>
+                                                    </div>
+                                                </div>
+                                                <div className="md:col-span-2">
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Job Description</label>
+                                                    <textarea
+                                                        value={exp.jobDescription || ''}
+                                                        onChange={(e) => handleExperienceChange(index, 'jobDescription', e.target.value)}
+                                                        rows={2}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {(!candidateForm.experience || candidateForm.experience.length === 0) && (
+                                        <div className="text-center py-6 text-gray-400 text-sm italic border-2 border-dashed border-gray-100 rounded-lg">
+                                            No experience records added.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </>
+                    )}
 
                     {/* Compensation & Benefits Section */}
                     <div>
@@ -837,7 +1623,7 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                 open={showSuccessDialog}
                 onOpenChange={setShowSuccessDialog}
                 title="Successfully Completed"
-                message={`Candidate "${candidateForm.fullName || 'Employee'}" has been added successfully!${generatedId ? ` Assigned ID: ${generatedId}.` : ''} An onboarding invitation email has been sent.`}
+                message={`Candidate "${candidateForm.fullName || 'Employee'}" has been added successfully!${candidateForm.employeeNumber ? ` Assigned ID: ${candidateForm.employeeNumber}.` : ''} An onboarding invitation email has been sent.`}
                 onClose={() => {
                     setShowSuccessDialog(false);
                     if (onComplete) onComplete();

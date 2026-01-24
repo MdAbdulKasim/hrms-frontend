@@ -42,6 +42,8 @@ export interface FormData {
     passportDocUrl?: string
     drivingLicenseNumber: string
     drivingLicenseDocUrl?: string
+    iqamaId: string
+    iqamaCopyUrl?: string
 
     // Salary & Bank Details
     basicSalary: string
@@ -129,6 +131,8 @@ export const initialFormData: FormData = {
     passportDocUrl: "",
     drivingLicenseNumber: "",
     drivingLicenseDocUrl: "",
+    iqamaId: "",
+    iqamaCopyUrl: "",
     basicSalary: "",
     bankDetails: {
         bankName: "",

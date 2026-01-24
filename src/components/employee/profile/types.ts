@@ -26,20 +26,24 @@ export interface FormData {
     contractType: string
     contractStartDate: string
     contractEndDate: string
-
-    // Identity Information
-    // uan: string
-    // uanDocUrl?: string
     iban: string
     ibanDocUrl?: string
-    // pan: string
-    // panDocUrl?: string
-    // aadhaarNumber: string
-    // aadhaarDocUrl?: string
+
+    // Identity Information
+    uid: string
+    uidDocUrl?: string
+    labourNumber: string
+    labourDocUrl?: string
+    emiratesId: string
+    emiratesIdDocUrl?: string
+    visaNumber: string
+    visaDocUrl?: string
     passportNumber: string
     passportDocUrl?: string
     drivingLicenseNumber: string
     drivingLicenseDocUrl?: string
+    iqamaId: string
+    iqamaCopyUrl?: string
 
     // Salary & Bank Details
     basicSalary: string
@@ -113,18 +117,22 @@ export const initialFormData: FormData = {
     contractType: "",
     contractStartDate: "",
     contractEndDate: "",
-    // uan: "",
-    // uanDocUrl: "",
     iban: "",
     ibanDocUrl: "",
-    // pan: "",
-    // panDocUrl: "",
-    // aadhaarNumber: "",
-    // aadhaarDocUrl: "",
+    uid: "",
+    uidDocUrl: "",
+    labourNumber: "",
+    labourDocUrl: "",
+    emiratesId: "",
+    emiratesIdDocUrl: "",
+    visaNumber: "",
+    visaDocUrl: "",
     passportNumber: "",
     passportDocUrl: "",
     drivingLicenseNumber: "",
     drivingLicenseDocUrl: "",
+    iqamaId: "",
+    iqamaCopyUrl: "",
     basicSalary: "",
     bankDetails: {
         bankName: "",

@@ -88,7 +88,7 @@ export default function Sidebar({
   };
 
   const adminMenu = [
-    { label: "Home", href: "/admin/my-space/overview", icon: Home, protected: true },
+    { label: "Home", href: "/admin/my-space/dashboard", icon: Home, protected: true },
     { label: "Employees", href: "/admin/onboarding", icon: Users, protected: true },
     { label: "Leave Tracker", href: "/admin/leavetracker", icon: Calendar, protected: true },
     { label: "Attendance", href: "/admin/attendance", icon: Clock, protected: true },
@@ -98,7 +98,7 @@ export default function Sidebar({
   ];
 
   const employeeMenu = [
-    { label: "Home", href: "/employee/my-space/overview", icon: Home, protected: true },
+    { label: "Home", href: "/employee/my-space/dashboard", icon: Home, protected: true },
     { label: "Leave Tracker", href: "/employee/leavetracker", icon: Calendar, protected: true },
     { label: "Attendance", href: "/employee/attendance", icon: Clock, protected: true },
     { label: "Payslip", href: "/employee/payslips", icon: ReceiptIndianRupeeIcon, protected: true },
@@ -118,7 +118,7 @@ export default function Sidebar({
       <div className={`h-20 md:h-28 flex items-center justify-between px-25 ${isDesktopCollapsed ? "md:justify-center md:px-0" : ""}`}>
         <div
           className={`flex items-center cursor-pointer group w-full ${isDesktopCollapsed ? "justify-center" : "justify-start"}`}
-          onClick={() => window.location.href = userRole === 'admin' ? '/admin/my-space/overview' : '/employee/my-space/overview'}
+          onClick={() => window.location.href = userRole === 'admin' ? '/admin/my-space/dashboard' : '/employee/my-space/dashboard'}
         >
           <img
             src="/logo.png"
