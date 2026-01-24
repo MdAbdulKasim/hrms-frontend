@@ -183,10 +183,10 @@ export default function LoginForm() {
 
           if (role === 'admin') {
             // Redirect based on actual setup status from backend
-            window.location.href = "/admin/my-space/overview";
+            window.location.href = "/admin/my-space/dashboard";
           } else {
-            // Redirect employees directly to overview, bypassing setup
-            window.location.href = "/employee/my-space/overview";
+            // Redirect employees directly to dashboard, bypassing setup
+            window.location.href = "/employee/my-space/dashboard";
           }
         } else {
           setErrors(prev => ({

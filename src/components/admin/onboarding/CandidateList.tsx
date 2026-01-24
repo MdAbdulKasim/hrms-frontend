@@ -233,6 +233,14 @@ const CandidateList: React.FC<CandidateListProps> = ({
                             <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                                 <tr>
 
+                                    <th className="px-1 sm:px-2 md:px-6 py-2 sm:py-3 text-left">
+                                        <input
+                                            type="checkbox"
+                                            className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                                            checked={currentEmployees.length > 0 && currentEmployees.every(emp => selectedIds.includes(emp.id))}
+                                            onChange={onSelectAll}
+                                        />
+                                    </th>
                                     <th className="px-1 sm:px-2 md:px-6 py-2 sm:py-3 text-left text-[9px] xs:text-[10px] sm:text-xs font-medium text-black uppercase tracking-wider cursor-pointer hover:bg-gray-100 responsive-header" onClick={() => setSortConfig({ key: 'employeeNumber', direction: sortConfig.key === 'employeeNumber' && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
                                         <div className="flex items-center gap-0.5 sm:gap-1">
                                             Emp ID
@@ -272,7 +280,14 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                 {currentEmployees.length > 0 ? (
                                     currentEmployees.map((employee) => (
                                         <tr key={employee.id} className="hover:bg-gray-50">
-
+                                            <td className="px-1 sm:px-2 md:px-6 py-2 sm:py-4 responsive-cell">
+                                                <input
+                                                    type="checkbox"
+                                                    className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                                                    checked={selectedIds.includes(employee.id)}
+                                                    onChange={() => onSelectOne(employee.id)}
+                                                />
+                                            </td>
                                             <td className="px-1 sm:px-2 md:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-900 font-medium responsive-cell">{employee.employeeNumber}</td>
                                             <td className="px-1 sm:px-2 md:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-900 responsive-cell">{employee.fullName || `${employee.firstName} ${employee.lastName}`}</td>
                                             <td className="px-1 sm:px-2 md:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-900 responsive-cell truncate max-w-[80px] sm:max-w-none">{employee.officialEmail || employee.emailId}</td>
@@ -282,6 +297,7 @@ const CandidateList: React.FC<CandidateListProps> = ({
                                             <td className="px-1 sm:px-2 md:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-900 responsive-cell truncate max-w-[60px] sm:max-w-none">{employee.location || 'N/A'}</td>
                                             <td className="px-1 sm:px-2 md:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-900 responsive-cell truncate max-w-[70px] sm:max-w-none">{employee.dateOfJoining ? new Date(employee.dateOfJoining).toLocaleDateString() : 'N/A'}</td>
                                             <td className="px-1 sm:px-2 md:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-900 responsive-cell">
+
                                                 <div className="flex items-center justify-center gap-1 sm:gap-2 md:gap-3">
                                                     <button
                                                         onClick={() => onView(employee.id)}

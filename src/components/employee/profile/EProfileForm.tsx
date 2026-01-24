@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -8,6 +8,8 @@ import { Card } from "@/components/ui/card"
 import { Upload, User, Plus, Trash2 } from "lucide-react"
 import type { FormData } from "./types"
 import SearchableDropdown from "@/components/ui/SearchableDropdown"
+import { getApiUrl, getAuthToken, getOrgId } from "@/lib/auth"
+import axios from "axios"
 
 const genders = ["Male", "Female", "Other"]
 const maritalStatuses = ["Single", "Married", "Divorced", "Widowed"]
@@ -30,6 +32,7 @@ interface EProfileFormProps {
     formData: FormData
     isEditing: boolean
     userRole: 'admin' | 'employee' | string | null
+    employeeId: string // Added employeeId
     profilePicUrl: string | null
     selectedProfilePicFile: File | null
     handleInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, section?: string, field?: string) => void
@@ -41,6 +44,7 @@ interface EProfileFormProps {
     handleAddEducationEntry: () => void
     handleRemoveEducationEntry: (index: number) => void
     handleEducationEntryChange: (index: number, field: string, value: any) => void
+    handleDeleteFile: (fieldName: string) => void
     handleSave: () => void
 }
 
@@ -48,6 +52,7 @@ export default function EProfileForm({
     formData,
     isEditing,
     userRole,
+    employeeId,
     profilePicUrl,
     selectedProfilePicFile,
     handleInputChange,
@@ -59,8 +64,40 @@ export default function EProfileForm({
     handleAddEducationEntry,
     handleRemoveEducationEntry,
     handleEducationEntryChange,
+    handleDeleteFile,
     handleSave
 }: EProfileFormProps) {
+    const [identityView, setIdentityView] = useState<'number' | 'documents'>('number')
+
+    const handleViewDocument = async (documentType: string) => {
+        try {
+            const token = getAuthToken()
+            const orgId = getOrgId()
+            const apiUrl = getApiUrl()
+
+            if (!token || !orgId || !employeeId) {
+                console.error("Missing required credentials")
+                return
+            }
+
+            const response = await axios.get(
+                `${apiUrl}/org/${orgId}/employees/${employeeId}/documents/${documentType}`,
+                {
+                    headers: { Authorization: `Bearer ${token}` }
+                }
+            )
+
+            if (response.data.success && response.data.documentUrl) {
+                window.open(response.data.documentUrl, '_blank')
+            } else {
+                alert("Document not found")
+            }
+        } catch (error) {
+            console.error("Error viewing document:", error)
+            alert("Failed to view document")
+        }
+    }
+
     return (
         <>
             {/* Profile Picture Section */}
@@ -405,10 +442,30 @@ export default function EProfileForm({
 
             {/* Identity Information Section */}
             <Card className="mb-6 p-6">
-                <h2 className="text-xl font-bold mb-4 text-gray-900">Identity Information</h2>
-                <p className="text-sm text-gray-600 mb-6">
-                    Please provide your identity documents information. These details are required for official records.
-                </p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-900">Identity Information</h2>
+                        <p className="text-sm text-gray-600 mt-1">
+                            Please provide your identity documents information.
+                        </p>
+                    </div>
+                    <div className="flex bg-gray-100 p-1 rounded-lg self-start sm:self-auto">
+                        <button
+                            type="button"
+                            onClick={() => setIdentityView('number')}
+                            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${identityView === 'number' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            Number
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setIdentityView('documents')}
+                            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${identityView === 'documents' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            Documents
+                        </button>
+                    </div>
+                </div>
 
                 <div className="grid grid-cols-2 gap-4 mb-6">
                     <div>
@@ -434,32 +491,303 @@ export default function EProfileForm({
                             </div>
                         </div>
                     </div>
-                    {/* Removed MOL/MOHER (PAN) field */}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Passport Number</label>
-                        <Input
-                            name="passportNumber"
-                            value={formData.passportNumber}
-                            onChange={handleInputChange}
-                            disabled={!isEditing}
-                            placeholder="e.g. A1234567"
-                        />
-                        <div className="flex items-center justify-between mt-2">
-                            <p className="text-xs text-gray-500">Alphanumeric (Optional)</p>
-                            <div className="flex items-center gap-2">
-                                <input type="file" id="passportDoc" className="hidden" onChange={(e) => handleFileChange(e, "passportDoc")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
-                                <label htmlFor="passportDoc" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                    <Upload className="w-3 h-3" />
-                                    {formData.passportDocUrl ? 'Change' : 'Upload Doc'}
-                                </label>
-                                {formData.passportDocUrl && <span className="text-[10px] text-green-600 font-medium">✓ Uploaded</span>}
+                {identityView === 'number' ? (
+                    <div className="animate-in fade-in duration-300">
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">UID Number</label>
+                                <Input
+                                    name="uid"
+                                    value={formData.uid}
+                                    onChange={handleInputChange}
+                                    disabled={!isEditing}
+                                    placeholder="e.g. 1234567"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Labour Number</label>
+                                <Input
+                                    name="labourNumber"
+                                    value={formData.labourNumber}
+                                    onChange={handleInputChange}
+                                    disabled={!isEditing}
+                                    placeholder="e.g. 1234567"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Emirates ID</label>
+                                <Input
+                                    name="emiratesId"
+                                    value={formData.emiratesId}
+                                    onChange={handleInputChange}
+                                    disabled={!isEditing}
+                                    placeholder="e.g. 784-1234-1234567-1"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Visa Number</label>
+                                <Input
+                                    name="visaNumber"
+                                    value={formData.visaNumber}
+                                    onChange={handleInputChange}
+                                    disabled={!isEditing}
+                                    placeholder="e.g. 123/4567/8/9101112"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Passport Number</label>
+                                <Input
+                                    name="passportNumber"
+                                    value={formData.passportNumber}
+                                    onChange={handleInputChange}
+                                    disabled={!isEditing}
+                                    placeholder="e.g. A1234567"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Iqama ID</label>
+                                <Input
+                                    name="iqamaId"
+                                    value={formData.iqamaId}
+                                    onChange={handleInputChange}
+                                    disabled={!isEditing}
+                                    placeholder="Starts with 2 (10 digits)"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Driving License</label>
+                                <Input
+                                    name="drivingLicenseNumber"
+                                    value={formData.drivingLicenseNumber}
+                                    onChange={handleInputChange}
+                                    disabled={!isEditing}
+                                    placeholder="e.g. 1234567"
+                                />
                             </div>
                         </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="animate-in fade-in duration-300">
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">UID Copy</label>
+                                <div className="flex items-center gap-2">
+                                    <input type="file" id="uidCopy" className="hidden" onChange={(e) => handleFileChange(e, "uidCopy")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
+                                    <label htmlFor="uidCopy" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                        <Upload className="w-3 h-3" />
+                                        {formData.uidDocUrl ? 'Change' : 'Upload Doc'}
+                                    </label>
+                                    {formData.uidDocUrl && (
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleViewDocument('uid')}
+                                                className="text-[10px] text-blue-600 font-medium hover:underline focus:outline-none"
+                                            >
+                                                View Doc
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteFile('uidCopy')}
+                                                className="text-red-500 hover:text-red-700"
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Labour Card Copy</label>
+                                <div className="flex items-center gap-2">
+                                    <input type="file" id="labourCardCopy" className="hidden" onChange={(e) => handleFileChange(e, "labourCardCopy")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
+                                    <label htmlFor="labourCardCopy" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                        <Upload className="w-3 h-3" />
+                                        {formData.labourDocUrl ? 'Change' : 'Upload Doc'}
+                                    </label>
+                                    {formData.labourDocUrl && (
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleViewDocument('labourCard')}
+                                                className="text-[10px] text-blue-600 font-medium hover:underline focus:outline-none"
+                                            >
+                                                View Doc
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteFile('labourCardCopy')}
+                                                className="text-red-500 hover:text-red-700"
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Emirates ID Copy</label>
+                                <div className="flex items-center gap-2">
+                                    <input type="file" id="emiratesIdCopy" className="hidden" onChange={(e) => handleFileChange(e, "emiratesIdCopy")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
+                                    <label htmlFor="emiratesIdCopy" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                        <Upload className="w-3 h-3" />
+                                        {formData.emiratesIdDocUrl ? 'Change' : 'Upload Doc'}
+                                    </label>
+                                    {formData.emiratesIdDocUrl && (
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleViewDocument('emiratesId')}
+                                                className="text-[10px] text-blue-600 font-medium hover:underline focus:outline-none"
+                                            >
+                                                View Doc
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteFile('emiratesIdCopy')}
+                                                className="text-red-500 hover:text-red-700"
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Visa Copy</label>
+                                <div className="flex items-center gap-2">
+                                    <input type="file" id="visaCopy" className="hidden" onChange={(e) => handleFileChange(e, "visaCopy")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
+                                    <label htmlFor="visaCopy" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                        <Upload className="w-3 h-3" />
+                                        {formData.visaDocUrl ? 'Change' : 'Upload Doc'}
+                                    </label>
+                                    {formData.visaDocUrl && (
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleViewDocument('visa')}
+                                                className="text-[10px] text-blue-600 font-medium hover:underline focus:outline-none"
+                                            >
+                                                View Doc
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteFile('visaCopy')}
+                                                className="text-red-500 hover:text-red-700"
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Passport Copy</label>
+                                <div className="flex items-center gap-2">
+                                    <input type="file" id="passportCopy" className="hidden" onChange={(e) => handleFileChange(e, "passportCopy")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
+                                    <label htmlFor="passportCopy" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                        <Upload className="w-3 h-3" />
+                                        {formData.passportDocUrl ? 'Change' : 'Upload Doc'}
+                                    </label>
+                                    {formData.passportDocUrl && (
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleViewDocument('passport')}
+                                                className="text-[10px] text-blue-600 font-medium hover:underline focus:outline-none"
+                                            >
+                                                View Doc
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteFile('passportCopy')}
+                                                className="text-red-500 hover:text-red-700"
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Driving License Copy</label>
+                                <div className="flex items-center gap-2">
+                                    <input type="file" id="drivingLicenseCopy" className="hidden" onChange={(e) => handleFileChange(e, "drivingLicenseCopy")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
+                                    <label htmlFor="drivingLicenseCopy" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                        <Upload className="w-3 h-3" />
+                                        {formData.drivingLicenseDocUrl ? 'Change' : 'Upload Doc'}
+                                    </label>
+                                    {formData.drivingLicenseDocUrl && (
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleViewDocument('drivingLicense')}
+                                                className="text-[10px] text-blue-600 font-medium hover:underline focus:outline-none"
+                                            >
+                                                View Doc
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteFile('drivingLicenseCopy')}
+                                                className="text-red-500 hover:text-red-700"
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Iqama Copy</label>
+                                <div className="flex items-center gap-2">
+                                    <input type="file" id="iqamaCopy" className="hidden" onChange={(e) => handleFileChange(e, "iqamaCopy")} disabled={!isEditing} accept=".pdf,.jpg,.jpeg,.png" />
+                                    <label htmlFor="iqamaCopy" className={`text-xs flex items-center gap-1 px-2 py-1 border rounded bg-white hover:bg-gray-50 cursor-pointer ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                        <Upload className="w-3 h-3" />
+                                        {formData.iqamaCopyUrl ? 'Change' : 'Upload Doc'}
+                                    </label>
+                                    {formData.iqamaCopyUrl && (
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleViewDocument('iqama')}
+                                                className="text-[10px] text-blue-600 font-medium hover:underline focus:outline-none"
+                                            >
+                                                View Doc
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteFile('iqamaCopy')}
+                                                className="text-red-500 hover:text-red-700"
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </Card>
 
             {/* Work Experience */}

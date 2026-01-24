@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Megaphone, X } from 'lucide-react';
+import { Megaphone, Plus, X } from 'lucide-react';
 import axios from 'axios';
 import { getApiUrl, getAuthToken, getOrgId, getCookie } from '@/lib/auth';
 import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
@@ -214,10 +214,11 @@ const AnnouncementsSection: React.FC = () => {
           {!isEmployee && (
             <button
               onClick={() => setShowAnnouncementModal(true)}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-all border border-slate-200 hover:border-blue-200 shadow-sm"
+              className="flex items-center gap-2 text-xs font-bold text-blue-600 hover:text-blue-700 transition-all bg-blue-50 px-3 py-2 rounded-xl border border-blue-100/50 hover:bg-blue-100 shadow-sm"
               title="Add Announcement"
             >
-              <Megaphone className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add</span>
             </button>
           )}
         </div>

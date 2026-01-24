@@ -66,6 +66,56 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
         return bld ? (bld.name || bld.buildingName) : bldId || 'N/A';
     };
 
+    const renderDocLink = (docType: string, val: string | File | null | undefined) => {
+        if (!val || val instanceof File) return null;
+
+        const handleViewDocument = async () => {
+            const orgId = localStorage.getItem('orgId');
+            const token = localStorage.getItem('token');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+            // Try to find the ID from candidate prop
+            // candidate might be CandidateForm which we added optional id/_id to.
+            // If not present in candidate object explicitly, we might need to rely on the parent passing it, 
+            // but ViewCandidate takes 'candidate' which is likely the full object from API.
+            // Let's assume candidate has an id.
+            const empId = (candidate as any).id || (candidate as any)._id;
+
+            if (!empId || !orgId || !token) {
+                alert("Cannot view document: Missing ID or credentials");
+                return;
+            }
+
+            try {
+                const response = await fetch(`${apiUrl}/org/${orgId}/employees/${empId}/documents/${docType}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success && data.documentUrl) {
+                    window.open(data.documentUrl, '_blank');
+                } else {
+                    alert("Document not found");
+                }
+            } catch (e) {
+                console.error("View Doc Error", e);
+                alert("Failed to open document");
+            }
+        };
+
+        return (
+            <button
+                onClick={handleViewDocument}
+                className="mt-1 text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 focus:outline-none hover:underline"
+            >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                View Document
+            </button>
+        );
+    };
+
 
     return (
         <div className="min-h-screen bg-white p-2 sm:p-4 md:p-8">
@@ -142,26 +192,37 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
                             <div>
                                 <label className="block text-sm font-medium text-gray-500 mb-1">UID Number</label>
                                 <div className="text-gray-900 font-medium uppercase">{candidate.uid || 'N/A'}</div>
+                                {renderDocLink('uid', candidate.uidCopy)}
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-500 mb-1">Labour Number</label>
                                 <div className="text-gray-900 font-medium uppercase">{candidate.labourNumber || 'N/A'}</div>
+                                {renderDocLink('labourCard', candidate.labourCardCopy)}
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-500 mb-1">EID Number</label>
                                 <div className="text-gray-900 font-medium">{candidate.eid || 'N/A'}</div>
+                                {renderDocLink('emiratesId', candidate.emiratesIdCopy)}
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-500 mb-1">Visa Number</label>
                                 <div className="text-gray-900 font-medium">{candidate.visaNumber || 'N/A'}</div>
+                                {renderDocLink('visa', candidate.visaCopy)}
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-500 mb-1">Passport Number</label>
                                 <div className="text-gray-900 font-medium uppercase">{candidate.passportNumber || 'N/A'}</div>
+                                {renderDocLink('passport', candidate.passportCopy)}
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-500 mb-1">Driving License</label>
                                 <div className="text-gray-900 font-medium uppercase">{candidate.drivingLicenseNumber || 'N/A'}</div>
+                                {renderDocLink('drivingLicense', candidate.drivingLicenseCopy)}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-500 mb-1">Iqama ID</label>
+                                <div className="text-gray-900 font-medium uppercase">{candidate.iqamaId || 'N/A'}</div>
+                                {renderDocLink('iqama', candidate.iqamaCopy)}
                             </div>
                         </div>
                     </div>

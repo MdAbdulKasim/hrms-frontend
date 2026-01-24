@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import axios from "axios"
 import { Button } from "@/components/ui/button"
-import { Edit, ArrowLeft } from "lucide-react"
+import { Edit, ArrowLeft, Loader2 } from "lucide-react"
 import { getApiUrl, getAuthToken, getOrgId, getEmployeeId, getUserRole } from "@/lib/auth"
 import { CustomAlertDialog } from "@/components/ui/custom-dialogs"
 import ChangePassword from "./ChangePassword"
@@ -41,6 +41,7 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
   const [showPasswordChange, setShowPasswordChange] = useState(false)
   const [formData, setFormData] = useState<ProfileFormData>(initialFormData)
   const [userRole, setUserRole] = useState<'admin' | 'employee' | string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   // Alert State
   const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
@@ -63,12 +64,14 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
     setUserRole(getUserRole())
 
     const fetchEmployeeData = async () => {
+      setIsLoading(true);
       try {
         const token = getAuthToken()
         const apiUrl = getApiUrl()
 
         if (!token || !orgId || !employeeId) {
           console.error("Authentication, organization ID, or employee ID missing")
+          setIsLoading(false);
           return
         }
 
@@ -133,20 +136,22 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
           contractType: employee.contractType || "",
           contractStartDate: sanitizeDate(employee.contractStartDate),
           contractEndDate: sanitizeDate(employee.contractEndDate),
-          uid: employee.uid || "",
-          uidDocUrl: employee.uidDocUrl || "",
+          uid: employee.uidNumber || employee.uid || "",
+          uidDocUrl: employee.uidCopyUrl || employee.uidDocUrl || "",
           labourNumber: employee.labourNumber || "",
-          labourNumberDocUrl: employee.labourNumberDocUrl || "",
-          eidNumber: employee.eidNumber || employee.eid || "",
-          eidNumberDocUrl: employee.eidNumberDocUrl || "",
+          labourNumberDocUrl: employee.labourCardCopyUrl || employee.labourNumberDocUrl || "",
+          eidNumber: employee.emiratesId || employee.eidNumber || employee.eid || "",
+          eidNumberDocUrl: employee.emiratesIdCopyUrl || employee.eidNumberDocUrl || "",
           visaNumber: employee.visaNumber || "",
-          visaNumberDocUrl: employee.visaNumberDocUrl || "",
+          visaNumberDocUrl: employee.visaCopyUrl || employee.visaNumberDocUrl || "",
           iban: employee.iban || "",
           ibanDocUrl: employee.ibanDocUrl || "",
           passportNumber: employee.passportNumber || "",
-          passportDocUrl: employee.passportDocUrl || "",
+          passportDocUrl: employee.passportCopyUrl || employee.passportDocUrl || "",
           drivingLicenseNumber: employee.drivingLicenseNumber || "",
-          drivingLicenseDocUrl: employee.drivingLicenseDocUrl || "",
+          drivingLicenseDocUrl: employee.drivingLicenseCopyUrl || employee.drivingLicenseDocUrl || "",
+          iqamaId: employee.iqamaId || "",
+          iqamaCopyUrl: employee.iqamaCopyUrl || "",
           basicSalary: employee.basicSalary || "",
           bankDetails: {
             bankName: bankData?.bankName || employee.bankName || "",
@@ -202,16 +207,44 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
         } else {
           setProfilePicUrl(null)
         }
+
+        // Fetch contract data
+        if (employee.employeeNumber) {
+          try {
+            const contractResponse = await axios.get(`${apiUrl}/org/${orgId}/contracts/employee/${employee.employeeNumber}/active`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+
+            if (contractResponse.data && typeof contractResponse.data !== 'string') {
+              const contract = contractResponse.data.data || contractResponse.data
+
+              // Update form data with contract information
+              setFormData(prev => ({
+                ...prev,
+                contractType: contract.contractType || "",
+                contractStartDate: sanitizeDate(contract.startDate),
+                contractEndDate: sanitizeDate(contract.endDate),
+              }))
+            }
+          } catch (error) {
+            console.log("No active contract found or failed to fetch contract data")
+            // Contract is optional, so we don't show an error
+          }
+        }
       } catch (error: any) {
         console.error("Failed to fetch employee data:", error)
         if (axios.isAxiosError(error) && error.response?.status === 401) {
           router.push('/auth/login')
         }
+      } finally {
+        setIsLoading(false);
       }
     }
 
     if (employeeId && orgId && employeeId !== "undefined" && orgId !== "undefined") {
       fetchEmployeeData()
+    } else {
+      setIsLoading(false);
     }
   }, [propEmployeeId])
 
@@ -246,8 +279,26 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
         if (name === 'mobileNumber') finalValue = finalValue.slice(0, 15);
       }
 
-      if (name === 'passportNumber' || name === 'drivingLicenseNumber') {
-        finalValue = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      if (name === 'uid') {
+        finalValue = value.replace(/[^0-9]/g, '').slice(0, 9);
+      } else if (name === 'labourNumber') {
+        finalValue = value.replace(/[^0-9]/g, '').slice(0, 10);
+      } else if (name === 'eidNumber') {
+        let val = value.replace(/\D/g, "");
+        if (val.length > 15) val = val.slice(0, 15);
+        let formatted = val;
+        if (val.length > 3) formatted = val.slice(0, 3) + "-" + val.slice(3);
+        if (val.length > 7) formatted = formatted.slice(0, 8) + "-" + formatted.slice(8);
+        if (val.length > 14) formatted = formatted.slice(0, 16) + "-" + formatted.slice(16);
+        finalValue = formatted;
+      } else if (name === 'iqamaId') {
+        let digits = value.replace(/[^0-9]/g, '').slice(0, 10);
+        if (digits.length > 0 && digits[0] !== '2') return;
+        finalValue = digits;
+      } else if (name === 'passportNumber' || name === 'drivingLicenseNumber') {
+        finalValue = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 15);
+      } else if (name === 'visaNumber') {
+        finalValue = value.replace(/[^0-9]/g, '').slice(0, 15);
       }
 
       setFormData((prev) => ({
@@ -281,8 +332,49 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
         setProfilePicUrl(previewUrl)
       } else {
         setSelectedFiles(prev => ({ ...prev, [fieldName]: file }))
-        // Update local state to show "Uploaded" status immediately if needed
-        // but since we check for existance of file in handleSave, we just keep it in selectedFiles
+        // If it was marked for deletion, clear that mark
+        const mapping: { [key: string]: keyof ProfileFormData } = {
+          'uidDoc': 'uidDocUrl',
+          'labourNumberDoc': 'labourNumberDocUrl',
+          'eidNumberDoc': 'eidNumberDocUrl',
+          'visaNumberDoc': 'visaNumberDocUrl',
+          'passportDoc': 'passportDocUrl',
+          'drivingLicenseDoc': 'drivingLicenseDocUrl',
+          'ibanDoc': 'ibanDocUrl',
+          'iqamaCopy': 'iqamaCopyUrl'
+        }
+        const formField = mapping[fieldName || '']
+        if (formField) {
+          setFormData(prev => ({ ...prev, [formField]: 'pending_upload' }))
+        }
+      }
+    }
+  }
+
+  const handleDeleteFile = (fieldName: string) => {
+    if (fieldName === "profilePic") {
+      setSelectedProfilePicFile(null)
+      setProfilePicUrl(null)
+    } else {
+      setSelectedFiles(prev => {
+        const next = { ...prev }
+        delete next[fieldName]
+        return next
+      })
+      // Clear the URL in formData to signal deletion
+      const mapping: { [key: string]: keyof ProfileFormData } = {
+        'uidDoc': 'uidDocUrl',
+        'labourNumberDoc': 'labourNumberDocUrl',
+        'eidNumberDoc': 'eidNumberDocUrl',
+        'visaNumberDoc': 'visaNumberDocUrl',
+        'passportDoc': 'passportDocUrl',
+        'drivingLicenseDoc': 'drivingLicenseDocUrl',
+        'ibanDoc': 'ibanDocUrl',
+        'iqamaCopy': 'iqamaCopyUrl'
+      }
+      const formField = mapping[fieldName]
+      if (formField) {
+        setFormData(prev => ({ ...prev, [formField]: null as any }))
       }
     }
   }
@@ -388,19 +480,26 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
           return
         }
 
+        // Map frontend ID fields to backend field names
+        if (key === 'uid') {
+          formDataToSend.append('uidNumber', String(value || ''))
+          return
+        }
+        if (key === 'eidNumber') {
+          formDataToSend.append('emiratesId', String(value || ''))
+          return
+        }
+        if (key === 'iqamaId') {
+          formDataToSend.append('iqamaId', String(value || ''))
+          return
+        }
+
         // Exclude fields not present in backend entity to prevent 500 errors
         if ([
           'contractType', 'contractStartDate', 'contractEndDate',
           'uidDocUrl', 'labourNumberDocUrl', 'eidNumberDocUrl',
-          'visaNumberDocUrl', 'passportDocUrl', 'drivingLicenseDocUrl', 'ibanDocUrl',
-          'uid', 'labourNumber', 'eidNumber', 'visaNumber'
+          'visaNumberDocUrl', 'passportDocUrl', 'drivingLicenseDocUrl', 'ibanDocUrl', 'iqamaCopyUrl'
         ].includes(key)) {
-          return
-        }
-
-        // Map employeeStatus -> status
-        if (key === 'employeeStatus') {
-          formDataToSend.append('status', String(value || ''))
           return
         }
 
@@ -439,6 +538,23 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
         }
 
       })
+
+      // Handle document deletions - mapping frontend docUrl fields to backend copyUrl fields
+      const deletionMapping: { [key: string]: string } = {
+        'uidDocUrl': 'uidCopyUrl',
+        'labourNumberDocUrl': 'labourCardCopyUrl',
+        'eidNumberDocUrl': 'emiratesIdCopyUrl',
+        'visaNumberDocUrl': 'visaCopyUrl',
+        'passportDocUrl': 'passportCopyUrl',
+        'drivingLicenseDocUrl': 'drivingLicenseCopyUrl',
+        'iqamaCopyUrl': 'iqamaCopyUrl',
+      };
+
+      Object.entries(deletionMapping).forEach(([formField, backendField]) => {
+        if (formData[formField as keyof ProfileFormData] === null) {
+          formDataToSend.append(backendField, '');
+        }
+      });
 
       if (selectedProfilePicFile) {
         formDataToSend.append('profilePic', selectedProfilePicFile)
@@ -506,18 +622,22 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
         building: getBuildingName(refreshedEmployee.location, refreshedEmployee.siteId, refreshedEmployee.buildingId) || refreshedEmployee.building?.name || refreshedEmployee.building || prev.building,
         role: refreshedEmployee.role || prev.role,
         shift: refreshedEmployee.shiftType || refreshedEmployee.shift?.name || refreshedEmployee.shift || prev.shift,
-        uid: refreshedEmployee.uid || prev.uid,
-        uidDocUrl: refreshedEmployee.uidDocUrl || prev.uidDocUrl,
+        uid: refreshedEmployee.uidNumber || refreshedEmployee.uid || prev.uid,
+        uidDocUrl: refreshedEmployee.uidCopyUrl || refreshedEmployee.uidDocUrl || prev.uidDocUrl,
         labourNumber: refreshedEmployee.labourNumber || prev.labourNumber,
-        labourNumberDocUrl: refreshedEmployee.labourNumberDocUrl || prev.labourNumberDocUrl,
-        eidNumber: refreshedEmployee.eidNumber || prev.eidNumber,
-        eidNumberDocUrl: refreshedEmployee.eidNumberDocUrl || prev.eidNumberDocUrl,
+        labourNumberDocUrl: refreshedEmployee.labourCardCopyUrl || refreshedEmployee.labourNumberDocUrl || prev.labourNumberDocUrl,
+        eidNumber: refreshedEmployee.emiratesId || refreshedEmployee.eidNumber || prev.eidNumber,
+        eidNumberDocUrl: refreshedEmployee.emiratesIdCopyUrl || refreshedEmployee.eidNumberDocUrl || prev.eidNumberDocUrl,
         visaNumber: refreshedEmployee.visaNumber || prev.visaNumber,
-        visaNumberDocUrl: refreshedEmployee.visaNumberDocUrl || prev.visaNumberDocUrl,
+        visaNumberDocUrl: refreshedEmployee.visaCopyUrl || refreshedEmployee.visaNumberDocUrl || prev.visaNumberDocUrl,
         iban: refreshedEmployee.iban || prev.iban,
         ibanDocUrl: refreshedEmployee.ibanDocUrl || prev.ibanDocUrl,
-        passportDocUrl: refreshedEmployee.passportDocUrl || prev.passportDocUrl,
-        drivingLicenseDocUrl: refreshedEmployee.drivingLicenseDocUrl || prev.drivingLicenseDocUrl,
+        passportNumber: refreshedEmployee.passportNumber || prev.passportNumber,
+        passportDocUrl: refreshedEmployee.passportCopyUrl || refreshedEmployee.passportDocUrl || prev.passportDocUrl,
+        drivingLicenseNumber: refreshedEmployee.drivingLicenseNumber || prev.drivingLicenseNumber,
+        drivingLicenseDocUrl: refreshedEmployee.drivingLicenseCopyUrl || refreshedEmployee.drivingLicenseDocUrl || prev.drivingLicenseDocUrl,
+        iqamaId: refreshedEmployee.iqamaId || prev.iqamaId,
+        iqamaCopyUrl: refreshedEmployee.iqamaCopyUrl || prev.iqamaCopyUrl,
         basicSalary: refreshedEmployee.basicSalary || prev.basicSalary,
         bankDetails: {
           bankName: bankData?.bankName || refreshedEmployee.bankName || prev.bankDetails.bankName,
@@ -526,15 +646,6 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
           accountHolderName: bankData?.accountHolderName || refreshedEmployee.accountHolderName || prev.bankDetails.accountHolderName,
           ifscCode: bankData?.ifscCode || refreshedEmployee.ifscCode || prev.bankDetails.ifscCode,
         },
-        workExperience: (refreshedEmployee.experience || []).map((exp: any) => ({
-          companyName: exp.companyName || "",
-          jobTitle: exp.jobTitle || "",
-          fromDate: sanitizeDate(exp.fromDate),
-          toDate: sanitizeDate(exp.toDate),
-          currentlyWorkHere: !exp.toDate,
-          jobDescription: exp.jobDescription || "",
-          documentUrl: exp.documentUrl || "",
-        })),
         education: (refreshedEmployee.education || []).map((edu: any) => ({
           instituteName: edu.instituteName || "",
           degree: edu.degree || "",
@@ -559,6 +670,7 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
         },
       }))
 
+      // Refresh profile picture
       if (refreshedEmployee?.profilePicUrl) {
         try {
           const picResponse = await axios.get(`${apiUrl}/org/${orgId}/employees/${employeeId}/profile-pic`, {
@@ -570,7 +682,31 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
         } catch (picError) {
           console.error("Failed to refresh profile picture:", picError)
         }
-        setSelectedProfilePicFile(null)
+      }
+      setSelectedProfilePicFile(null)
+
+      // Refresh contract data
+      if (refreshedEmployee.employeeNumber) {
+        try {
+          const contractResponse = await axios.get(`${apiUrl}/org/${orgId}/contracts/employee/${refreshedEmployee.employeeNumber}/active`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+
+          if (contractResponse.data && typeof contractResponse.data !== 'string') {
+            const contract = contractResponse.data.data || contractResponse.data
+
+            // Update form data with contract information
+            setFormData(prev => ({
+              ...prev,
+              contractType: contract.contractType || "",
+              contractStartDate: sanitizeDate(contract.startDate),
+              contractEndDate: sanitizeDate(contract.endDate),
+            }))
+          }
+        } catch (error) {
+          console.log("No active contract found or failed to fetch contract data")
+          // Contract is optional, so we don't show an error
+        }
       }
 
       showAlert("Success", "Profile updated successfully!", "success")
@@ -624,55 +760,64 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
           </div>
         </div>
 
-        <Tabs defaultValue="your-profile" className="w-full">
-          <TabsList className="mb-8 w-full justify-start border-b rounded-none bg-transparent p-0 h-auto">
-            <TabsTrigger
-              value="your-profile"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent px-6 py-3"
-              onClick={() => setIsEditing(false)}
-            >
-              Your Profile
-            </TabsTrigger>
-            {userRole === 'admin' && (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+            <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+            <p className="text-gray-600 font-medium animte-pulse">Loading profile information...</p>
+          </div>
+        ) : (
+          <Tabs defaultValue="your-profile" className="w-full">
+            <TabsList className="mb-8 w-full justify-start border-b rounded-none bg-transparent p-0 h-auto">
               <TabsTrigger
-                value="org-profile"
+                value="your-profile"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent px-6 py-3"
                 onClick={() => setIsEditing(false)}
               >
-                Org Profile
+                Your Profile
               </TabsTrigger>
-            )}
-          </TabsList>
+              {userRole === 'admin' && (
+                <TabsTrigger
+                  value="org-profile"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent px-6 py-3"
+                  onClick={() => setIsEditing(false)}
+                >
+                  Org Profile
+                </TabsTrigger>
+              )}
+            </TabsList>
 
-          <TabsContent value="your-profile">
-            <ProfileForm
-              formData={formData}
-              isEditing={isEditing}
-              userRole={userRole}
-              profilePicUrl={profilePicUrl}
-              selectedProfilePicFile={selectedProfilePicFile}
-              handleInputChange={handleInputChange}
-              handleSelectChange={handleSelectChange}
-              handleFileChange={handleFileChange}
-              handleAddWorkExperienceEntry={handleAddWorkExperienceEntry}
-              handleRemoveWorkExperienceEntry={handleRemoveWorkExperienceEntry}
-              handleWorkExperienceEntryChange={handleWorkExperienceEntryChange}
-              handleAddEducationEntry={handleAddEducationEntry}
-              handleRemoveEducationEntry={handleRemoveEducationEntry}
-              handleEducationEntryChange={handleEducationEntryChange}
-              handleSave={handleSave}
-            />
-          </TabsContent>
-
-          {userRole === 'admin' && (
-            <TabsContent value="org-profile">
-              <OrgProfilePage
+            <TabsContent value="your-profile">
+              <ProfileForm
+                formData={formData}
                 isEditing={isEditing}
-                setIsEditing={setIsEditing}
+                userRole={userRole}
+                profilePicUrl={profilePicUrl}
+                selectedProfilePicFile={selectedProfilePicFile}
+                handleInputChange={handleInputChange}
+                handleSelectChange={handleSelectChange}
+                handleFileChange={handleFileChange}
+                handleAddWorkExperienceEntry={handleAddWorkExperienceEntry}
+                handleRemoveWorkExperienceEntry={handleRemoveWorkExperienceEntry}
+                handleWorkExperienceEntryChange={handleWorkExperienceEntryChange}
+                handleAddEducationEntry={handleAddEducationEntry}
+                handleRemoveEducationEntry={handleRemoveEducationEntry}
+                handleEducationEntryChange={handleEducationEntryChange}
+                handleDeleteFile={handleDeleteFile}
+                handleSave={handleSave}
+                employeeId={propEmployeeId || getEmployeeId() || ""}
               />
             </TabsContent>
-          )}
-        </Tabs>
+
+            {userRole === 'admin' && (
+              <TabsContent value="org-profile">
+                <OrgProfilePage
+                  isEditing={isEditing}
+                  setIsEditing={setIsEditing}
+                />
+              </TabsContent>
+            )}
+          </Tabs>
+        )}
       </div>
 
       <CustomAlertDialog

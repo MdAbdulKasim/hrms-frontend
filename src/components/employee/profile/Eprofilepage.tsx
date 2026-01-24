@@ -124,19 +124,23 @@ export default function EmployeeProfilePage() {
           contractType: employee.contractType || "",
           contractStartDate: sanitizeDate(employee.contractStartDate),
           contractEndDate: sanitizeDate(employee.contractEndDate),
-          // uan: employee.UAN || employee.uan || "",
-          // uanDocUrl: employee.uanDocUrl || "",
+          uid: employee.uidNumber || "",
+          uidDocUrl: employee.uidCopyUrl || "",
+          labourNumber: employee.labourNumber || "",
+          labourDocUrl: employee.labourCardCopyUrl || "",
+          emiratesId: employee.emiratesId || "",
+          emiratesIdDocUrl: employee.emiratesIdCopyUrl || "",
+          visaNumber: employee.visaNumber || "",
+          visaDocUrl: employee.visaCopyUrl || "",
+          passportNumber: employee.passportNumber || "",
+          passportDocUrl: employee.passportCopyUrl || "",
+          drivingLicenseNumber: employee.drivingLicenseNumber || "",
+          drivingLicenseDocUrl: employee.drivingLicenseCopyUrl || "",
+          iqamaId: employee.iqamaId || "",
+          iqamaCopyUrl: employee.iqamaCopyUrl || "",
+          basicSalary: employee.basicSalary || "",
           iban: employee.iban || "",
           ibanDocUrl: employee.ibanDocUrl || "",
-          // pan: employee.PAN || employee.panCard || employee.pan || "",
-          // panDocUrl: employee.panDocUrl || "",
-          // aadhaarNumber: employee.aadharNumber || employee.aadhaar || "",
-          // aadhaarDocUrl: employee.aadharDocUrl || "",
-          passportNumber: employee.passportNumber || "",
-          passportDocUrl: employee.passportDocUrl || "",
-          drivingLicenseNumber: employee.drivingLicenseNumber || "",
-          drivingLicenseDocUrl: employee.drivingLicenseDocUrl || "",
-          basicSalary: employee.basicSalary || "",
           bankDetails: {
             bankName: bankData?.bankName || employee.bankName || "",
             branchName: bankData?.branchName || employee.branchName || "",
@@ -194,8 +198,8 @@ export default function EmployeeProfilePage() {
           setProfilePicUrl(null)
         }
 
-        // Fetch contract data
-        if (employee.employeeNumber) {
+        // Fetch contract data - Only for admins to prevent 403 for employees
+        if (employee.employeeNumber && userRole === 'admin') {
           try {
             const contractResponse = await axios.get(`${apiUrl}/org/${orgId}/contracts/employee/${employee.employeeNumber}/active`, {
               headers: { Authorization: `Bearer ${token}` },
@@ -276,8 +280,26 @@ export default function EmployeeProfilePage() {
       //   finalValue = validatedValue;
       // }
 
-      if (name === 'passportNumber' || name === 'drivingLicenseNumber') {
-        finalValue = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      if (name === 'uid') {
+        finalValue = value.replace(/[^0-9]/g, '').slice(0, 9);
+      } else if (name === 'labourNumber') {
+        finalValue = value.replace(/[^0-9]/g, '').slice(0, 10);
+      } else if (name === 'emiratesId') {
+        let val = value.replace(/\D/g, "");
+        if (val.length > 15) val = val.slice(0, 15);
+        let formatted = val;
+        if (val.length > 3) formatted = val.slice(0, 3) + "-" + val.slice(3);
+        if (val.length > 7) formatted = formatted.slice(0, 8) + "-" + formatted.slice(8);
+        if (val.length > 14) formatted = formatted.slice(0, 16) + "-" + formatted.slice(16);
+        finalValue = formatted;
+      } else if (name === 'iqamaId') {
+        let digits = value.replace(/[^0-9]/g, '').slice(0, 10);
+        if (digits.length > 0 && digits[0] !== '2') return;
+        finalValue = digits;
+      } else if (name === 'passportNumber' || name === 'drivingLicenseNumber') {
+        finalValue = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 15);
+      } else if (name === 'visaNumber') {
+        finalValue = value.replace(/[^0-9]/g, '').slice(0, 15);
       }
 
       setFormData((prev) => ({
@@ -311,6 +333,49 @@ export default function EmployeeProfilePage() {
         setProfilePicUrl(previewUrl)
       } else {
         setSelectedFiles(prev => ({ ...prev, [fieldName]: file }))
+        // If it was marked for deletion, clear that mark by setting a placeholder or removing from null
+        const mapping: { [key: string]: keyof ProfileFormData } = {
+          'uidCopy': 'uidDocUrl',
+          'labourCardCopy': 'labourDocUrl',
+          'emiratesIdCopy': 'emiratesIdDocUrl',
+          'visaCopy': 'visaDocUrl',
+          'passportCopy': 'passportDocUrl',
+          'drivingLicenseCopy': 'drivingLicenseDocUrl',
+          'ibanDoc': 'ibanDocUrl',
+          'iqamaCopy': 'iqamaCopyUrl'
+        }
+        const formField = mapping[fieldName || '']
+        if (formField) {
+          setFormData(prev => ({ ...prev, [formField]: 'pending_upload' }))
+        }
+      }
+    }
+  }
+
+  const handleDeleteFile = (fieldName: string) => {
+    if (fieldName === "profilePic") {
+      setSelectedProfilePicFile(null)
+      setProfilePicUrl(null)
+    } else {
+      setSelectedFiles(prev => {
+        const next = { ...prev }
+        delete next[fieldName]
+        return next
+      })
+      // Clear the URL in formData to signal deletion
+      const mapping: { [key: string]: keyof ProfileFormData } = {
+        'uidCopy': 'uidDocUrl',
+        'labourCardCopy': 'labourDocUrl',
+        'emiratesIdCopy': 'emiratesIdDocUrl',
+        'visaCopy': 'visaDocUrl',
+        'passportCopy': 'passportDocUrl',
+        'drivingLicenseCopy': 'drivingLicenseDocUrl',
+        'ibanDoc': 'ibanDocUrl',
+        'iqamaCopy': 'iqamaCopyUrl'
+      }
+      const formField = mapping[fieldName]
+      if (formField) {
+        setFormData(prev => ({ ...prev, [formField]: null as any }))
       }
     }
   }
@@ -420,9 +485,9 @@ export default function EmployeeProfilePage() {
           'employeeNumber', 'role', 'department', 'designation', 'reportingTo',
           'location', 'site', 'building', 'employeeStatus',
           'contractType', 'contractStartDate', 'contractEndDate',
-          'uanDocUrl', 'panDocUrl', 'aadhaarDocUrl',
+          'uidDocUrl', 'labourDocUrl', 'emiratesIdDocUrl', 'visaDocUrl',
           'passportDocUrl', 'drivingLicenseDocUrl', 'ibanDocUrl',
-          'uan', 'pan', 'aadhaarNumber', 'basicSalary'
+          'basicSalary'
         ].includes(key)) {
           return
         }
@@ -445,6 +510,24 @@ export default function EmployeeProfilePage() {
           }
         }
       })
+
+      // Handle document deletions - mapping frontend docUrl fields to backend copyUrl fields
+      const deletionMapping: { [key: string]: string } = {
+        'uidDocUrl': 'uidCopyUrl',
+        'labourDocUrl': 'labourCardCopyUrl',
+        'emiratesIdDocUrl': 'emiratesIdCopyUrl',
+        'visaDocUrl': 'visaCopyUrl',
+        'passportDocUrl': 'passportCopyUrl',
+        'drivingLicenseDocUrl': 'drivingLicenseCopyUrl',
+        'iqamaCopyUrl': 'iqamaCopyUrl',
+        // 'ibanDocUrl' // Backend doesn't seem to have IBAN doc yet
+      };
+
+      Object.entries(deletionMapping).forEach(([formField, backendField]) => {
+        if (formData[formField as keyof ProfileFormData] === null) {
+          formDataToSend.append(backendField, '');
+        }
+      });
 
       // Add profile picture if selected
       if (selectedProfilePicFile) {
@@ -527,13 +610,23 @@ export default function EmployeeProfilePage() {
         contractType: employee.contractType || "",
         contractStartDate: sanitizeDate(employee.contractStartDate),
         contractEndDate: sanitizeDate(employee.contractEndDate),
+        uid: employee.uidNumber || "",
+        uidDocUrl: employee.uidCopyUrl || "",
+        labourNumber: employee.labourNumber || "",
+        labourDocUrl: employee.labourCardCopyUrl || "",
+        emiratesId: employee.emiratesId || "",
+        emiratesIdDocUrl: employee.emiratesIdCopyUrl || "",
+        visaNumber: employee.visaNumber || "",
+        visaDocUrl: employee.visaCopyUrl || "",
+        iqamaId: employee.iqamaId || "",
+        iqamaCopyUrl: employee.iqamaCopyUrl || "",
+        passportNumber: employee.passportNumber || "",
+        passportDocUrl: employee.passportCopyUrl || "",
+        drivingLicenseNumber: employee.drivingLicenseNumber || "",
+        drivingLicenseDocUrl: employee.drivingLicenseCopyUrl || "",
+        basicSalary: employee.basicSalary || "",
         iban: employee.iban || "",
         ibanDocUrl: employee.ibanDocUrl || "",
-        passportNumber: employee.passportNumber || "",
-        passportDocUrl: employee.passportDocUrl || "",
-        drivingLicenseNumber: employee.drivingLicenseNumber || "",
-        drivingLicenseDocUrl: employee.drivingLicenseDocUrl || "",
-        basicSalary: employee.basicSalary || "",
         bankDetails: {
           bankName: bankData?.bankName || employee.bankName || "",
           branchName: bankData?.branchName || employee.branchName || "",
@@ -672,7 +765,9 @@ export default function EmployeeProfilePage() {
           handleAddEducationEntry={handleAddEducationEntry}
           handleRemoveEducationEntry={handleRemoveEducationEntry}
           handleEducationEntryChange={handleEducationEntryChange}
+          handleDeleteFile={handleDeleteFile}
           handleSave={handleSave}
+          employeeId={getEmployeeId() || ""}
         />
       </div>
 

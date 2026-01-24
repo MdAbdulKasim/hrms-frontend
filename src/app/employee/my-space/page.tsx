@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function MySpacePage() {
-    redirect('/my-space/home');
+    redirect('/employee/my-space/dashboard');
 }
