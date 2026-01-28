@@ -130,21 +130,21 @@ const LeaveTracker = () => {
 
   // Icon mapping for leave types
   const iconMap: { [key: string]: React.ReactNode } = {
-    'SL_CL': <Heart className="w-5 h-5" />,
     'AL': <Calendar className="w-5 h-5" />,
-    'CL': <Coffee className="w-5 h-5" />,
+    'SL_CL': <Heart className="w-5 h-5" />,
+    'SL': <Heart className="w-5 h-5" />,
+    'CL': <Heart className="w-5 h-5" />,
     'EL': <Gift className="w-5 h-5" />,
     'LWP': <Clock className="w-5 h-5" />,
     'PL': <Users className="w-5 h-5" />,
     'SBL': <Heart className="w-5 h-5" />,
-    'SL': <AlertCircle className="w-5 h-5" />,
   };
 
   const colorMap: { [key: string]: { color: string; bgColor: string; gradient: string } } = {
-    'SL_CL': { color: 'text-rose-600', bgColor: 'bg-rose-50', gradient: 'from-rose-500 to-pink-600' },
     'AL': { color: 'text-indigo-600', bgColor: 'bg-indigo-50', gradient: 'from-indigo-500 to-blue-600' },
-    'CL': { color: 'text-blue-600', bgColor: 'bg-blue-50', gradient: 'from-blue-500 to-cyan-600' },
+    'SL_CL': { color: 'text-rose-600', bgColor: 'bg-rose-50', gradient: 'from-rose-500 to-pink-600' },
     'SL': { color: 'text-rose-600', bgColor: 'bg-rose-50', gradient: 'from-rose-500 to-pink-600' },
+    'CL': { color: 'text-rose-600', bgColor: 'bg-rose-50', gradient: 'from-rose-500 to-pink-600' },
     'EL': { color: 'text-emerald-600', bgColor: 'bg-emerald-50', gradient: 'from-emerald-500 to-teal-600' },
     'LWP': { color: 'text-amber-600', bgColor: 'bg-amber-50', gradient: 'from-amber-500 to-orange-600' },
     'PL': { color: 'text-purple-600', bgColor: 'bg-purple-50', gradient: 'from-purple-500 to-violet-600' },
@@ -261,7 +261,7 @@ const LeaveTracker = () => {
         return {
           id: type.code || type.id,
           code: type.code,
-          name: type.name || 'Unknown',
+          name: (type.code === 'SL_CL' || type.code === 'SL' || type.code === 'CL') ? 'SL/CL' : (type.name || 'Unknown'),
           total: totalDays,
           available: isNaN(available) ? 0 : available,
           booked: isNaN(booked) ? 0 : booked,
@@ -1145,7 +1145,7 @@ const LeaveTracker = () => {
               <div className="flex flex-wrap gap-2">
                 {[
                   { name: 'Annual Leave', code: 'AL', days: 30 },
-                  { name: 'Sick/Casual Pool', code: 'SL_CL', days: 2 },
+                  { name: 'SL/CL', code: 'SL_CL', days: 2 },
                   { name: 'Earned Leave', code: 'EL', days: 15 },
                   { name: 'Probationary Leave', code: 'PL', days: 12 }
                 ].filter(t => !leaveConfigs.find(c => c.code === t.code)).map(type => (

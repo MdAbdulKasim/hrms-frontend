@@ -401,6 +401,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
       appendOptional('emiratesId', candidateForm.eid);
       appendOptional('visaNumber', candidateForm.visaNumber);
       appendOptional('iqamaId', candidateForm.iqamaId);
+      appendOptional('contractType', candidateForm.contractType);
+      appendOptional('contractStartDate', candidateForm.contractStartDate);
+      appendOptional('contractEndDate', candidateForm.contractEndDate);
 
       if (candidateForm.basicSalary) {
         formData.append('basicSalary', candidateForm.basicSalary);
@@ -540,6 +543,167 @@ const EmployeeOnboardingSystem: React.FC = () => {
     }
   };
 
+  const handleViewEmployee = async (id: string) => {
+    const orgId = getOrgId();
+    const token = getAuthToken();
+    const apiUrl = getApiUrl();
+    if (!orgId || !token) return;
+
+    setIsLoading(true);
+    try {
+      // 1. Fetch Employee Details
+      const response = await axios.get(`${apiUrl}/org/${orgId}/employees/${id}`);
+      const data = response.data.data || response.data;
+      const emp = Array.isArray(data) ? data[0] : data;
+
+      if (!emp) throw new Error("Employee not found");
+
+      // 2. Fetch Active Contract Details
+      let activeContract = null;
+      try {
+        const contractRes = await axios.get(`${apiUrl}/org/${orgId}/contracts/employee/${emp.employeeNumber}/active`);
+        activeContract = contractRes.data.data || contractRes.data;
+      } catch (contractErr) {
+        console.warn("Failed to fetch active contract for employee:", emp.employeeNumber);
+      }
+
+      const bankData = (emp.bankDetails && Array.isArray(emp.bankDetails) && emp.bankDetails.length > 0)
+        ? emp.bankDetails[0]
+        : (typeof emp.bankDetails === 'object' && emp.bankDetails !== null && !Array.isArray(emp.bankDetails))
+          ? emp.bankDetails
+          : {
+            bankName: emp.bankName || '',
+            branchName: emp.branchName || '',
+            accountNumber: emp.accountNumber || '',
+            accountHolderName: emp.accountHolderName || '',
+            ifscCode: emp.ifscCode || ''
+          };
+
+      const getAllowances = () => {
+        // Use contract allowances if available, else employee allowances
+        const allowancesSource = activeContract?.allowances || emp.allowances;
+        if (!allowancesSource) return Array.isArray(emp.accommodationAllowances) ? emp.accommodationAllowances : [];
+
+        const list: any[] = [];
+        Object.keys(allowancesSource).forEach(key => {
+          const val = allowancesSource[key];
+          if (typeof val === 'object' && val !== null && val.enabled && !['homeClaimed', 'foodClaimed', 'travelClaimed'].includes(key)) {
+            list.push({ type: key, percentage: String(val.percentage || 0) });
+          }
+        });
+
+        if (list.length === 0) {
+          if (allowancesSource.homeClaimed) list.push({ type: 'house', percentage: String(allowancesSource.homeAllowancePercentage || 0) });
+          if (allowancesSource.foodClaimed) list.push({ type: 'food', percentage: String(allowancesSource.foodAllowancePercentage || 0) });
+          if (allowancesSource.travelClaimed) list.push({ type: 'travel', percentage: String(allowancesSource.travelAllowancePercentage || 0) });
+        }
+
+        return list;
+      };
+
+      const getInsurances = () => {
+        // Use contract deductions if available, else employee deductions
+        const deductionsSource = activeContract?.deductions || emp.deductions;
+        if (!deductionsSource) {
+          if (Array.isArray(emp.insurances)) return emp.insurances;
+          if (emp.insuranceType) return [{ type: emp.insuranceType, percentage: String(emp.insurancePercentage || '') }];
+          return [];
+        }
+
+        const list: any[] = [];
+        Object.keys(deductionsSource).forEach(key => {
+          const val = deductionsSource[key];
+          if (typeof val === 'object' && val !== null && val.enabled && key !== 'insuranceDeductionPercentage') {
+            list.push({ type: key, percentage: String(val.percentage || 0) });
+          }
+        });
+
+        if (list.length === 0 && deductionsSource.insuranceDeductionPercentage > 0) {
+          list.push({ type: 'health_basic', percentage: String(deductionsSource.insuranceDeductionPercentage) });
+        }
+
+        return list;
+      };
+
+      // Map to CandidateForm
+      const form: CandidateForm = {
+        id: emp.id || emp._id,
+        employeeNumber: emp.employeeNumber || emp.employeeId || '',
+        fullName: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
+        email: emp.email || emp.emailId || '',
+        phoneNumber: emp.phoneNumber || emp.mobileNumber || '',
+        role: emp.role || "employee",
+        departmentId: emp.departmentId || emp.department?.id || emp.department?._id || (typeof emp.department === 'string' ? emp.department : ''),
+        designationId: emp.designationId || emp.designation?.id || emp.designation?._id || (typeof emp.designation === 'string' ? emp.designation : ''),
+        locationId: emp.locationId || emp.location?.id || emp.location?._id || (typeof emp.location === 'string' ? emp.location : ''),
+        reportingToId: emp.reportingToId || emp.reportingTo?.id || emp.reportingTo?._id || (typeof emp.reportingTo === 'string' ? emp.reportingTo : ''),
+        dateOfJoining: emp.dateOfJoining ? new Date(emp.dateOfJoining).toISOString().split('T')[0] : '',
+        shiftType: emp.shiftType || emp.shift?.id || emp.shift?._id || emp.shift || 'morning',
+        timeZone: emp.timeZone || 'Asia/Kolkata',
+        empType: emp.empType || 'permanent',
+        employeeStatus: emp.employeeStatus || emp.status || 'Active',
+        siteId: emp.siteId || '',
+        buildingId: emp.buildingId || '',
+        basicSalary: activeContract?.basicSalary || emp.basicSalary || '',
+        contractStartDate: activeContract?.startDate ? new Date(activeContract.startDate).toISOString().split('T')[0] :
+          (emp.contractStartDate ? new Date(emp.contractStartDate).toISOString().split('T')[0] : ''),
+        contractEndDate: activeContract?.endDate ? new Date(activeContract.endDate).toISOString().split('T')[0] :
+          (emp.contractEndDate ? new Date(emp.contractEndDate).toISOString().split('T')[0] : ''),
+        contractType: activeContract?.contractType || emp.contractType || '',
+        accommodationAllowances: getAllowances(),
+        insurances: getInsurances(),
+        bankDetails: bankData,
+        // Personal Details
+        gender: emp.gender || '',
+        maritalStatus: emp.maritalStatus || '',
+        dateOfBirth: emp.dateOfBirth ? new Date(emp.dateOfBirth).toISOString().split('T')[0] : '',
+        bloodGroup: emp.bloodGroup || '',
+        // Identity Information
+        passportNumber: emp.passportNumber || '',
+        drivingLicenseNumber: emp.drivingLicenseNumber || '',
+        uid: emp.uidNumber || '',
+        labourNumber: emp.labourNumber || '',
+        eid: emp.emiratesId || '',
+        visaNumber: emp.visaNumber || '',
+        iqamaId: emp.iqamaId || '',
+        iqamaCopy: emp.iqamaCopyUrl || '',
+        // Address Information
+        presentAddress: {
+          addressLine1: emp.presentAddressLine1 || '',
+          addressLine2: emp.presentAddressLine2 || '',
+          city: emp.presentCity || '',
+          state: emp.presentState || '',
+          country: emp.presentCountry || '',
+          pinCode: emp.presentPinCode || ''
+        },
+        permanentAddress: {
+          addressLine1: emp.permanentAddressLine1 || '',
+          addressLine2: emp.permanentAddressLine2 || '',
+          city: emp.permanentCity || '',
+          state: emp.permanentState || '',
+          country: emp.permanentCountry || '',
+          pinCode: emp.permanentPinCode || ''
+        },
+        // Emergency Contact
+        emergencyContact: {
+          contactName: emp.emergencyContactName || emp.emergencyContact?.contactName || '',
+          relation: emp.emergencyContactRelation || emp.emergencyContact?.relation || '',
+          contactNumber: emp.emergencyContactNumber || emp.emergencyContact?.contactNumber || ''
+        },
+        // Education & Experience
+        education: emp.education || [],
+        experience: emp.experience || []
+      };
+      setSelectedCandidate(form);
+      setCurrentView('viewCandidate');
+    } catch (err) {
+      console.error(err);
+      showAlert("Error", "Failed to fetch employee details", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleEditEmployee = async (id: string) => {
     const orgId = getOrgId();
     const token = getAuthToken();
@@ -548,11 +712,21 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
     setIsLoading(true);
     try {
+      // 1. Fetch Employee Details
       const response = await axios.get(`${apiUrl}/org/${orgId}/employees/${id}`);
       const data = response.data.data || response.data;
       const emp = Array.isArray(data) ? data[0] : data;
 
       if (!emp) throw new Error("Employee not found");
+
+      // 2. Fetch Active Contract Details
+      let activeContract = null;
+      try {
+        const contractRes = await axios.get(`${apiUrl}/org/${orgId}/contracts/employee/${emp.employeeNumber}/active`);
+        activeContract = contractRes.data.data || contractRes.data;
+      } catch (contractErr) {
+        console.warn("Failed to fetch active contract for employee edit:", emp.employeeNumber);
+      }
 
       // Handle the case where the API might return an array or a single object
       const bankData = (emp.bankDetails && Array.isArray(emp.bankDetails) && emp.bankDetails.length > 0)
@@ -567,13 +741,59 @@ const EmployeeOnboardingSystem: React.FC = () => {
             ifscCode: emp.ifscCode || ''
           };
 
+      const getAllowances = () => {
+        // Use contract allowances if available, else employee allowances
+        const allowancesSource = activeContract?.allowances || emp.allowances;
+        if (!allowancesSource) return Array.isArray(emp.accommodationAllowances) ? emp.accommodationAllowances : [];
+
+        const list: any[] = [];
+        Object.keys(allowancesSource).forEach(key => {
+          const val = allowancesSource[key];
+          if (typeof val === 'object' && val !== null && val.enabled && !['homeClaimed', 'foodClaimed', 'travelClaimed'].includes(key)) {
+            list.push({ type: key, percentage: String(val.percentage || 0) });
+          }
+        });
+
+        if (list.length === 0) {
+          if (allowancesSource.homeClaimed) list.push({ type: 'house', percentage: String(allowancesSource.homeAllowancePercentage || 0) });
+          if (allowancesSource.foodClaimed) list.push({ type: 'food', percentage: String(allowancesSource.foodAllowancePercentage || 0) });
+          if (allowancesSource.travelClaimed) list.push({ type: 'travel', percentage: String(allowancesSource.travelAllowancePercentage || 0) });
+        }
+
+        return list;
+      };
+
+      const getInsurances = () => {
+        // Use contract deductions if available, else employee deductions
+        const deductionsSource = activeContract?.deductions || emp.deductions;
+        if (!deductionsSource) {
+          if (Array.isArray(emp.insurances)) return emp.insurances;
+          if (emp.insuranceType) return [{ type: emp.insuranceType, percentage: String(emp.insurancePercentage || '') }];
+          return [];
+        }
+
+        const list: any[] = [];
+        Object.keys(deductionsSource).forEach(key => {
+          const val = deductionsSource[key];
+          if (typeof val === 'object' && val !== null && val.enabled && key !== 'insuranceDeductionPercentage') {
+            list.push({ type: key, percentage: String(val.percentage || 0) });
+          }
+        });
+
+        if (list.length === 0 && deductionsSource.insuranceDeductionPercentage > 0) {
+          list.push({ type: 'health_basic', percentage: String(deductionsSource.insuranceDeductionPercentage) });
+        }
+
+        return list;
+      };
+
       setCandidateForm({
         id: id,
         employeeNumber: emp.employeeNumber || emp.employeeId || '',
         fullName: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
         email: emp.email || emp.emailId || '',
         phoneNumber: emp.phoneNumber || emp.mobileNumber || '',
-        role: "employee",
+        role: emp.role || "employee",
         departmentId: emp.departmentId || emp.department?.id || emp.department?._id || (typeof emp.department === 'string' ? emp.department : ''),
         designationId: emp.designationId || emp.designation?.id || emp.designation?._id || (typeof emp.designation === 'string' ? emp.designation : ''),
         locationId: emp.locationId || emp.location?.id || emp.location?._id || (typeof emp.location === 'string' ? emp.location : ''),
@@ -585,52 +805,14 @@ const EmployeeOnboardingSystem: React.FC = () => {
         employeeStatus: emp.employeeStatus || emp.status || 'Active',
         siteId: emp.siteId || '',
         buildingId: emp.buildingId || '',
-        basicSalary: emp.basicSalary || '',
-        contractStartDate: emp.contractStartDate ? new Date(emp.contractStartDate).toISOString().split('T')[0] : '',
-        contractEndDate: emp.contractEndDate ? new Date(emp.contractEndDate).toISOString().split('T')[0] : '',
-        contractType: emp.contractType || '',
-        accommodationAllowances: (() => {
-          if (!emp.allowances) return [];
-          const list: any[] = [];
-
-          // Helper to check object format
-          Object.keys(emp.allowances).forEach(key => {
-            const val = emp.allowances[key];
-            if (typeof val === 'object' && val !== null && val.enabled && !['homeClaimed', 'foodClaimed', 'travelClaimed'].includes(key)) {
-              list.push({ type: key, percentage: String(val.percentage || 0) });
-            }
-          });
-
-          // Fallback for old format if list is empty
-          if (list.length === 0) {
-            if (emp.allowances.homeClaimed) list.push({ type: 'house', percentage: String(emp.allowances.homeAllowancePercentage || 0) });
-            if (emp.allowances.foodClaimed) list.push({ type: 'food', percentage: String(emp.allowances.foodAllowancePercentage || 0) });
-            if (emp.allowances.travelClaimed) list.push({ type: 'travel', percentage: String(emp.allowances.travelAllowancePercentage || 0) });
-          }
-
-          // If still empty check for raw array
-          if (list.length === 0 && Array.isArray(emp.accommodationAllowances)) return emp.accommodationAllowances;
-
-          return list;
-        })(),
-        insurances: (() => {
-          if (!emp.deductions) return (emp.insurances || (emp.insuranceType ? [{ type: emp.insuranceType, percentage: emp.insurancePercentage || '' }] : []));
-
-          const list: any[] = [];
-          Object.keys(emp.deductions).forEach(key => {
-            const val = emp.deductions[key];
-            if (typeof val === 'object' && val !== null && val.enabled && key !== 'insuranceDeductionPercentage') {
-              list.push({ type: key, percentage: String(val.percentage || 0) });
-            }
-          });
-
-          // Fallback
-          if (list.length === 0 && emp.deductions.insuranceDeductionPercentage > 0) {
-            list.push({ type: 'health_basic', percentage: String(emp.deductions.insuranceDeductionPercentage) });
-          }
-
-          return list;
-        })(),
+        basicSalary: activeContract?.basicSalary || emp.basicSalary || '',
+        contractStartDate: activeContract?.startDate ? new Date(activeContract.startDate).toISOString().split('T')[0] :
+          (emp.contractStartDate ? new Date(emp.contractStartDate).toISOString().split('T')[0] : ''),
+        contractEndDate: activeContract?.endDate ? new Date(activeContract.endDate).toISOString().split('T')[0] :
+          (emp.contractEndDate ? new Date(emp.contractEndDate).toISOString().split('T')[0] : ''),
+        contractType: activeContract?.contractType || emp.contractType || '',
+        accommodationAllowances: getAllowances(),
+        insurances: getInsurances(),
         bankDetails: bankData,
         // Add Identity fields for editing
         passportNumber: emp.passportNumber || '',
@@ -640,7 +822,6 @@ const EmployeeOnboardingSystem: React.FC = () => {
         eid: emp.emiratesId || '',
         visaNumber: emp.visaNumber || '',
         iqamaId: emp.iqamaId || '',
-        iqamaCopy: emp.iqamaCopyUrl || '',
         // Add Personal fields
         gender: emp.gender || '',
         maritalStatus: emp.maritalStatus || '',
@@ -665,9 +846,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
         },
         // Add Emergency Contact
         emergencyContact: {
-          contactName: emp.emergencyContactName || '',
-          relation: emp.emergencyContactRelation || '',
-          contactNumber: emp.emergencyContactNumber || ''
+          contactName: emp.emergencyContactName || emp.emergencyContact?.contactName || '',
+          relation: emp.emergencyContactRelation || emp.emergencyContact?.relation || '',
+          contactNumber: emp.emergencyContactNumber || emp.emergencyContact?.contactNumber || ''
         },
         // Education & Experience
         education: emp.education || [],
@@ -679,7 +860,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
         labourCardCopy: emp.labourCardCopyUrl || '',
         drivingLicenseCopy: emp.drivingLicenseCopyUrl || '',
         uidCopy: emp.uidCopyUrl || '',
+        iqamaCopy: emp.iqamaCopyUrl || '',
       });
+
       setEditingEmployeeId(id);
       setCurrentView('addCandidate');
     } catch (err: any) {
@@ -742,6 +925,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
       appendOptional('emiratesId', candidateForm.eid);
       appendOptional('visaNumber', candidateForm.visaNumber);
       appendOptional('iqamaId', candidateForm.iqamaId);
+      appendOptional('contractType', candidateForm.contractType);
+      appendOptional('contractStartDate', candidateForm.contractStartDate);
+      appendOptional('contractEndDate', candidateForm.contractEndDate);
 
       if (candidateForm.basicSalary) {
         formData.append('basicSalary', candidateForm.basicSalary);
@@ -930,151 +1116,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
     }
   };
 
-  const handleViewEmployee = async (id: string) => {
-    const orgId = getOrgId();
-    const token = getAuthToken();
-    const apiUrl = getApiUrl();
-    if (!orgId || !token) return;
-
-    setIsLoading(true);
-    try {
-      const response = await axios.get(`${apiUrl}/org/${orgId}/employees/${id}`);
-      const data = response.data.data || response.data;
-      const emp = Array.isArray(data) ? data[0] : data;
-
-      if (!emp) throw new Error("Employee not found");
-
-      const bankData = (emp.bankDetails && Array.isArray(emp.bankDetails) && emp.bankDetails.length > 0)
-        ? emp.bankDetails[0]
-        : (typeof emp.bankDetails === 'object' && emp.bankDetails !== null && !Array.isArray(emp.bankDetails))
-          ? emp.bankDetails
-          : {
-            bankName: emp.bankName || '',
-            branchName: emp.branchName || '',
-            accountNumber: emp.accountNumber || '',
-            accountHolderName: emp.accountHolderName || '',
-            ifscCode: emp.ifscCode || ''
-          };
-
-      const getAllowances = () => {
-        if (!emp.allowances) return Array.isArray(emp.accommodationAllowances) ? emp.accommodationAllowances : [];
-
-        const list: any[] = [];
-        Object.keys(emp.allowances).forEach(key => {
-          const val = emp.allowances[key];
-          if (typeof val === 'object' && val !== null && val.enabled && !['homeClaimed', 'foodClaimed', 'travelClaimed'].includes(key)) {
-            list.push({ type: key, percentage: String(val.percentage || 0) });
-          }
-        });
-
-        if (list.length === 0) {
-          if (emp.allowances.homeClaimed) list.push({ type: 'house', percentage: String(emp.allowances.homeAllowancePercentage || 0) });
-          if (emp.allowances.foodClaimed) list.push({ type: 'food', percentage: String(emp.allowances.foodAllowancePercentage || 0) });
-          if (emp.allowances.travelClaimed) list.push({ type: 'travel', percentage: String(emp.allowances.travelAllowancePercentage || 0) });
-        }
-
-        return list;
-      };
-
-      const getInsurances = () => {
-        if (!emp.deductions) {
-          if (Array.isArray(emp.insurances)) return emp.insurances;
-          if (emp.insuranceType) return [{ type: emp.insuranceType, percentage: String(emp.insurancePercentage || '') }];
-          return [];
-        }
-
-        const list: any[] = [];
-        Object.keys(emp.deductions).forEach(key => {
-          const val = emp.deductions[key];
-          if (typeof val === 'object' && val !== null && val.enabled && key !== 'insuranceDeductionPercentage') {
-            list.push({ type: key, percentage: String(val.percentage || 0) });
-          }
-        });
-
-        if (list.length === 0 && emp.deductions.insuranceDeductionPercentage > 0) {
-          list.push({ type: 'health_basic', percentage: String(emp.deductions.insuranceDeductionPercentage) });
-        }
-
-        return list;
-      };
-
-      // Map to CandidateForm
-      const form: CandidateForm = {
-        employeeNumber: emp.employeeNumber || emp.employeeId || '',
-        fullName: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
-        email: emp.email || emp.emailId || '',
-        phoneNumber: emp.phoneNumber || emp.mobileNumber || '',
-        role: "employee",
-        departmentId: emp.departmentId || emp.department?.id || emp.department?._id || (typeof emp.department === 'string' ? emp.department : ''),
-        designationId: emp.designationId || emp.designation?.id || emp.designation?._id || (typeof emp.designation === 'string' ? emp.designation : ''),
-        locationId: emp.locationId || emp.location?.id || emp.location?._id || (typeof emp.location === 'string' ? emp.location : ''),
-        reportingToId: emp.reportingToId || emp.reportingTo?.id || emp.reportingTo?._id || (typeof emp.reportingTo === 'string' ? emp.reportingTo : ''),
-        dateOfJoining: emp.dateOfJoining ? new Date(emp.dateOfJoining).toISOString().split('T')[0] : '',
-        shiftType: emp.shiftType || emp.shift?.id || emp.shift?._id || emp.shift || 'morning',
-        timeZone: emp.timeZone || 'Asia/Kolkata',
-        empType: emp.empType || 'permanent',
-        employeeStatus: emp.employeeStatus || emp.status || 'Active',
-        siteId: emp.siteId || '',
-        buildingId: emp.buildingId || '',
-        basicSalary: emp.basicSalary || '',
-        contractStartDate: emp.contractStartDate ? new Date(emp.contractStartDate).toISOString().split('T')[0] : '',
-        contractEndDate: emp.contractEndDate ? new Date(emp.contractEndDate).toISOString().split('T')[0] : '',
-        contractType: emp.contractType || '',
-        accommodationAllowances: getAllowances(),
-        insurances: getInsurances(),
-        bankDetails: bankData,
-        // Personal Details
-        gender: emp.gender || '',
-        maritalStatus: emp.maritalStatus || '',
-        dateOfBirth: emp.dateOfBirth ? new Date(emp.dateOfBirth).toISOString().split('T')[0] : '',
-        bloodGroup: emp.bloodGroup || '',
-        // Identity Information
-        passportNumber: emp.passportNumber || '',
-        drivingLicenseNumber: emp.drivingLicenseNumber || '',
-        uid: emp.uidNumber || '',
-        labourNumber: emp.labourNumber || '',
-        eid: emp.emiratesId || '',
-        visaNumber: emp.visaNumber || '',
-        iqamaId: emp.iqamaId || '',
-        iqamaCopy: emp.iqamaCopyUrl || '',
-        // Address Information
-        presentAddress: {
-          addressLine1: emp.presentAddressLine1 || '',
-          addressLine2: emp.presentAddressLine2 || '',
-          city: emp.presentCity || '',
-          state: emp.presentState || '',
-          country: emp.presentCountry || '',
-          pinCode: emp.presentPinCode || ''
-        },
-        permanentAddress: {
-          addressLine1: emp.permanentAddressLine1 || '',
-          addressLine2: emp.permanentAddressLine2 || '',
-          city: emp.permanentCity || '',
-          state: emp.permanentState || '',
-          country: emp.permanentCountry || '',
-          pinCode: emp.permanentPinCode || ''
-        },
-        // Emergency Contact
-        emergencyContact: {
-          contactName: emp.emergencyContactName || '',
-          relation: emp.emergencyContactRelation || '',
-          contactNumber: emp.emergencyContactNumber || ''
-        },
-        // Education & Experience
-        education: emp.education || [],
-        experience: emp.experience || []
-      };
-      setSelectedCandidate(form);
-      setCurrentView('viewCandidate');
-    } catch (err) {
-      console.error(err);
-      showAlert("Error", "Failed to fetch employee details", "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const executeDeleteEmployee = async (id: string) => {
+
     const orgId = getOrgId();
     const token = getAuthToken();
     const apiUrl = getApiUrl();
