@@ -130,7 +130,9 @@ export default function DepartmentTab({
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-bold font-mono uppercase tracking-tight">{dept.code}</span>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">None</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
+                                                {locations.find(l => l.id === dept.locationId)?.name || "None"}
+                                            </td>
                                         </tr>
                                     ))
                                 ) : (
@@ -153,7 +155,7 @@ export default function DepartmentTab({
                                     </div>
                                     <div className="flex items-center gap-2 text-xs text-gray-500">
                                         <div className="w-1 h-1 rounded-full bg-blue-400"></div>
-                                        <span>No location assigned</span>
+                                        <span>{locations.find(l => l.id === dept.locationId)?.name || "No location assigned"}</span>
                                     </div>
                                 </div>
                             ))

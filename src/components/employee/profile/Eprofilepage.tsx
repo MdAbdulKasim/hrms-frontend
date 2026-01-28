@@ -11,6 +11,8 @@ import { CustomAlertDialog } from "@/components/ui/custom-dialogs"
 import EProfileForm from "./EProfileForm"
 import { type FormData as ProfileFormData, initialFormData } from "./types"
 import ChangePassword from "../../admin/profile/ChangePassword"
+import ContractService from "@/lib/contractService"
+import { getContractTypeLabel, getContractTypeValue } from "@/types/contractTypes"
 
 const sanitizeDate = (val: any) => {
   if (!val) return "";
@@ -33,6 +35,7 @@ export default function EmployeeProfilePage() {
   const [showPasswordChange, setShowPasswordChange] = useState(false)
   const [formData, setFormData] = useState<ProfileFormData>(initialFormData)
   const [userRole, setUserRole] = useState<'admin' | 'employee' | string | null>(null)
+  const [contractId, setContractId] = useState<string | null>(null)
 
   // Alert State
   const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
@@ -198,27 +201,39 @@ export default function EmployeeProfilePage() {
           setProfilePicUrl(null)
         }
 
-        // Fetch contract data - Only for admins to prevent 403 for employees
-        if (employee.employeeNumber && userRole === 'admin') {
+        // Fetch contract data - fetch ALL contracts for Admin (to see future ones), Active for Employee
+        if (employee.employeeNumber) {
           try {
-            const contractResponse = await axios.get(`${apiUrl}/org/${orgId}/contracts/employee/${employee.employeeNumber}/active`, {
-              headers: { Authorization: `Bearer ${token}` },
-            })
+            let latestContract: any = null;
+            const currentRole = getUserRole(); // Get role synchronously
 
-            if (contractResponse.data && typeof contractResponse.data !== 'string') {
-              const contract = contractResponse.data.data || contractResponse.data
+            if (currentRole === 'admin') {
+              // Admin can see all contracts, so we fetch all to find the latest (even if future dated)
+              const contracts = await ContractService.getAllContracts(employee.employeeNumber);
+              if (contracts && contracts.length > 0) {
+                // Sort by startDate descending
+                const sortedContracts = contracts.sort((a: any, b: any) =>
+                  new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+                );
+                latestContract = sortedContracts[0];
+              }
+            } else {
+              // Employee can only see their Active contract (backend restriction)
+              latestContract = await ContractService.getActiveContract(employee.employeeNumber);
+            }
 
+            if (latestContract) {
               // Update form data with contract information
+              setContractId(latestContract.id)
               setFormData(prev => ({
                 ...prev,
-                contractType: contract.contractType || "",
-                contractStartDate: sanitizeDate(contract.startDate),
-                contractEndDate: sanitizeDate(contract.endDate),
+                contractType: getContractTypeLabel(latestContract.contractType),
+                contractStartDate: sanitizeDate(latestContract.startDate),
+                contractEndDate: sanitizeDate(latestContract.endDate),
               }))
             }
           } catch (error) {
-            console.log("No active contract found or failed to fetch contract data")
-            // Contract is optional, so we don't show an error
+            console.log("Failed to fetch contract data", error)
           }
         }
       } catch (error: any) {
@@ -480,11 +495,9 @@ export default function EmployeeProfilePage() {
           return
         }
 
-        // Exclude read-only fields and document URLs (handled separately)
         if ([
           'employeeNumber', 'role', 'department', 'designation', 'reportingTo',
           'location', 'site', 'building', 'employeeStatus',
-          'contractType', 'contractStartDate', 'contractEndDate',
           'uidDocUrl', 'labourDocUrl', 'emiratesIdDocUrl', 'visaDocUrl',
           'passportDocUrl', 'drivingLicenseDocUrl', 'ibanDocUrl',
           'basicSalary'
@@ -503,7 +516,9 @@ export default function EmployeeProfilePage() {
 
         // Send all other editable fields
         if (value !== null && value !== undefined && value !== '') {
-          if (typeof value === 'boolean') {
+          if (key === 'uid') {
+            formDataToSend.append('uidNumber', String(value));
+          } else if (typeof value === 'boolean') {
             formDataToSend.append(key, String(value));
           } else {
             formDataToSend.append(key, String(value))
@@ -548,6 +563,41 @@ export default function EmployeeProfilePage() {
 
       setIsEditing(false)
       setSelectedFiles({})
+
+      // Handle Contract Update/Create (Admin only) - RESTORED
+      if (userRole === 'admin') {
+        // Only proceed if contract validation passes - start date is mandatory
+        if (formData.contractType && formData.contractStartDate) {
+          try {
+            if (!formData.employeeNumber) {
+              throw new Error("Employee Number is missing. Cannot save contract.");
+            }
+
+            const backendContractType = getContractTypeValue(formData.contractType);
+            const contractPayload = {
+              employeeNumber: formData.employeeNumber,
+              contractType: backendContractType,
+              startDate: formData.contractStartDate,
+              endDate: formData.contractEndDate || undefined,
+              basicSalary: Number(formData.basicSalary) || 0,
+              allowances: {},
+              deductions: {}
+            };
+
+            if (contractId) {
+              await ContractService.updateContract(contractId, contractPayload);
+            } else {
+              const newContract = await ContractService.createContract(contractPayload);
+              if (newContract && newContract.id) {
+                setContractId(newContract.id);
+              }
+            }
+          } catch (contractError: any) {
+            console.error("Failed to save contract details:", contractError);
+            throw new Error(`Profile saved, but Contract failed: ${contractError.message || "Unknown error"}`);
+          }
+        }
+      }
 
       // Refresh employee data
       const refreshResponse = await axios.get(`${apiUrl}/org/${orgId}/employees/${employeeId}`, {
@@ -685,24 +735,33 @@ export default function EmployeeProfilePage() {
       // Refresh contract data
       if (employee.employeeNumber) {
         try {
-          const contractResponse = await axios.get(`${apiUrl}/org/${orgId}/contracts/employee/${employee.employeeNumber}/active`, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
+          let latestContract: any = null;
+          // userRole might be stale in closure, use getUserRole()
+          const currentRole = getUserRole();
 
-          if (contractResponse.data && typeof contractResponse.data !== 'string') {
-            const contract = contractResponse.data.data || contractResponse.data
+          if (currentRole === 'admin') {
+            const contracts = await ContractService.getAllContracts(employee.employeeNumber);
+            if (contracts && contracts.length > 0) {
+              const sortedContracts = contracts.sort((a: any, b: any) =>
+                new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+              );
+              latestContract = sortedContracts[0];
+            }
+          } else {
+            latestContract = await ContractService.getActiveContract(employee.employeeNumber);
+          }
 
-            // Update form data with contract information
+          if (latestContract) {
+            setContractId(latestContract.id)
             setFormData(prev => ({
               ...prev,
-              contractType: contract.contractType || "",
-              contractStartDate: sanitizeDate(contract.startDate),
-              contractEndDate: sanitizeDate(contract.endDate),
+              contractType: getContractTypeLabel(latestContract.contractType),
+              contractStartDate: sanitizeDate(latestContract.startDate),
+              contractEndDate: sanitizeDate(latestContract.endDate),
             }))
           }
         } catch (error) {
-          console.log("No active contract found or failed to fetch contract data")
-          // Contract is optional, so we don't show an error
+          console.log("Failed to fetch contract data", error)
         }
       }
 

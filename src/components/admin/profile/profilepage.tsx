@@ -14,6 +14,8 @@ import ProfileForm from "./ProfileForm"
 import OrgProfilePage from "./OrgProfilePage"
 import { type FormData as ProfileFormData, initialFormData } from "./types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import ContractService from "@/lib/contractService"
+import { getContractTypeLabel } from "@/types/contractTypes"
 
 const sanitizeDate = (val: any) => {
   if (!val) return "";
@@ -211,17 +213,13 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
         // Fetch contract data
         if (employee.employeeNumber) {
           try {
-            const contractResponse = await axios.get(`${apiUrl}/org/${orgId}/contracts/employee/${employee.employeeNumber}/active`, {
-              headers: { Authorization: `Bearer ${token}` },
-            })
+            const contract = await ContractService.getActiveContract(employee.employeeNumber);
 
-            if (contractResponse.data && typeof contractResponse.data !== 'string') {
-              const contract = contractResponse.data.data || contractResponse.data
-
+            if (contract) {
               // Update form data with contract information
               setFormData(prev => ({
                 ...prev,
-                contractType: contract.contractType || "",
+                contractType: getContractTypeLabel(contract.contractType),
                 contractStartDate: sanitizeDate(contract.startDate),
                 contractEndDate: sanitizeDate(contract.endDate),
               }))
@@ -688,17 +686,13 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
       // Refresh contract data
       if (refreshedEmployee.employeeNumber) {
         try {
-          const contractResponse = await axios.get(`${apiUrl}/org/${orgId}/contracts/employee/${refreshedEmployee.employeeNumber}/active`, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
+          const contract = await ContractService.getActiveContract(refreshedEmployee.employeeNumber);
 
-          if (contractResponse.data && typeof contractResponse.data !== 'string') {
-            const contract = contractResponse.data.data || contractResponse.data
-
+          if (contract) {
             // Update form data with contract information
             setFormData(prev => ({
               ...prev,
-              contractType: contract.contractType || "",
+              contractType: getContractTypeLabel(contract.contractType),
               contractStartDate: sanitizeDate(contract.startDate),
               contractEndDate: sanitizeDate(contract.endDate),
             }))

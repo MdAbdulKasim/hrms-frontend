@@ -154,8 +154,12 @@ export default function DesignationTab({
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-bold font-mono uppercase tracking-tight">{desig.code}</span>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">None</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">None</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {departments.find(d => d.id === desig.departmentId)?.departmentName || "None"}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {locations.find(l => l.id === desig.locationId)?.name || "None"}
+                                            </td>
                                         </tr>
                                     ))
                                 ) : (
@@ -179,11 +183,15 @@ export default function DesignationTab({
                                     <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
                                         <div className="flex items-center gap-1.5">
                                             <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                                            <span>No Dept</span>
+                                            <span>
+                                                {departments.find(d => d.id === desig.departmentId)?.departmentName || "No Dept"}
+                                            </span>
                                         </div>
                                         <div className="flex items-center gap-1.5">
                                             <div className="w-1.5 h-1.5 rounded-full bg-gray-300"></div>
-                                            <span>No Location</span>
+                                            <span>
+                                                {locations.find(l => l.id === desig.locationId)?.name || "No Location"}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
