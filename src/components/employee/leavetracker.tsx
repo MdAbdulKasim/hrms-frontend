@@ -95,21 +95,20 @@ const LeaveTracker = () => {
         const types = Array.isArray(typesResponse.data) ? typesResponse.data : (typesResponse.data.data || []);
 
         const iconMap: { [key: string]: React.ReactNode } = {
-          'SL_CL': <Heart className="w-5 h-5" />,
           'AL': <Calendar className="w-5 h-5" />,
-          'CL': <Coffee className="w-5 h-5" />,
+          'SL_CL': <Heart className="w-5 h-5" />,
+          'SL': <Heart className="w-5 h-5" />,
+          'CL': <Heart className="w-5 h-5" />,
           'EL': <Gift className="w-5 h-5" />,
           'LWP': <Clock className="w-5 h-5" />,
           'PL': <Users className="w-5 h-5" />,
           'SBL': <Heart className="w-5 h-5" />,
-          'SL': <AlertCircle className="w-5 h-5" />,
         };
-
         const colorMap: { [key: string]: { color: string; bgColor: string; gradient: string } } = {
-          'SL_CL': { color: 'text-rose-600', bgColor: 'bg-rose-50', gradient: 'from-rose-500 to-pink-600' },
           'AL': { color: 'text-indigo-600', bgColor: 'bg-indigo-50', gradient: 'from-indigo-500 to-blue-600' },
-          'CL': { color: 'text-blue-600', bgColor: 'bg-blue-50', gradient: 'from-blue-500 to-cyan-600' },
+          'SL_CL': { color: 'text-rose-600', bgColor: 'bg-rose-50', gradient: 'from-rose-500 to-pink-600' },
           'SL': { color: 'text-rose-600', bgColor: 'bg-rose-50', gradient: 'from-rose-500 to-pink-600' },
+          'CL': { color: 'text-rose-600', bgColor: 'bg-rose-50', gradient: 'from-rose-500 to-pink-600' },
           'EL': { color: 'text-emerald-600', bgColor: 'bg-emerald-50', gradient: 'from-emerald-500 to-teal-600' },
           'LWP': { color: 'text-amber-600', bgColor: 'bg-amber-50', gradient: 'from-amber-500 to-orange-600' },
           'PL': { color: 'text-purple-600', bgColor: 'bg-purple-100', gradient: 'from-purple-500 to-violet-600' },
@@ -129,7 +128,7 @@ const LeaveTracker = () => {
 
           return {
             id: code,
-            name: type.name || 'Unknown',
+            name: code === 'SL_CL' || code === 'SL' || code === 'CL' ? 'SL/CL' : (type.name || 'Unknown'),
             total: totalDays,
             available: isNaN(available) ? 0 : available,
             booked: isNaN(booked) ? 0 : booked,
@@ -242,21 +241,24 @@ const LeaveTracker = () => {
         const types = Array.isArray(typesResponse.data) ? typesResponse.data : (typesResponse.data.data || []);
 
         const iconMap: { [key: string]: React.ReactNode } = {
-          'CL': <Coffee className="w-5 h-5" />,
+          'AL': <Calendar className="w-5 h-5" />,
+          'SL_CL': <Heart className="w-5 h-5" />,
+          'SL': <Heart className="w-5 h-5" />,
+          'CL': <Heart className="w-5 h-5" />,
           'EL': <Gift className="w-5 h-5" />,
           'LWP': <Clock className="w-5 h-5" />,
           'PL': <Users className="w-5 h-5" />,
           'SBL': <Heart className="w-5 h-5" />,
-          'SL': <AlertCircle className="w-5 h-5" />,
         };
-
         const colorMap: { [key: string]: { color: string; bgColor: string } } = {
-          'CL': { color: 'text-blue-600', bgColor: 'bg-blue-100' },
+          'AL': { color: 'text-indigo-600', bgColor: 'bg-indigo-100' },
+          'SL_CL': { color: 'text-rose-600', bgColor: 'bg-rose-100' },
+          'SL': { color: 'text-rose-600', bgColor: 'bg-rose-100' },
+          'CL': { color: 'text-rose-600', bgColor: 'bg-rose-100' },
           'EL': { color: 'text-green-600', bgColor: 'bg-green-100' },
           'LWP': { color: 'text-gray-600', bgColor: 'bg-gray-100' },
           'PL': { color: 'text-purple-600', bgColor: 'bg-purple-100' },
           'SBL': { color: 'text-pink-600', bgColor: 'bg-pink-100' },
-          'SL': { color: 'text-red-600', bgColor: 'bg-red-100' },
         };
 
         const transformedTypes: LeaveType[] = types.map((type: any) => {
