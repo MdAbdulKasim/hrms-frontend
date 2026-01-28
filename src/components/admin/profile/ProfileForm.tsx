@@ -17,7 +17,8 @@ const maritalStatuses = ["Single", "Married", "Divorced", "Widowed"]
 const bloodGroups = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"]
 const employeeTypes = ["permanent", "temporary"]
 const employeeStatuses = ["Active", "Inactive", "On Leave", "Terminated"]
-const contractTypes = ["Full Time", "Part Time", "Consultant", "Freelance"]
+// Contract types - display labels (will be mapped to backend values: permanent, temporary, probation, freelance)
+const contractTypes = ["Full Time", "Part Time", "Probation", "Freelance"]
 const countries = [
     "India", "USA", "UK", "Canada", "Australia", "UAE", "Saudi Arabia", "Qatar", "Singapore", "Germany", "France"
 ]

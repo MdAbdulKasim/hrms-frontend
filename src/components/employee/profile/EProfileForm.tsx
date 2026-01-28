@@ -16,7 +16,7 @@ const maritalStatuses = ["Single", "Married", "Divorced", "Widowed"]
 const bloodGroups = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"]
 const employeeTypes = ["permanent", "temporary"]
 const employeeStatuses = ["Active", "Inactive", "On Leave", "Terminated"]
-const contractTypes = ["Full Time", "Part Time", "Consultant", "Freelance"]
+const contractTypes = ["Full Time", "Part Time", "Probation", "Freelance"]
 const countries = [
     "India", "USA", "UK", "Canada", "Australia", "UAE", "Saudi Arabia", "Qatar", "Singapore", "Germany", "France"
 ]
@@ -359,7 +359,7 @@ export default function EProfileForm({
                             options={contractTypes}
                             value={formData.contractType}
                             onChange={(value) => handleInputChange({ target: { name: 'contractType', value: value as string } } as any)}
-                            disabled={true}
+                            disabled={!isEditing || userRole !== 'admin'}
                         />
                     </div>
                 </div>
@@ -372,7 +372,7 @@ export default function EProfileForm({
                             type="date"
                             value={formData.contractStartDate}
                             onChange={handleInputChange}
-                            disabled={true}
+                            disabled={!isEditing || userRole !== 'admin'}
                         />
                     </div>
                     <div>
@@ -382,7 +382,7 @@ export default function EProfileForm({
                             type="date"
                             value={formData.contractEndDate}
                             onChange={handleInputChange}
-                            disabled={true}
+                            disabled={!isEditing || userRole !== 'admin'}
                         />
                     </div>
                 </div>
