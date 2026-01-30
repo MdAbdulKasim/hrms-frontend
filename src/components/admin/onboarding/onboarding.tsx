@@ -187,9 +187,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
       };
 
       if (statusFilter === 'Active') {
-        params.status = 'Active';
+        params.status = 'active';
       } else if (statusFilter === 'Inactive') {
-        params.status = 'Inactive';
+        params.status = 'inactive';
       }
 
       console.log("FETCH EMPLOYEES: Fetching with params:", params);
