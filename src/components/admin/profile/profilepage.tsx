@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import axios from "axios"
 import { Button } from "@/components/ui/button"
-import { Edit, ArrowLeft, Loader2 } from "lucide-react"
+import { Edit, ArrowLeft, Loader2, Camera, Mail, Phone, MapPin, Briefcase, Calendar, ShieldCheck, User, X } from "lucide-react"
 import { getApiUrl, getAuthToken, getOrgId, getEmployeeId, getUserRole } from "@/lib/auth"
 import { CustomAlertDialog } from "@/components/ui/custom-dialogs"
 import ChangePassword from "./ChangePassword"
@@ -14,6 +14,7 @@ import ProfileForm from "./ProfileForm"
 import OrgProfilePage from "./OrgProfilePage"
 import { type FormData as ProfileFormData, initialFormData } from "./types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent } from "@/components/ui/card"
 import ContractService from "@/lib/contractService"
 import { getContractTypeLabel } from "@/types/contractTypes"
 
@@ -448,17 +449,28 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
       Object.keys(formData).forEach(key => {
         const value = formData[key as keyof ProfileFormData]
 
-        // Backend expects 'presentAddress' for the address fields, not 'address'
+        // Flatten address fields to match backend entity individual columns
         if (key === 'address') {
-          formDataToSend.append('presentAddress', JSON.stringify(value))
+          const addr = value as any;
+          if (addr.addressLine1) formDataToSend.append('presentAddressLine1', String(addr.addressLine1));
+          if (addr.addressLine2) formDataToSend.append('presentAddressLine2', String(addr.addressLine2));
+          if (addr.city) formDataToSend.append('presentCity', String(addr.city));
+          if (addr.state) formDataToSend.append('presentState', String(addr.state));
+          if (addr.country) formDataToSend.append('presentCountry', String(addr.country));
+          if (addr.pinCode) formDataToSend.append('presentPinCode', String(addr.pinCode));
           return
         }
 
         // Handle bankDetails: Send as JSON array to match backend expectation
         if (key === 'bankDetails') {
-          // Backend expects an array of bank details
-          const bankDetailsArray = Array.isArray(value) ? value : [value];
-          formDataToSend.append('bankDetails', JSON.stringify(bankDetailsArray))
+          // Backend expects an array of bank details - also populate individual fields for backward compatibility
+          const bank = value as any;
+          formDataToSend.append('bankDetails', JSON.stringify([bank]));
+          formDataToSend.append('bankName', String(bank.bankName || ''));
+          formDataToSend.append('branchName', String(bank.branchName || ''));
+          formDataToSend.append('accountNumber', String(bank.accountNumber || ''));
+          formDataToSend.append('accountHolderName', String(bank.accountHolderName || ''));
+          formDataToSend.append('ifscCode', String(bank.ifscCode || ''));
           return
         }
 
@@ -506,33 +518,54 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
           return
         }
 
-        if (
-          key === 'workExperience' ||
-          key === 'education' ||
-          key === 'emergencyContact'
-        ) {
-          formDataToSend.append(key, JSON.stringify(value))
+        // Map specific frontend fields to backend column names
+        if (key === 'workExperience') {
+          formDataToSend.append('experience', JSON.stringify(value))
+          return
+        }
+
+        if (key === 'education') {
+          formDataToSend.append('education', JSON.stringify(value))
+          return
+        }
+
+        if (key === 'emergencyContact') {
+          const contact = value as any;
+          formDataToSend.append('emergencyContactName', String(contact.contactName || ''));
+          formDataToSend.append('emergencyContactRelation', String(contact.relation || ''));
+          formDataToSend.append('emergencyContactNumber', String(contact.contactNumber || ''));
+          return
+        }
+
+        if (key === 'emailAddress') {
+          formDataToSend.append('email', String(value || ''));
+          return
+        }
+
+        if (key === 'mobileNumber') {
+          formDataToSend.append('phoneNumber', String(value || ''));
+          return
+        }
+        // Generic handling for other fields
+        // Robust handling for dates and numeric fields to prevent 500 errors
+        const dateFields = ['dateOfBirth', 'dateOfJoining', 'contractStartDate', 'contractEndDate'];
+        const numericFields = ['basicSalary', 'salary', 'totalExperience', 'currentExperience'];
+
+        const isDate = dateFields.includes(key);
+        const isNumeric = numericFields.includes(key);
+
+        if (isDate && (value === "" || String(value).includes("NaN"))) {
+          return;
+        }
+
+        if (isNumeric && (!value || value === "" || isNaN(Number(value)))) {
+          return;
+        }
+
+        if (typeof value === 'boolean') {
+          formDataToSend.append(key, String(value));
         } else {
-          // Robust handling for dates and numeric fields to prevent 500 errors
-          const dateFields = ['dateOfBirth', 'dateOfJoining', 'contractStartDate', 'contractEndDate'];
-          const numericFields = ['basicSalary', 'salary', 'totalExperience', 'currentExperience'];
-
-          const isDate = dateFields.includes(key);
-          const isNumeric = numericFields.includes(key);
-
-          if (isDate && (value === "" || String(value).includes("NaN"))) {
-            return;
-          }
-
-          if (isNumeric && (!value || value === "" || isNaN(Number(value)))) {
-            return;
-          }
-
-          if (typeof value === 'boolean') {
-            formDataToSend.append(key, String(value));
-          } else {
-            formDataToSend.append(key, String(value || ''))
-          }
+          formDataToSend.append(key, String(value || ''))
         }
 
       })
@@ -721,97 +754,236 @@ export default function EmployeeProfileForm({ employeeId: propEmployeeId, onBack
   }
 
   return (
-    <div className="min-h-screen bg-white p-4 sm:p-6">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          {onBack && (
-            <Button
-              variant="ghost"
-              onClick={onBack}
-              className="mb-4 pl-0 hover:bg-transparent hover:text-gray-900 text-gray-600 gap-2"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              Back to Dashboard
-            </Button>
-          )}
-          <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Profile Settings</h1>
-              <p className="text-gray-600 text-sm sm:text-base">Manage your personal and organization profile information.</p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Button onClick={() => setShowPasswordChange(true)} variant="outline" className="flex items-center gap-2 text-sm">
-                Change Password
-              </Button>
-              {!isEditing && (
-                <Button onClick={() => setIsEditing(true)} variant="outline" className="flex items-center gap-2 text-sm">
-                  <Edit className="w-4 h-4" />
-                  Edit
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-            <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-            <p className="text-gray-600 font-medium animte-pulse">Loading profile information...</p>
-          </div>
-        ) : (
-          <Tabs defaultValue="your-profile" className="w-full">
-            <TabsList className="mb-8 w-full justify-start border-b rounded-none bg-transparent p-0 h-auto">
-              <TabsTrigger
-                value="your-profile"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent px-6 py-3"
-                onClick={() => setIsEditing(false)}
-              >
-                Your Profile
-              </TabsTrigger>
-              {userRole === 'admin' && (
-                <TabsTrigger
-                  value="org-profile"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent px-6 py-3"
-                  onClick={() => setIsEditing(false)}
-                >
-                  Org Profile
-                </TabsTrigger>
-              )}
-            </TabsList>
-
-            <TabsContent value="your-profile">
-              <ProfileForm
-                formData={formData}
-                isEditing={isEditing}
-                userRole={userRole}
-                profilePicUrl={profilePicUrl}
-                selectedProfilePicFile={selectedProfilePicFile}
-                handleInputChange={handleInputChange}
-                handleSelectChange={handleSelectChange}
-                handleFileChange={handleFileChange}
-                handleAddWorkExperienceEntry={handleAddWorkExperienceEntry}
-                handleRemoveWorkExperienceEntry={handleRemoveWorkExperienceEntry}
-                handleWorkExperienceEntryChange={handleWorkExperienceEntryChange}
-                handleAddEducationEntry={handleAddEducationEntry}
-                handleRemoveEducationEntry={handleRemoveEducationEntry}
-                handleEducationEntryChange={handleEducationEntryChange}
-                handleDeleteFile={handleDeleteFile}
-                handleSave={handleSave}
-                employeeId={propEmployeeId || getEmployeeId() || ""}
-              />
-            </TabsContent>
-
-            {userRole === 'admin' && (
-              <TabsContent value="org-profile">
-                <OrgProfilePage
-                  isEditing={isEditing}
-                  setIsEditing={setIsEditing}
-                />
-              </TabsContent>
-            )}
-          </Tabs>
+    <div className="min-h-screen bg-white pb-12">
+      {/* Profile Header Banner */}
+      <div className="h-48 bg-gradient-to-r from-blue-600 to-indigo-700 relative">
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="absolute top-6 left-6 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-sm transition-all"
+          >
+            <ArrowLeft size={20} />
+          </button>
         )}
+      </div>
+
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 -mt-24">
+        {/* Profile Info Card */}
+        <Card className="border-none shadow-xl shadow-gray-200/50 overflow-hidden mb-8">
+          <CardContent className="p-0">
+            <div className="flex flex-col md:flex-row items-center md:items-end gap-6 p-6 sm:p-8 bg-white">
+              <div className="relative group">
+                <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-3xl border-4 border-white shadow-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                  {profilePicUrl ? (
+                    <img src={profilePicUrl} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <User size={64} className="text-gray-300" />
+                  )}
+                </div>
+                {isEditing && (
+                  <label className="absolute bottom-2 right-2 p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg cursor-pointer transition-all">
+                    <Camera size={18} />
+                    <input type="file" className="hidden" onChange={handleFileChange} accept="image/*" />
+                  </label>
+                )}
+              </div>
+
+              <div className="flex-1 text-center md:text-left space-y-2 mb-2">
+                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{formData.fullName || "Loading..."}</h1>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100 italic">
+                    {formData.employeeStatus || "Active"}
+                  </span>
+                </div>
+                <p className="text-gray-500 font-medium flex items-center justify-center md:justify-start gap-2">
+                  <Briefcase size={16} />
+                  {formData.designation} • {formData.department}
+                </p>
+                <div className="flex flex-wrap justify-center md:justify-start gap-4 text-sm text-gray-400 mt-4">
+                  <div className="flex items-center gap-1.5">
+                    <Mail size={14} />
+                    {formData.emailAddress}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Phone size={14} />
+                    {formData.mobileNumber}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <MapPin size={14} />
+                    {formData.location}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap justify-center gap-3 mb-2">
+                <Button onClick={() => setShowPasswordChange(true)} variant="outline" className="rounded-xl px-6 h-11 text-sm font-semibold">
+                  Update Security
+                </Button>
+                {!isEditing ? (
+                  <Button onClick={() => setIsEditing(true)} className="rounded-xl px-8 h-11 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-100 text-sm font-semibold gap-2">
+                    <Edit size={16} />
+                    Edit Profile
+                  </Button>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setIsEditing(false)} className="rounded-xl px-6 h-11 text-sm font-semibold">
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSave} className="rounded-xl px-8 h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-100 text-sm font-semibold gap-2">
+                      Save Changes
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Profile Tabs */}
+            <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="w-full justify-start h-auto p-0 bg-gray-50/50 border-y border-gray-100 overflow-x-auto scrollbar-hide">
+                <TabsTrigger
+                  value="overview"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-white data-[state=active]:text-blue-600 px-8 py-4 text-sm font-semibold text-gray-500 transition-all"
+                >
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger
+                  value="personal"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-white data-[state=active]:text-blue-600 px-8 py-4 text-sm font-semibold text-gray-500 transition-all"
+                >
+                  Personal Details
+                </TabsTrigger>
+                <TabsTrigger
+                  value="documents"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-white data-[state=active]:text-blue-600 px-8 py-4 text-sm font-semibold text-gray-500 transition-all"
+                >
+                  Documents
+                </TabsTrigger>
+                <TabsTrigger
+                  value="experience"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-white data-[state=active]:text-blue-600 px-8 py-4 text-sm font-semibold text-gray-500 transition-all"
+                >
+                  Professional
+                </TabsTrigger>
+                {userRole === 'admin' && (
+                  <TabsTrigger
+                    value="org"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-white data-[state=active]:text-blue-600 px-8 py-4 text-sm font-semibold text-gray-500 transition-all"
+                  >
+                    Organization
+                  </TabsTrigger>
+                )}
+              </TabsList>
+
+              <div className="p-6 sm:p-8 bg-white">
+                {isLoading ? (
+                  <div className="flex flex-col items-center justify-center py-20 gap-4">
+                    <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+                    <p className="text-gray-400 font-medium">Restructuring profile data...</p>
+                  </div>
+                ) : (
+                  <>
+                    <TabsContent value="overview" className="mt-0">
+                      <ProfileForm
+                        formData={formData}
+                        isEditing={isEditing}
+                        userRole={userRole}
+                        profilePicUrl={profilePicUrl}
+                        selectedProfilePicFile={selectedProfilePicFile}
+                        handleInputChange={handleInputChange}
+                        handleSelectChange={handleSelectChange}
+                        handleFileChange={handleFileChange}
+                        handleAddWorkExperienceEntry={handleAddWorkExperienceEntry}
+                        handleRemoveWorkExperienceEntry={handleRemoveWorkExperienceEntry}
+                        handleWorkExperienceEntryChange={handleWorkExperienceEntryChange}
+                        handleAddEducationEntry={handleAddEducationEntry}
+                        handleRemoveEducationEntry={handleRemoveEducationEntry}
+                        handleEducationEntryChange={handleEducationEntryChange}
+                        handleDeleteFile={handleDeleteFile}
+                        handleSave={handleSave}
+                        employeeId={propEmployeeId || getEmployeeId() || ""}
+                        activeSection="overview"
+                      />
+                    </TabsContent>
+                    <TabsContent value="personal" className="mt-0">
+                      <ProfileForm
+                        formData={formData}
+                        isEditing={isEditing}
+                        userRole={userRole}
+                        profilePicUrl={profilePicUrl}
+                        selectedProfilePicFile={selectedProfilePicFile}
+                        handleInputChange={handleInputChange}
+                        handleSelectChange={handleSelectChange}
+                        handleFileChange={handleFileChange}
+                        handleAddWorkExperienceEntry={handleAddWorkExperienceEntry}
+                        handleRemoveWorkExperienceEntry={handleRemoveWorkExperienceEntry}
+                        handleWorkExperienceEntryChange={handleWorkExperienceEntryChange}
+                        handleAddEducationEntry={handleAddEducationEntry}
+                        handleRemoveEducationEntry={handleRemoveEducationEntry}
+                        handleEducationEntryChange={handleEducationEntryChange}
+                        handleDeleteFile={handleDeleteFile}
+                        handleSave={handleSave}
+                        employeeId={propEmployeeId || getEmployeeId() || ""}
+                        activeSection="personal"
+                      />
+                    </TabsContent>
+                    <TabsContent value="documents" className="mt-0">
+                      <ProfileForm
+                        formData={formData}
+                        isEditing={isEditing}
+                        userRole={userRole}
+                        profilePicUrl={profilePicUrl}
+                        selectedProfilePicFile={selectedProfilePicFile}
+                        handleInputChange={handleInputChange}
+                        handleSelectChange={handleSelectChange}
+                        handleFileChange={handleFileChange}
+                        handleAddWorkExperienceEntry={handleAddWorkExperienceEntry}
+                        handleRemoveWorkExperienceEntry={handleRemoveWorkExperienceEntry}
+                        handleWorkExperienceEntryChange={handleWorkExperienceEntryChange}
+                        handleAddEducationEntry={handleAddEducationEntry}
+                        handleRemoveEducationEntry={handleRemoveEducationEntry}
+                        handleEducationEntryChange={handleEducationEntryChange}
+                        handleDeleteFile={handleDeleteFile}
+                        handleSave={handleSave}
+                        employeeId={propEmployeeId || getEmployeeId() || ""}
+                        activeSection="documents"
+                      />
+                    </TabsContent>
+                    <TabsContent value="experience" className="mt-0">
+                      <ProfileForm
+                        formData={formData}
+                        isEditing={isEditing}
+                        userRole={userRole}
+                        profilePicUrl={profilePicUrl}
+                        selectedProfilePicFile={selectedProfilePicFile}
+                        handleInputChange={handleInputChange}
+                        handleSelectChange={handleSelectChange}
+                        handleFileChange={handleFileChange}
+                        handleAddWorkExperienceEntry={handleAddWorkExperienceEntry}
+                        handleRemoveWorkExperienceEntry={handleRemoveWorkExperienceEntry}
+                        handleWorkExperienceEntryChange={handleWorkExperienceEntryChange}
+                        handleAddEducationEntry={handleAddEducationEntry}
+                        handleRemoveEducationEntry={handleRemoveEducationEntry}
+                        handleEducationEntryChange={handleEducationEntryChange}
+                        handleDeleteFile={handleDeleteFile}
+                        handleSave={handleSave}
+                        employeeId={propEmployeeId || getEmployeeId() || ""}
+                        activeSection="experience"
+                      />
+                    </TabsContent>
+                    {userRole === 'admin' && (
+                      <TabsContent value="org" className="mt-0">
+                        <OrgProfilePage
+                          isEditing={isEditing}
+                          setIsEditing={setIsEditing}
+                        />
+                      </TabsContent>
+                    )}
+                  </>
+                )}
+              </div>
+            </Tabs>
+          </CardContent>
+        </Card>
       </div>
 
       <CustomAlertDialog
