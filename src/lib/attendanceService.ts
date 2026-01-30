@@ -322,6 +322,77 @@ export const attendanceService = {
       };
     }
   },
+
+  /**
+   * Mark employee as absent (Admin/Manager)
+   */
+  async markAbsent(
+    organizationId: string,
+    employeeId: string,
+    date: string // ISO date string YYYY-MM-DD
+  ): Promise<AttendanceResponse> {
+    try {
+      const response = await api.post(
+        `/org/${organizationId}/attendence/manager-mark-absent`,
+        { employeeId, date }
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to mark employee absent',
+      };
+    }
+  },
+
+  /**
+   * Bulk mark employees as absent (Admin/Manager)
+   */
+  async bulkMarkAbsent(
+    organizationId: string,
+    employeeIds: string[],
+    date: string // ISO date string YYYY-MM-DD
+  ): Promise<AttendanceResponse> {
+    try {
+      const response = await api.post(
+        `/org/${organizationId}/attendence/bulk-manager-mark-absent`,
+        { employeeIds, date }
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to bulk mark employees absent',
+      };
+    }
+  },
+
+  /**
+   * Get reportees attendance history
+   */
+  async getReporteesHistory(
+    organizationId: string,
+    startDate?: string,
+    endDate?: string,
+    query?: string
+  ): Promise<AttendanceResponse> {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      if (query) params.append('q', query);
+
+      const response = await api.get(
+        `/org/${organizationId}/attendence/reportees-history${params.toString() ? `?${params.toString()}` : ''}`
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to fetch reportees history',
+      };
+    }
+  },
 };
 
 export default attendanceService;
