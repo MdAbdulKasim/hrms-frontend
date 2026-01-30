@@ -8,7 +8,8 @@ import {
   X,
   Check,
   Clock,
-  UserCheck
+  UserCheck,
+  UserX
 } from 'lucide-react';
 import ProfilePage from '../admin/profile/profilepage';
 import { isAxiosError } from 'axios';
@@ -22,10 +23,11 @@ type Reportee = {
   id: string;
   name: string;
   roleId: string;
-  status: 'checked-in' | 'checked-out' | 'yet-to-check-in';
+  status: 'checked-in' | 'checked-out' | 'yet-to-check-in' | 'absent';
   employeeId: string;
   isCheckedIn: boolean;
   isCheckedOut: boolean;
+  isAbsent: boolean;
   checkInTime?: string;
   checkOutTime?: string;
 };
@@ -50,6 +52,7 @@ interface ProfileCardProps {
   checkInTime?: string;
   checkOutTime?: string;
   onCheckInStatusChange?: (isCheckedIn: boolean) => void;
+  isAbsent?: boolean;
   showAlert: (title: string, description: string, variant: "success" | "error" | "info" | "warning") => void;
 }
 
@@ -61,6 +64,7 @@ const ProfileCard = ({ currentUser, token,
   checkInTime,
   checkOutTime,
   onCheckInStatusChange,
+  isAbsent = false,
   showAlert
 }: ProfileCardProps) => {
   const [isCheckedIn, setIsCheckedIn] = useState(initialIsCheckedIn);
@@ -216,12 +220,12 @@ const ProfileCard = ({ currentUser, token,
       )}
 
       <p className="text-gray-500 text-xs mt-1">{currentUser?.designation || 'N/A'}</p>
-      <p className={`text-xs font-medium mt-3 ${isCheckedOut ? 'text-gray-400' : isCheckedIn ? 'text-green-500' : 'text-red-500'}`}>
-        {isCheckedOut ? 'Shift Completed' : isCheckedIn ? `Checked In ${checkInTime ? 'at ' + new Date(checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}` : 'Yet to check-in'}
+      <p className={`text-xs font-medium mt-3 ${isAbsent ? 'text-red-600' : isCheckedOut ? 'text-gray-400' : isCheckedIn ? 'text-green-500' : 'text-red-500'}`}>
+        {isAbsent ? 'Marked Absent' : isCheckedOut ? 'Shift Completed' : isCheckedIn ? `Checked In ${checkInTime ? 'at ' + new Date(checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}` : 'Yet to check-in'}
       </p>
 
       {/* Login/Logout Time Input */}
-      {!isCheckedOut && (
+      {!isCheckedOut && !isAbsent && (
         <div className="mt-3 w-full">
           <label className="text-xs text-gray-500 block mb-1">
             {isCheckedIn ? 'Logout Time' : 'Login Time'}
@@ -240,12 +244,12 @@ const ProfileCard = ({ currentUser, token,
       </div>
       <button
         onClick={handleToggleCheckIn}
-        disabled={loading || isCheckedOut}
-        className={`mt-4 w-full py-2 border rounded-md transition-colors text-sm font-medium ${loading || isCheckedOut ? 'opacity-50 cursor-not-allowed bg-gray-50 text-gray-400 border-gray-200' :
+        disabled={loading || isCheckedOut || isAbsent}
+        className={`mt-4 w-full py-2 border rounded-md transition-colors text-sm font-medium ${loading || isCheckedOut || isAbsent ? 'opacity-50 cursor-not-allowed bg-gray-50 text-gray-400 border-gray-200' :
           isCheckedIn ? 'border-red-500 text-red-500 hover:bg-red-50' : 'border-green-500 text-green-500 hover:bg-green-50'
           }`}
       >
-        {loading ? 'Processing...' : isCheckedOut ? 'Work Ended' : isCheckedIn ? 'Check-out' : 'Check-in'}
+        {loading ? 'Processing...' : isAbsent ? 'Absent' : isCheckedOut ? 'Work Ended' : isCheckedIn ? 'Check-out' : 'Check-in'}
       </button>
     </div>
   );
@@ -265,6 +269,7 @@ interface ReporteesCardProps {
   onGlobalCheckOutTimeChange: (time: string) => void;
   onCheckInReportees: (employeeIds: string[]) => void;
   onCheckOutReportees: (employeeIds: string[]) => void;
+  onMarkAbsentReportees: (employeeIds: string[]) => void;
   checkInLoading: boolean;
   showAlert: (title: string, description: string, variant?: "success" | "error" | "info" | "warning") => void;
 }
@@ -283,6 +288,7 @@ const ReporteesCard = ({
   onGlobalCheckOutTimeChange,
   onCheckInReportees,
   onCheckOutReportees,
+  onMarkAbsentReportees,
   checkInLoading,
   showAlert
 }: ReporteesCardProps) => {
@@ -392,6 +398,20 @@ const ReporteesCard = ({
               </button>
             </div>
           )}
+
+          {/* Mark Absent Button */}
+          {selectedUncheckedReportees.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 bg-red-50 px-3 py-1.5 rounded-lg border border-red-200">
+              <button
+                onClick={() => onMarkAbsentReportees(selectedUncheckedReportees.map(r => r.employeeId))}
+                disabled={checkInLoading}
+                className="px-3 py-1 bg-red-500 text-white text-xs font-medium rounded-md hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+              >
+                <UserX className="w-3.5 h-3.5" />
+                <span className="truncate">{checkInLoading ? '...' : `Mark Absent (${selectedUncheckedReportees.length})`}</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -436,7 +456,7 @@ const ReporteesCard = ({
           return (
             <div
               key={person.id}
-              className={`flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg transition-all border-2 ${person.isCheckedOut ? 'bg-gray-50 opacity-60 border-transparent' : isSelected
+              className={`flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg transition-all border-2 ${person.isCheckedOut || person.status === 'absent' ? 'bg-gray-50 opacity-60 border-transparent' : isSelected
                 ? person.isCheckedIn
                   ? 'bg-orange-50 border-orange-400'
                   : 'bg-blue-50 border-blue-400'
@@ -446,13 +466,13 @@ const ReporteesCard = ({
               <div className="flex items-center gap-3">
                 {/* Selection checkbox */}
                 <div
-                  className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${person.isCheckedOut ? 'border-gray-200 bg-gray-100 cursor-not-allowed' : 'cursor-pointer'} ${isSelected
+                  className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${person.isCheckedOut || person.status === 'absent' ? 'border-gray-200 bg-gray-100 cursor-not-allowed' : 'cursor-pointer'} ${isSelected
                     ? person.isCheckedIn
                       ? 'border-orange-500 bg-orange-500'
                       : 'border-blue-500 bg-blue-500'
                     : 'border-gray-300 hover:border-gray-400'
                     }`}
-                  onClick={() => !person.isCheckedOut && onSelectReportee(person.employeeId)}
+                  onClick={() => !person.isCheckedOut && person.status !== 'absent' && onSelectReportee(person.employeeId)}
                 >
                   {isSelected && <Check className="w-3 h-3 text-white" />}
                 </div>
@@ -476,7 +496,12 @@ const ReporteesCard = ({
                     {person.name}
                   </p>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    {person.status === 'checked-in' ? (
+                    {person.status === 'absent' ? (
+                      <>
+                        <span className="w-2 h-2 bg-red-600 rounded-full"></span>
+                        <span className="text-[11px] text-red-600 font-medium">Marked Absent</span>
+                      </>
+                    ) : person.status === 'checked-in' ? (
                       <>
                         <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                         <span className="text-[11px] text-green-600 font-medium">
@@ -598,6 +623,7 @@ export default function Dashboard() {
   const [checkInLoading, setCheckInLoading] = useState(false);
   const [isSelfCheckedIn, setIsSelfCheckedIn] = useState(false);
   const [isSelfCheckedOut, setIsSelfCheckedOut] = useState(false);
+  const [isSelfAbsent, setIsSelfAbsent] = useState(false);
   const [selfCheckInTime, setSelfCheckInTime] = useState<string | undefined>(undefined);
   const [selfCheckOutTime, setSelfCheckOutTime] = useState<string | undefined>(undefined);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -677,54 +703,66 @@ export default function Dashboard() {
         // Fetch reportees and their attendance status
         try {
           const today = new Date().toISOString().split('T')[0];
-          const response = await attendanceService.getPendingCheckIns(authOrgId, today, true);
 
-          if (response && !response.error) {
-            // Backend might return wrapped in .data or directly if using some service versions
-            const resData = (response as any).data || response;
-            const data = (resData as any).employees || [];
+          // 1. Fetch current user's status for day (including absent)
+          try {
+            const statusRes = await attendanceService.getStatus(authOrgId);
+            if (statusRes && !statusRes.error) {
+              const record = (statusRes as any).data || statusRes;
+              if (record && !record.message) {
+                const hasIn = !!(record.checkInTime || record.checkIn);
+                const hasOut = !!(record.checkOutTime || record.checkOut);
+                const status = (record.status || '').toLowerCase();
+                const isAbsent = status === 'absent' || !!record.isAbsent;
 
-            setReportees(data.map((emp: any) => ({
-              id: emp.employeeId,
-              name: emp.employeeName || 'Unknown',
-              roleId: emp.employeeId,
-              status: emp.hasCheckedIn ? (emp.hasCheckedOut ? 'checked-out' : 'checked-in') : 'yet-to-check-in',
-              employeeId: emp.employeeId,
-              isCheckedIn: emp.hasCheckedIn,
-              isCheckedOut: emp.hasCheckedOut,
-              checkInTime: emp.checkInTime,
-              checkOutTime: emp.checkOutTime
-            })));
-
-            // Update self status from the data if present
-            const selfStatus = data.find((e: any) => e.employeeId === authEmployeeId);
-            if (selfStatus) {
-              setIsSelfCheckedIn(selfStatus.hasCheckedIn && !selfStatus.hasCheckedOut);
-              setIsSelfCheckedOut(selfStatus.hasCheckedOut);
-              setSelfCheckInTime(selfStatus.checkInTime);
-              setSelfCheckOutTime(selfStatus.checkOutTime);
-            } else {
-              // Fallback to my-status for self if not in reportees
-              try {
-                const statusRes = await attendanceService.getStatus(authOrgId);
-                if (statusRes && !statusRes.error) {
-                  // Handle raw record return or { data: record }
-                  const record = (statusRes as any).data || statusRes;
-                  if (record && !record.message) {
-                    const hasIn = !!(record.checkInTime || record.checkIn);
-                    const hasOut = !!(record.checkOutTime || record.checkOut);
-                    setIsSelfCheckedIn(hasIn && !hasOut);
-                    setIsSelfCheckedOut(hasIn && hasOut);
-                    setSelfCheckInTime(record.checkInTime || record.checkIn);
-                    setSelfCheckOutTime(record.checkOutTime || record.checkOut);
-                  }
-                }
-              } catch (e) {
-                console.error('Error fetching fallback status:', e);
+                setIsSelfCheckedIn(hasIn && !hasOut);
+                setIsSelfCheckedOut(hasIn && hasOut);
+                setIsSelfAbsent(isAbsent);
+                setSelfCheckInTime(record.checkInTime || record.checkIn);
+                setSelfCheckOutTime(record.checkOutTime || record.checkOut);
               }
             }
+          } catch (e) {
+            console.error('Error fetching own status:', e);
+          }
+
+          // 2. Fetch pending check-ins for team mapping
+          const pendingRes = await attendanceService.getPendingCheckIns(authOrgId, today, true);
+
+          // 3. Fetch collective history for team (includes absent status)
+          const historyRes = await attendanceService.getReporteesHistory(authOrgId, today, today);
+
+          if (pendingRes && !pendingRes.error) {
+            const pendingData = (pendingRes as any).data || pendingRes;
+            const employees = (pendingData as any).employees || [];
+
+            const historyData = (historyRes as any).data || (Array.isArray(historyRes) ? historyRes : []);
+            const historyMap = new Map();
+            if (Array.isArray(historyData)) {
+              historyData.forEach((h: any) => historyMap.set(h.employeeId, h));
+            }
+
+            setReportees(employees.map((emp: any) => {
+              const history = historyMap.get(emp.employeeId);
+              const isAbsent = history?.status?.toLowerCase() === 'absent' || !!history?.isAbsent;
+              const hasIn = emp.hasCheckedIn || !!history?.checkInTime;
+              const hasOut = emp.hasCheckedOut || !!history?.checkOutTime;
+
+              return {
+                id: emp.employeeId,
+                name: emp.employeeName || 'Unknown',
+                roleId: emp.employeeId,
+                status: isAbsent ? 'absent' : (hasIn ? (hasOut ? 'checked-out' : 'checked-in') : 'yet-to-check-in'),
+                employeeId: emp.employeeId,
+                isCheckedIn: hasIn,
+                isCheckedOut: hasOut,
+                isAbsent: isAbsent,
+                checkInTime: emp.checkInTime || history?.checkInTime,
+                checkOutTime: emp.checkOutTime || history?.checkOutTime
+              };
+            }));
           } else {
-            console.error('Failed to fetch pending check-ins:', response?.error);
+            console.error('Failed to fetch reportees:', pendingRes?.error);
             setReportees([]);
           }
         } catch (error) {
@@ -875,6 +913,49 @@ export default function Dashboard() {
     );
   }
 
+
+  const handleMarkAbsentReportees = async (employeeIds: string[]) => {
+    if (employeeIds.length === 0) return;
+    if (!confirm(`Mark ${employeeIds.length} employee(s) as absent? This action cannot be undone.`)) return;
+
+    try {
+      setCheckInLoading(true);
+      if (!orgId) return;
+
+      const today = new Date().toISOString().split('T')[0];
+      const response = await attendanceService.bulkMarkAbsent(orgId, employeeIds, today);
+
+      if (response && !response.error) {
+        setAlertState({
+          open: true,
+          title: "Success",
+          description: "Employees marked as absent",
+          variant: "success"
+        });
+        // Clear selection and refresh
+        setSelectedReporteeIds([]);
+        setRefreshTrigger(prev => prev + 1);
+      } else {
+        setAlertState({
+          open: true,
+          title: "Error",
+          description: response.error || "Failed to mark absent",
+          variant: "error"
+        });
+      }
+    } catch (error) {
+      console.error('Error marking absent:', error);
+      setAlertState({
+        open: true,
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "error"
+      });
+    } finally {
+      setCheckInLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -900,6 +981,7 @@ export default function Dashboard() {
               currentEmployeeId={currentEmployeeId}
               initialIsCheckedIn={isSelfCheckedIn}
               initialIsCheckedOut={isSelfCheckedOut}
+              isAbsent={isSelfAbsent}
               checkInTime={selfCheckInTime}
               checkOutTime={selfCheckOutTime}
               onCheckInStatusChange={() => setRefreshTrigger(prev => prev + 1)}
@@ -921,6 +1003,7 @@ export default function Dashboard() {
               onGlobalCheckOutTimeChange={setGlobalCheckOutTime}
               onCheckInReportees={handleCheckInReportees}
               onCheckOutReportees={handleCheckOutReportees}
+              onMarkAbsentReportees={handleMarkAbsentReportees}
               checkInLoading={checkInLoading}
               showAlert={showAlert}
             />

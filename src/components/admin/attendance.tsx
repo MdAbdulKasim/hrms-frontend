@@ -15,7 +15,8 @@ import {
   Search,
   User,
   Eye,
-  Filter
+  Filter,
+  UserX
 } from 'lucide-react';
 import ViewAttendanceDetails from './ViewAttendanceDetails';
 import {
@@ -87,6 +88,7 @@ const AttendanceTracker: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [viewingRecord, setViewingRecord] = useState<AttendanceRecord | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Close calendar when clicking outside
   useEffect(() => {
@@ -360,8 +362,35 @@ const AttendanceTracker: React.FC = () => {
     };
 
     fetchAllData();
-    fetchAllData();
-  }, [viewMode, currentDate, searchQuery, selectedEmployee]);
+  }, [viewMode, currentDate, searchQuery, selectedEmployee, refreshKey]);
+
+  const handleMarkAbsent = async (employeeId: string, employeeName: string, dateStr?: string) => {
+    if (!employeeId) return;
+    if (!confirm(`Are you sure you want to mark ${employeeName} as absent?`)) return;
+
+    try {
+      setLoading(true);
+      const orgId = getOrgId();
+      if (!orgId) return;
+
+      // Use record date if provided, otherwise current viewing date
+      const targetDate = dateStr || format(currentDate, 'yyyy-MM-dd');
+
+      const res = await attendanceService.markAbsent(orgId, employeeId, targetDate);
+
+      if (res && !res.error) {
+        // Success - refresh data
+        setRefreshKey(prev => prev + 1);
+      } else {
+        alert(res.error || 'Failed to mark absent');
+      }
+    } catch (error) {
+      console.error('Error marking absent:', error);
+      alert('An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Filter records based on status filter
   const filteredRecords = useMemo(() => {
@@ -772,6 +801,15 @@ const AttendanceTracker: React.FC = () => {
                         >
                           <Eye className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
                         </button>
+                        {record.status !== 'Present' && record.status !== 'Leave' && record.status !== 'Holiday' && record.status !== 'Weekend' && (
+                          <button
+                            onClick={() => handleMarkAbsent(record.employeeId || '', record.employeeName || '', record.date)}
+                            className="p-1 sm:p-1.5 hover:bg-red-50 rounded-lg text-red-600 transition-colors ml-1"
+                            title="Mark Absent"
+                          >
+                            <UserX className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -787,16 +825,18 @@ const AttendanceTracker: React.FC = () => {
           </div>
         </div>
       </div>
-      {isViewDialogOpen && viewingRecord && (
-        <ViewAttendanceDetails
-          record={viewingRecord}
-          onClose={() => {
-            setIsViewDialogOpen(false);
-            setViewingRecord(null);
-          }}
-        />
-      )}
-    </div>
+      {
+        isViewDialogOpen && viewingRecord && (
+          <ViewAttendanceDetails
+            record={viewingRecord}
+            onClose={() => {
+              setIsViewDialogOpen(false);
+              setViewingRecord(null);
+            }}
+          />
+        )
+      }
+    </div >
   );
 };
 
