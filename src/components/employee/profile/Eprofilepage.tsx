@@ -4,8 +4,9 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import axios from "axios"
-import { Edit, ChevronLeft } from "lucide-react"
+import { Edit, ChevronLeft, User, Camera, Briefcase } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { getApiUrl, getAuthToken, getOrgId, getEmployeeId, getUserRole } from "@/lib/auth"
 import { CustomAlertDialog } from "@/components/ui/custom-dialogs"
 import EProfileForm from "./EProfileForm"
@@ -13,6 +14,8 @@ import { type FormData as ProfileFormData, initialFormData } from "./types"
 import ChangePassword from "../../admin/profile/ChangePassword"
 import ContractService from "@/lib/contractService"
 import { getContractTypeLabel, getContractTypeValue } from "@/types/contractTypes"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Loader2, Mail, Phone, MapPin } from "lucide-react"
 
 const sanitizeDate = (val: any) => {
   if (!val) return "";
@@ -41,6 +44,8 @@ export default function EmployeeProfilePage() {
   const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
     open: false, title: "", description: "", variant: "info"
   });
+  const [isLoading, setIsLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState("overview")
 
   const showAlert = (title: string, description: string, variant: "success" | "error" | "info" | "warning" = "info") => {
     setAlertState({ open: true, title, description, variant });
@@ -245,7 +250,8 @@ export default function EmployeeProfilePage() {
     }
 
     if (employeeId && orgId && employeeId !== "undefined" && orgId !== "undefined") {
-      fetchEmployeeData()
+      setIsLoading(true)
+      fetchEmployeeData().finally(() => setIsLoading(false))
     }
   }, [])
 
@@ -774,7 +780,7 @@ export default function EmployeeProfilePage() {
 
   if (showPasswordChange) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen bg-gray-50/50 p-6">
         <div className="max-w-4xl mx-auto">
           <ChangePassword onBack={() => setShowPasswordChange(false)} />
         </div>
@@ -783,51 +789,218 @@ export default function EmployeeProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-white p-6">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <button onClick={() => router.back()} className="flex items-center text-blue-600 hover:text-blue-700 mb-4">
-            <ChevronLeft className="w-4 h-4 mr-1" /> Back
-          </button>
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">My Profile</h1>
-              <p className="text-gray-600">View and manage your personal information.</p>
-            </div>
-            <div className="flex gap-3">
-              <Button onClick={() => setShowPasswordChange(true)} variant="outline" className="flex items-center gap-2">
-                Change Password
-              </Button>
-              {!isEditing && (
-                <Button onClick={() => setIsEditing(true)} variant="outline" className="flex items-center gap-2">
-                  <Edit className="w-4 h-4" />
-                  Edit
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-gray-50/50 pb-12 text-gray-900">
+      {/* Profile Header Banner */}
+      <div className="h-48 bg-gradient-to-r from-blue-600 to-indigo-700 relative">
+        <button
+          onClick={() => router.back()}
+          className="absolute top-6 left-6 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-sm transition-all"
+        >
+          <ChevronLeft size={20} />
+        </button>
+      </div>
 
-        <EProfileForm
-          formData={formData}
-          isEditing={isEditing}
-          userRole={userRole}
-          profilePicUrl={profilePicUrl}
-          selectedProfilePicFile={selectedProfilePicFile}
-          handleInputChange={handleInputChange}
-          handleSelectChange={handleSelectChange}
-          handleFileChange={handleFileChange}
-          handleAddWorkExperienceEntry={handleAddWorkExperienceEntry}
-          handleRemoveWorkExperienceEntry={handleRemoveWorkExperienceEntry}
-          handleWorkExperienceEntryChange={handleWorkExperienceEntryChange}
-          handleAddEducationEntry={handleAddEducationEntry}
-          handleRemoveEducationEntry={handleRemoveEducationEntry}
-          handleEducationEntryChange={handleEducationEntryChange}
-          handleDeleteFile={handleDeleteFile}
-          handleSave={handleSave}
-          employeeId={getEmployeeId() || ""}
-        />
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 -mt-24">
+        {/* Profile Info Card */}
+        <Card className="border-none shadow-xl shadow-gray-200/50 overflow-hidden mb-8">
+          <CardContent className="p-0">
+            <div className="flex flex-col md:flex-row items-center md:items-end gap-6 p-6 sm:p-8 bg-white">
+              <div className="relative group">
+                <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-3xl border-4 border-white shadow-lg overflow-hidden bg-gray-100 flex items-center justify-center transition-transform group-hover:scale-[1.02]">
+                  {profilePicUrl ? (
+                    <img src={profilePicUrl} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <User size={64} className="text-gray-300" />
+                  )}
+                </div>
+                {isEditing && (
+                  <label className="absolute -bottom-2 -right-2 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-xl cursor-pointer transition-all hover:scale-110">
+                    <Camera size={20} />
+                    <input type="file" className="hidden" onChange={handleFileChange} accept="image/*" />
+                  </label>
+                )}
+              </div>
+
+              <div className="flex-1 text-center md:text-left space-y-2 mb-2">
+                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{formData.fullName || "Loading..."}</h1>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100 italic">
+                    {formData.employeeStatus || "Active"}
+                  </span>
+                </div>
+                <p className="text-gray-500 font-medium flex items-center justify-center md:justify-start gap-2">
+                  <Briefcase size={16} />
+                  {formData.designation} • {formData.department}
+                </p>
+                <div className="flex flex-wrap justify-center md:justify-start gap-4 text-sm text-gray-400 mt-4">
+                  <div className="flex items-center gap-1.5">
+                    <Mail size={14} />
+                    {formData.emailAddress}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Phone size={14} />
+                    {formData.mobileNumber}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <MapPin size={14} />
+                    {formData.location}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap justify-center gap-3 mb-2">
+                <Button onClick={() => setShowPasswordChange(true)} variant="outline" className="rounded-xl px-6 h-11 text-sm font-semibold">
+                  Update Security
+                </Button>
+                {!isEditing ? (
+                  <Button onClick={() => setIsEditing(true)} className="rounded-xl px-8 h-11 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-100 text-sm font-semibold gap-2">
+                    <Edit size={16} />
+                    Edit Profile
+                  </Button>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setIsEditing(false)} className="rounded-xl px-6 h-11 text-sm font-semibold">
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSave} className="rounded-xl px-8 h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-100 text-sm font-semibold gap-2">
+                      Save Changes
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Profile Tabs */}
+            <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="w-full justify-start h-auto p-0 bg-gray-50/50 border-y border-gray-100 overflow-x-auto scrollbar-hide">
+                <TabsTrigger
+                  value="overview"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-white data-[state=active]:text-blue-600 px-8 py-4 text-sm font-semibold text-gray-500 transition-all font-inter"
+                >
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger
+                  value="personal"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-white data-[state=active]:text-blue-600 px-8 py-4 text-sm font-semibold text-gray-500 transition-all font-inter"
+                >
+                  Personal Details
+                </TabsTrigger>
+                <TabsTrigger
+                  value="documents"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-white data-[state=active]:text-blue-600 px-8 py-4 text-sm font-semibold text-gray-500 transition-all font-inter"
+                >
+                  Documents
+                </TabsTrigger>
+                <TabsTrigger
+                  value="experience"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-white data-[state=active]:text-blue-600 px-8 py-4 text-sm font-semibold text-gray-500 transition-all font-inter"
+                >
+                  Professional
+                </TabsTrigger>
+              </TabsList>
+
+              <div className="p-6 sm:p-8 bg-white">
+                {isLoading ? (
+                  <div className="flex flex-col items-center justify-center py-20 gap-4">
+                    <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+                    <p className="text-gray-400 font-medium">Restructuring profile data...</p>
+                  </div>
+                ) : (
+                  <>
+                    <TabsContent value="overview" className="mt-0">
+                      <EProfileForm
+                        formData={formData}
+                        isEditing={isEditing}
+                        userRole={userRole}
+                        profilePicUrl={profilePicUrl}
+                        selectedProfilePicFile={selectedProfilePicFile}
+                        handleInputChange={handleInputChange}
+                        handleSelectChange={handleSelectChange}
+                        handleFileChange={handleFileChange}
+                        handleAddWorkExperienceEntry={handleAddWorkExperienceEntry}
+                        handleRemoveWorkExperienceEntry={handleRemoveWorkExperienceEntry}
+                        handleWorkExperienceEntryChange={handleWorkExperienceEntryChange}
+                        handleAddEducationEntry={handleAddEducationEntry}
+                        handleRemoveEducationEntry={handleRemoveEducationEntry}
+                        handleEducationEntryChange={handleEducationEntryChange}
+                        handleDeleteFile={handleDeleteFile}
+                        handleSave={handleSave}
+                        employeeId={getEmployeeId() || ""}
+                        activeSection="overview"
+                      />
+                    </TabsContent>
+                    <TabsContent value="personal" className="mt-0">
+                      <EProfileForm
+                        formData={formData}
+                        isEditing={isEditing}
+                        userRole={userRole}
+                        profilePicUrl={profilePicUrl}
+                        selectedProfilePicFile={selectedProfilePicFile}
+                        handleInputChange={handleInputChange}
+                        handleSelectChange={handleSelectChange}
+                        handleFileChange={handleFileChange}
+                        handleAddWorkExperienceEntry={handleAddWorkExperienceEntry}
+                        handleRemoveWorkExperienceEntry={handleRemoveWorkExperienceEntry}
+                        handleWorkExperienceEntryChange={handleWorkExperienceEntryChange}
+                        handleAddEducationEntry={handleAddEducationEntry}
+                        handleRemoveEducationEntry={handleRemoveEducationEntry}
+                        handleEducationEntryChange={handleEducationEntryChange}
+                        handleDeleteFile={handleDeleteFile}
+                        handleSave={handleSave}
+                        employeeId={getEmployeeId() || ""}
+                        activeSection="personal"
+                      />
+                    </TabsContent>
+                    <TabsContent value="documents" className="mt-0">
+                      <EProfileForm
+                        formData={formData}
+                        isEditing={isEditing}
+                        userRole={userRole}
+                        profilePicUrl={profilePicUrl}
+                        selectedProfilePicFile={selectedProfilePicFile}
+                        handleInputChange={handleInputChange}
+                        handleSelectChange={handleSelectChange}
+                        handleFileChange={handleFileChange}
+                        handleAddWorkExperienceEntry={handleAddWorkExperienceEntry}
+                        handleRemoveWorkExperienceEntry={handleRemoveWorkExperienceEntry}
+                        handleWorkExperienceEntryChange={handleWorkExperienceEntryChange}
+                        handleAddEducationEntry={handleAddEducationEntry}
+                        handleRemoveEducationEntry={handleRemoveEducationEntry}
+                        handleEducationEntryChange={handleEducationEntryChange}
+                        handleDeleteFile={handleDeleteFile}
+                        handleSave={handleSave}
+                        employeeId={getEmployeeId() || ""}
+                        activeSection="documents"
+                      />
+                    </TabsContent>
+                    <TabsContent value="experience" className="mt-0">
+                      <EProfileForm
+                        formData={formData}
+                        isEditing={isEditing}
+                        userRole={userRole}
+                        profilePicUrl={profilePicUrl}
+                        selectedProfilePicFile={selectedProfilePicFile}
+                        handleInputChange={handleInputChange}
+                        handleSelectChange={handleSelectChange}
+                        handleFileChange={handleFileChange}
+                        handleAddWorkExperienceEntry={handleAddWorkExperienceEntry}
+                        handleRemoveWorkExperienceEntry={handleRemoveWorkExperienceEntry}
+                        handleWorkExperienceEntryChange={handleWorkExperienceEntryChange}
+                        handleAddEducationEntry={handleAddEducationEntry}
+                        handleRemoveEducationEntry={handleRemoveEducationEntry}
+                        handleEducationEntryChange={handleEducationEntryChange}
+                        handleDeleteFile={handleDeleteFile}
+                        handleSave={handleSave}
+                        employeeId={getEmployeeId() || ""}
+                        activeSection="experience"
+                      />
+                    </TabsContent>
+                  </>
+                )}
+              </div>
+            </Tabs>
+          </CardContent>
+        </Card>
       </div>
 
       <CustomAlertDialog

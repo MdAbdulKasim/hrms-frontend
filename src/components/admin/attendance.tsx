@@ -801,7 +801,7 @@ const AttendanceTracker: React.FC = () => {
                         >
                           <Eye className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
                         </button>
-                        {record.status !== 'Present' && record.status !== 'Leave' && record.status !== 'Holiday' && record.status !== 'Weekend' && (
+                        {/* {record.status !== 'Present' && record.status !== 'Leave' && record.status !== 'Holiday' && record.status !== 'Weekend' && (
                           <button
                             onClick={() => handleMarkAbsent(record.employeeId || '', record.employeeName || '', record.date)}
                             className="p-1 sm:p-1.5 hover:bg-red-50 rounded-lg text-red-600 transition-colors ml-1"
@@ -809,7 +809,7 @@ const AttendanceTracker: React.FC = () => {
                           >
                             <UserX className="w-3 h-3 sm:w-4 sm:h-4 responsive-icon" />
                           </button>
-                        )}
+                        )} */}
                       </td>
                     </tr>
                   ))
