@@ -13,14 +13,12 @@ type SubTab = {
 
 const adminNavigationConfig: SubTab[] = [
   { name: 'Dashboard', path: '/admin/my-space/dashboard' },
-  { name: 'Overview', path: '/admin/my-space/overview' },
   { name: 'Calendar', path: '/admin/my-space/calendar' },
   { name: 'HR Process', path: '/admin/team/hr-process' }
 ];
 
 const employeeNavigationConfig: SubTab[] = [
   { name: 'Dashboard', path: '/employee/my-space/dashboard' },
-  { name: 'Overview', path: '/employee/my-space/overview' },
   { name: 'Calendar', path: '/employee/my-space/calender' }
 ];
 

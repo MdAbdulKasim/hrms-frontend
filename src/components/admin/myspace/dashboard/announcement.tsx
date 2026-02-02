@@ -200,40 +200,50 @@ const AnnouncementsSection: React.FC = () => {
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 lg:h-full flex flex-col">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-white rounded-[1.5rem] shadow-2xl border-none p-8 lg:h-full flex flex-col transition-all hover:shadow-3xl">
+        <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-orange-200">
-              <Megaphone className="w-5 h-5 text-orange-600" />
+            <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
+              <Megaphone className="w-5 h-5 text-blue-600" />
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 leading-tight">Announcements</h2>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Latest Updates</p>
-            </div>
+            <h2 className="text-xl font-bold text-slate-800">Announcements</h2>
           </div>
           {!isEmployee && (
             <button
               onClick={() => setShowAnnouncementModal(true)}
-              className="flex items-center gap-2 text-xs font-bold text-blue-600 hover:text-blue-700 transition-all bg-blue-50 px-3 py-2 rounded-xl border border-blue-100/50 hover:bg-blue-100 shadow-sm"
-              title="Add Announcement"
+              className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-blue-600 transition-all bg-slate-50 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-slate-100 hover:border-blue-100"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add</span>
             </button>
           )}
         </div>
-        <div className="space-y-4">
+        <div className="space-y-4 flex-1 overflow-y-auto custom-scrollbar pr-2">
           {announcements.length === 0 ? (
-            <p className="text-sm text-slate-400">No announcements yet.</p>
+            <div className="flex flex-col items-center justify-center h-40 text-slate-400 bg-slate-50/30 rounded-2xl border border-dashed border-slate-200">
+              <Megaphone className="w-8 h-8 mb-2 opacity-20" />
+              <p className="text-sm">No announcements yet.</p>
+            </div>
           ) : (
             announcements.map((announcement) => (
-              <div key={announcement.id}>
-                <div className="flex items-start justify-between gap-2 border-b border-slate-50 pb-3 last:border-0 last:pb-0">
+              <div
+                key={announcement.id}
+                className="group relative bg-slate-50/50 hover:bg-white p-5 rounded-2xl border border-transparent hover:border-slate-100 shadow-none hover:shadow-xl transition-all duration-300"
+              >
+                <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate text-slate-900">{announcement.title}</div>
-                    <div className="text-xs text-slate-500 mt-1 line-clamp-2">{announcement.description}</div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition-colors truncate">
+                        {announcement.title}
+                      </h3>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        {announcement.date}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                      {announcement.description}
+                    </p>
                   </div>
-                  <div className="text-[10px] text-slate-400 whitespace-nowrap bg-slate-50 px-2 py-0.5 rounded">{announcement.date}</div>
                 </div>
               </div>
             ))
