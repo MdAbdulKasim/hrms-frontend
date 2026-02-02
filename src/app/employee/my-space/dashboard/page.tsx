@@ -1,12 +1,12 @@
-import Dashboard from "@/components/employee/employeedashboard/myspace/dashboard";
+import Dashboard from "@/components/employee/home";
 import Layout from "@/components/layout/Layout";
 
 
 
-export default function dashboard(){
+export default function dashboard() {
     return (
         <Layout>
-        <Dashboard/>  
+            <Dashboard />
         </Layout>
     )
 }

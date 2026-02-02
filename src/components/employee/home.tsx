@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  User,
   Sun,
   Briefcase,
   X,
   Check,
   Clock,
   UserCheck,
-  UserX
+  UserX,
+  User
 } from 'lucide-react';
 import ProfilePage from '../admin/profile/profilepage';
 import { isAxiosError } from 'axios';
@@ -17,6 +17,11 @@ import axiosInstance from '@/lib/axios';
 import { getApiUrl, getAuthToken, getOrgId, getCookie, getEmployeeId, getUserRole } from '@/lib/auth';
 import attendanceService from '@/lib/attendanceService';
 import { CustomAlertDialog } from '@/components/ui/custom-dialogs';
+import AnnouncementsSection from '@/components/admin/myspace/dashboard/announcement';
+import UpcomingHolidaysSection from '@/components/admin/myspace/dashboard/holidays';
+import { StatsCards } from './employeedashboard/myspace/StatsCards';
+import { leaveService } from '@/lib/leaveService';
+import { LeaveStatisticsChart, LeaveStatisticsPieChart, AttendanceOverviewChart } from '@/components/admin/myspace/dashboard/Charts';
 
 // --- Types ---
 type Reportee = {
@@ -30,6 +35,7 @@ type Reportee = {
   isAbsent: boolean;
   checkInTime?: string;
   checkOutTime?: string;
+  shiftType?: string;
 };
 
 type CurrentUser = {
@@ -39,6 +45,7 @@ type CurrentUser = {
   lastName: string;
   fullName: string;
   designation: string;
+  shiftType?: string;
   profileImage?: string;
 };
 
@@ -201,7 +208,7 @@ const ProfileCard = ({ currentUser, token,
       : currentUser?.firstName || '');
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-6 flex flex-col items-center text-center border border-gray-100 w-full">
+    <div className="bg-white rounded-[2.5rem] shadow-xl p-8 flex flex-col items-center justify-center text-center border border-slate-100 w-full h-full transform transition-all hover:shadow-2xl hover:scale-[1.01]">
       <div className="relative group">
         <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-gray-400 overflow-hidden">
           {profileImage || currentUser?.profileImage ? (
@@ -219,7 +226,10 @@ const ProfileCard = ({ currentUser, token,
         <div className="h-5 w-32 bg-gray-200 rounded animate-pulse"></div>
       )}
 
-      <p className="text-gray-500 text-xs mt-1">{currentUser?.designation || 'N/A'}</p>
+      <p className="text-gray-500 text-xs mt-1">
+        {currentUser?.designation || 'N/A'}
+        {currentUser?.shiftType && <span className="ml-2 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-bold uppercase tracking-tighter text-[10px]">{currentUser.shiftType}</span>}
+      </p>
       <p className={`text-xs font-medium mt-3 ${isAbsent ? 'text-red-600' : isCheckedOut ? 'text-gray-400' : isCheckedIn ? 'text-green-500' : 'text-red-500'}`}>
         {isAbsent ? 'Marked Absent' : isCheckedOut ? 'Shift Completed' : isCheckedIn ? `Checked In ${checkInTime ? 'at ' + new Date(checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}` : 'Yet to check-in'}
       </p>
@@ -338,7 +348,7 @@ const ReporteesCard = ({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 border border-gray-100 flex flex-col h-full w-full">
+    <div className="bg-white rounded-[2.5rem] shadow-xl p-6 sm:p-10 border border-slate-100 flex flex-col h-full w-full transition-all hover:shadow-2xl hover:scale-[1.005]">
       {/* Header - Stack on mobile, side-by-side on tablet/desktop */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4 pb-3 border-b border-gray-100">
         <div className="flex items-center gap-3">
@@ -494,6 +504,11 @@ const ReporteesCard = ({
                     }}
                   >
                     {person.name}
+                    {person.shiftType && (
+                      <span className="ml-1.5 px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase tracking-tighter">
+                        {person.shiftType}
+                      </span>
+                    )}
                   </p>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     {person.status === 'absent' ? (
@@ -566,33 +581,44 @@ const ReporteesCard = ({
 };
 
 const ActivitiesSection = ({ currentUser }: { currentUser: CurrentUser | null }) => {
-  // Get display name
-  const displayName = currentUser?.fullName ||
-    (currentUser?.firstName && currentUser?.lastName
-      ? `${currentUser.firstName} ${currentUser.lastName}`.trim()
-      : currentUser?.firstName || '');
+  const dayIndex = new Date().getDay();
+  const dayColors = [
+    "from-indigo-600 via-purple-600 to-pink-600 shadow-indigo-200", // Sunday
+    "from-blue-600 via-indigo-600 to-violet-600 shadow-blue-200",   // Monday
+    "from-teal-500 via-emerald-500 to-green-600 shadow-teal-200",  // Tuesday
+    "from-amber-500 via-orange-500 to-red-600 shadow-orange-200",  // Wednesday
+    "from-purple-600 via-violet-600 to-fuchsia-600 shadow-purple-200", // Thursday
+    "from-pink-500 via-rose-500 to-red-600 shadow-pink-200",       // Friday
+    "from-slate-700 via-slate-800 to-slate-900 shadow-slate-300",  // Saturday
+  ];
+
+  const currentDayBg = dayColors[dayIndex];
 
   return (
-    <div className="space-y-4">
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 flex shrink-0 items-center justify-center bg-blue-50 rounded-lg">
-            <Briefcase className="text-blue-600" size={20} />
+    <div className={`relative overflow-hidden bg-gradient-to-r ${currentDayBg} rounded-[2.5rem] p-8 shadow-2xl group transition-all duration-700 hover:scale-[1.01]`}>
+      {/* Decorative background patterns */}
+      <div className="absolute top-0 right-0 -mt-20 -mr-20 w-64 h-64 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all duration-700" />
+      <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-48 h-48 bg-black/10 rounded-full blur-2xl" />
+
+      <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="flex items-center gap-6">
+          <div className="w-16 h-16 flex shrink-0 items-center justify-center bg-white/20 rounded-3xl backdrop-blur-xl border border-white/20 shadow-inner transform group-hover:rotate-12 transition-transform duration-500">
+            <Sun className="text-white" size={32} strokeWidth={2.5} />
           </div>
           <div>
-            <h3 className="text-gray-800 font-medium">
-              Welcome,
-              {displayName ? (
-                <span className="text-gray-500 font-normal block sm:inline"> {displayName}</span>
-              ) : (
-                <span className="inline-block ml-2 h-5 w-32 bg-gray-200 rounded animate-pulse"></span>
-              )}
+            <h3 className="text-white text-3xl font-black tracking-tighter leading-tight italic">
+              Welcome back,
+              <span className="block text-white/90 font-black not-italic mt-1 text-4xl">
+                {currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'User'}
+              </span>
             </h3>
-            <p className="text-gray-500 text-sm">Have a productive day!</p>
+            <p className="text-white/70 text-sm font-bold uppercase tracking-[0.2em] mt-3">Ready for a productive day?</p>
           </div>
         </div>
-        <div className="bg-yellow-100 p-2 rounded-full self-end sm:self-center">
-          <Sun className="text-yellow-500" size={24} />
+
+        <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-6 py-3 rounded-full border border-white/20 shadow-sm">
+          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-[0_0_10px_#4ade80]" />
+          <span className="text-white text-xs font-black uppercase tracking-widest">Active Session</span>
         </div>
       </div>
     </div>
@@ -627,6 +653,11 @@ export default function Dashboard() {
   const [selfCheckInTime, setSelfCheckInTime] = useState<string | undefined>(undefined);
   const [selfCheckOutTime, setSelfCheckOutTime] = useState<string | undefined>(undefined);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [onLeaveCount, setOnLeaveCount] = useState(0);
+  const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
+  const [leaveBreakdown, setLeaveBreakdown] = useState<{ name: string, value: number, color: string }[]>([]);
+  const [attendanceTrendData, setAttendanceTrendData] = useState<{ name: string, present: number, absent: number }[]>([]);
+  const [attendancePeriod, setAttendancePeriod] = useState<string>('Week'); // Default to Week
 
   // Alert State
   const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
@@ -681,6 +712,7 @@ export default function Dashboard() {
             lastName: lastName,
             fullName: fullName,
             designation: (typeof userData.designation === 'object' ? userData.designation?.name : userData.designation) || 'N/A',
+            shiftType: userData.shiftType,
             profileImage: userData.profileImage || userData.profilePicUrl
           });
 
@@ -758,7 +790,8 @@ export default function Dashboard() {
                 isCheckedOut: hasOut,
                 isAbsent: isAbsent,
                 checkInTime: emp.checkInTime || history?.checkInTime,
-                checkOutTime: emp.checkOutTime || history?.checkOutTime
+                checkOutTime: emp.checkOutTime || history?.checkOutTime,
+                shiftType: emp.shiftType
               };
             }));
           } else {
@@ -769,6 +802,139 @@ export default function Dashboard() {
           console.error('Error in fetching reportees/attendance:', error);
           setReportees([]);
         }
+        // 4. Fetch leave statistics
+        try {
+          const leaveHistoryRes = await leaveService.getMyHistory(authOrgId);
+          if (leaveHistoryRes.success) {
+            const history = (leaveHistoryRes.data as any[] || []).filter(l => l !== null);
+            const pending = history.filter(l => l.status === 'pending');
+            setPendingLeaveCount(pending.length);
+
+            const todayStr = new Date().toISOString().split('T')[0];
+            const activeToday = history.filter(l =>
+              l.status === 'approved' &&
+              l.startDate <= todayStr &&
+              l.endDate >= todayStr
+            );
+            setOnLeaveCount(activeToday.length);
+
+            // Breakdown
+            const breakdown: Record<string, number> = {};
+            history.forEach(l => {
+              if (l.status === 'approved') {
+                const code = l.leaveTypeCode || 'OTHER';
+                breakdown[code] = (breakdown[code] || 0) + 1;
+              }
+            });
+
+            const colors = ["#3b82f6", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4"];
+            const names: Record<string, string> = { 'AL': 'Annual', 'SL': 'Sick', 'CL': 'Casual', 'PL': 'Personal', 'SL_CL': 'Sick/Casual' };
+            const formattedBreakdown = Object.entries(breakdown).map(([code, count], idx) => ({
+              name: names[code] || code,
+              value: count,
+              color: colors[idx % colors.length]
+            }));
+            setLeaveBreakdown(formattedBreakdown);
+          }
+        } catch (leaveError) {
+          console.error("Failed to fetch leave history:", leaveError);
+        }
+
+        // Fetch Attendance Trend (Based on attendancePeriod)
+        try {
+          const endDate = new Date();
+          const startDate = new Date();
+
+          if (attendancePeriod === 'Day') {
+            startDate.setHours(0, 0, 0, 0);
+          } else if (attendancePeriod === 'Week') {
+            startDate.setDate(endDate.getDate() - 6);
+          } else if (attendancePeriod === 'Month') {
+            startDate.setDate(endDate.getDate() - 29);
+          } else if (attendancePeriod === 'Year') {
+            startDate.setFullYear(endDate.getFullYear() - 1);
+          }
+
+          const startStr = startDate.toISOString().split('T')[0];
+          const endStr = endDate.toISOString().split('T')[0];
+
+          let trendHistoryRes;
+          if (reportees.length > 0) {
+            trendHistoryRes = await attendanceService.getReporteesHistory(authOrgId, startStr, endStr);
+          } else {
+            trendHistoryRes = await attendanceService.getMyHistory(authOrgId, startStr, endStr);
+          }
+
+          if (trendHistoryRes && !trendHistoryRes.error) {
+            const rawHistory = (trendHistoryRes as any).data || (Array.isArray(trendHistoryRes) ? trendHistoryRes : []);
+
+            // Aggregate history based on period
+            const trendMap: Record<string, { present: number, absent: number }> = {};
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+            if (attendancePeriod === 'Day') {
+              const todayKey = new Date().toISOString().split('T')[0];
+              trendMap[todayKey] = { present: 0, absent: 0 };
+            } else if (attendancePeriod === 'Week' || attendancePeriod === 'Month') {
+              const numDays = attendancePeriod === 'Week' ? 7 : 30;
+              for (let i = numDays - 1; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const dateKey = d.toISOString().split('T')[0];
+                trendMap[dateKey] = { present: 0, absent: 0 };
+              }
+            } else if (attendancePeriod === 'Year') {
+              for (let i = 11; i >= 0; i--) {
+                const d = new Date();
+                d.setMonth(d.getMonth() - i);
+                const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                trendMap[monthKey] = { present: 0, absent: 0 };
+              }
+            }
+
+            if (Array.isArray(rawHistory)) {
+              rawHistory.forEach((record: any) => {
+                const recordDate = new Date(record.date || record.checkInTime);
+                let key = '';
+                if (attendancePeriod === 'Year') {
+                  key = `${recordDate.getFullYear()}-${String(recordDate.getMonth() + 1).padStart(2, '0')}`;
+                } else {
+                  key = recordDate.toISOString().split('T')[0];
+                }
+
+                if (trendMap[key]) {
+                  const status = (record.status || '').toLowerCase();
+                  if (status === 'present' || record.checkInTime) {
+                    trendMap[key].present++;
+                  } else if (status === 'absent') {
+                    trendMap[key].absent++;
+                  }
+                }
+              });
+            }
+
+            const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const formattedTrend = Object.entries(trendMap).map(([key, stats]) => {
+              let name = '';
+              if (attendancePeriod === 'Year') {
+                const [y, m] = key.split('-');
+                name = monthsShort[parseInt(m) - 1];
+              } else if (attendancePeriod === 'Month') {
+                const d = new Date(key);
+                name = `${d.getDate()} ${monthsShort[d.getMonth()]}`;
+              } else {
+                const d = new Date(key);
+                name = days[d.getDay()];
+              }
+              return { name, present: stats.present, absent: stats.absent };
+            });
+
+            setAttendanceTrendData(formattedTrend);
+          }
+        } catch (trendError) {
+          console.error("Failed to fetch attendance trend:", trendError);
+        }
+
 
       } catch (error) {
         if (isAxiosError(error) && error.response?.status === 401) {
@@ -783,7 +949,7 @@ export default function Dashboard() {
 
     fetchData();
 
-  }, [refreshTrigger]);
+  }, [refreshTrigger, attendancePeriod]);
 
   const handleEmployeeClick = (employeeId: string, name: string) => {
     setSelectedEmployeeId(employeeId);
@@ -967,56 +1133,154 @@ export default function Dashboard() {
     );
   }
 
-  return (
-    <div className="bg-white p-4 md:p-8 font-sans scrollbar-hide">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <ActivitiesSection currentUser={currentUser} />
+  // Calculate Derived Stats for StatsCards
+  let status = 'Marked Absent';
+  if (!isSelfAbsent) {
+    status = isSelfCheckedIn ? 'Active' : isSelfCheckedOut ? 'Completed' : 'Yet to Check-in';
+  }
 
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          <div className="md:col-span-1">
-            <ProfileCard
-              currentUser={currentUser}
-              token={token}
-              orgId={orgId}
-              currentEmployeeId={currentEmployeeId}
-              initialIsCheckedIn={isSelfCheckedIn}
-              initialIsCheckedOut={isSelfCheckedOut}
-              isAbsent={isSelfAbsent}
-              checkInTime={selfCheckInTime}
-              checkOutTime={selfCheckOutTime}
-              onCheckInStatusChange={() => setRefreshTrigger(prev => prev + 1)}
-              showAlert={showAlert}
-            />
-          </div>
-          <div className="md:col-span-2 lg:col-span-3">
-            <ReporteesCard
-              onEmployeeClick={handleEmployeeClick}
-              reportees={reportees}
-              selectedReporteeIds={selectedReporteeIds}
-              reporteeTimes={reporteeTimes}
-              globalCheckInTime={globalCheckInTime}
-              globalCheckOutTime={globalCheckOutTime}
-              onSelectReportee={handleSelectReportee}
-              onSelectAll={handleSelectAll}
-              onTimeChange={handleTimeChange}
-              onGlobalCheckInTimeChange={setGlobalCheckInTime}
-              onGlobalCheckOutTimeChange={setGlobalCheckOutTime}
-              onCheckInReportees={handleCheckInReportees}
-              onCheckOutReportees={handleCheckOutReportees}
-              onMarkAbsentReportees={handleMarkAbsentReportees}
-              checkInLoading={checkInLoading}
-              showAlert={showAlert}
-            />
+  // Work Hours Calculation (Simple approximation based on check-in)
+  let workHours = '0h 0m';
+  if (isSelfCheckedIn && selfCheckInTime) {
+    const start = new Date(selfCheckInTime).getTime();
+    const now = new Date().getTime();
+    const diff = now - start;
+    const hrs = Math.floor(diff / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    workHours = `${hrs}h ${mins}m`;
+  } else if (isSelfCheckedOut && selfCheckInTime && selfCheckOutTime) {
+    const start = new Date(selfCheckInTime).getTime();
+    const end = new Date(selfCheckOutTime).getTime();
+    const diff = end - start;
+    const hrs = Math.floor(diff / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    workHours = `${hrs}h ${mins}m`;
+  }
+
+  const shift = currentUser?.designation || 'Regular Shift';
+
+  // Team Stats for Managers
+  const totalTeam = reportees.length;
+  const teamPresentCount = reportees.filter(r => r.isCheckedIn).length;
+  const teamAbsentCount = reportees.filter(r => (r as any).status === 'absent' || (r as any).status === 'Absent').length;
+
+  const teamSnapshotData = [
+    { name: "Present", value: teamPresentCount, color: "#22c55e" },
+    { name: "Absent", value: teamAbsentCount, color: "#ef4444" },
+    { name: "On Leave", value: onLeaveCount, color: "#3b82f6" },
+  ];
+
+  // (Using attendanceTrendData from state)
+
+  return (
+    <div className="bg-slate-50/50 min-h-screen p-4 md:p-12 font-sans transition-colors duration-500">
+      <div className="max-w-7xl mx-auto space-y-20">
+        {/* Dashboards Sections - FINAL ORDER V4 */}
+
+        {/* 1. Welcome Card (Dynamic & Full Width) */}
+        <div>
+          <ActivitiesSection currentUser={currentUser} />
+        </div>
+
+        {/* 2. Employee Metrics / Stats */}
+        <div className="w-full">
+          <StatsCards
+            status={isSelfAbsent ? 'Absent' : isSelfCheckedOut ? 'Completed' : isSelfCheckedIn ? 'Active' : 'Pending'}
+            workHours={workHours}
+            shift={shift}
+          />
+        </div>
+
+        {/* 3. Operations & Team */}
+        <div className="pt-4">
+          <h3 className="text-3xl font-black text-slate-800 mb-8 px-1 tracking-tighter italic">Operations & Team</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-stretch">
+            <div className="lg:col-span-1">
+              <ProfileCard
+                currentUser={currentUser}
+                token={token}
+                orgId={orgId}
+                currentEmployeeId={currentEmployeeId}
+                initialIsCheckedIn={isSelfCheckedIn}
+                initialIsCheckedOut={isSelfCheckedOut}
+                isAbsent={isSelfAbsent}
+                checkInTime={selfCheckInTime}
+                checkOutTime={selfCheckOutTime}
+                onCheckInStatusChange={() => setRefreshTrigger(prev => prev + 1)}
+                showAlert={showAlert}
+              />
+            </div>
+
+            <div className="lg:col-span-2">
+              {reportees.length > 0 ? (
+                <div className="h-[500px]">
+                  <ReporteesCard
+                    onEmployeeClick={handleEmployeeClick}
+                    reportees={reportees}
+                    selectedReporteeIds={selectedReporteeIds}
+                    reporteeTimes={reporteeTimes}
+                    globalCheckInTime={globalCheckInTime}
+                    globalCheckOutTime={globalCheckOutTime}
+                    onSelectReportee={handleSelectReportee}
+                    onSelectAll={handleSelectAll}
+                    onTimeChange={handleTimeChange}
+                    onGlobalCheckInTimeChange={setGlobalCheckInTime}
+                    onGlobalCheckOutTimeChange={setGlobalCheckOutTime}
+                    onCheckInReportees={handleCheckInReportees}
+                    onCheckOutReportees={handleCheckOutReportees}
+                    onMarkAbsentReportees={handleMarkAbsentReportees}
+                    checkInLoading={checkInLoading}
+                    showAlert={showAlert}
+                  />
+                </div>
+              ) : (
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-3xl shadow-lg p-12 border border-blue-100 flex flex-col items-center justify-center h-full text-center">
+                  <div className="w-20 h-20 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-6 transform hover:rotate-6 transition-transform">
+                    <Check className="text-blue-500 w-10 h-10" />
+                  </div>
+                  <h4 className="text-xl font-black text-slate-800 mb-3 uppercase tracking-tight">Ready for the day?</h4>
+                  <p className="text-slate-600 text-sm max-w-sm leading-relaxed font-bold opacity-70">Use the interactive check-in panel to start your shift and perfectly track your valuable time.</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* 4. Announcements & Holidays */}
+        <div className="pt-4">
+          <h3 className="text-2xl font-bold text-slate-800 mb-8 px-1 tracking-tight">Latest Updates</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-stretch min-h-[450px]">
+            <AnnouncementsSection />
+            <UpcomingHolidaysSection />
+          </div>
+        </div>
+
+        {/* 5. Leave Statistics */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-stretch">
+          <LeaveStatisticsPieChart
+            data={reportees.length > 0 ? teamSnapshotData : leaveBreakdown}
+            title={reportees.length > 0 ? "Team Status" : "Leave Statistics"}
+            subtitle={reportees.length > 0 ? "TEAM SNAPSHOT" : "YOUR LEAVE HISTORY"}
+          />
+          <AttendanceOverviewChart
+            data={attendanceTrendData}
+            activePeriod={attendancePeriod}
+            onPeriodChange={setAttendancePeriod}
+          />
+        </div>
+
+        {/* 4. Manage Organization (Bottom) */}
+        <div className="pt-4">
+          {/* If there's a manage section for employees, put it here, or just end with greeting/summary if needed */}
+        </div>
+        <CustomAlertDialog
+          open={alertState.open}
+          onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+          title={alertState.title}
+          description={alertState.description}
+          variant={alertState.variant}
+        />
       </div>
-      <CustomAlertDialog
-        open={alertState.open}
-        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
-        title={alertState.title}
-        description={alertState.description}
-        variant={alertState.variant}
-      />
     </div>
   );
 }

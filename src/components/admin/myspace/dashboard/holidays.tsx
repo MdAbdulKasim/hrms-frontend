@@ -165,37 +165,50 @@ const UpcomingHolidaysSection: React.FC = () => {
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 lg:h-full flex flex-col">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-white rounded-[1.5rem] shadow-2xl border-none p-8 lg:h-full flex flex-col transition-all hover:shadow-3xl">
+        <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-purple-200">
-              <Calendar className="w-5 h-5 text-purple-600" />
+            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
+              <Calendar className="w-5 h-5 text-indigo-600" />
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 leading-tight">Upcoming Holidays</h2>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Public Holidays</p>
-            </div>
+            <h2 className="text-xl font-bold text-slate-800">Upcoming Holidays</h2>
           </div>
           {!isEmployee && (
             <button
               onClick={() => setShowHolidayModal(true)}
-              className="flex items-center gap-2 text-xs font-bold text-blue-600 hover:text-blue-700 transition-all bg-blue-50 px-3 py-2 rounded-xl border border-blue-100/50 hover:bg-blue-100 shadow-sm"
+              className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-indigo-600 transition-all bg-slate-50 hover:bg-indigo-50 px-3 py-1.5 rounded-lg border border-slate-100 hover:border-indigo-100"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add</span>
             </button>
           )}
         </div>
-        <div className="space-y-3">
+        <div className="space-y-4 flex-1 overflow-y-auto custom-scrollbar pr-2">
           {holidays.length === 0 ? (
-            <p className="text-sm text-slate-500">No holidays scheduled</p>
+            <div className="flex flex-col items-center justify-center h-40 text-slate-400 bg-slate-50/30 rounded-2xl border border-dashed border-slate-200">
+              <Calendar className="w-8 h-8 mb-2 opacity-20" />
+              <p className="text-sm">No holidays scheduled</p>
+            </div>
           ) : (
-            holidays.map((holiday) => (
-              <div key={holiday.id} className="flex items-center justify-between">
-                <span className="text-sm text-slate-900">{holiday.holidayName}</span>
-                <span className="text-sm text-slate-500">{formatDate(holiday.date)}</span>
-              </div>
-            ))
+            holidays.map((holiday) => {
+              const date = new Date(holiday.date);
+              const day = date.getDate();
+              const month = date.toLocaleDateString('en-US', { month: 'short' });
+              const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+
+              return (
+                <div key={holiday.id} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50/50 hover:bg-white border border-transparent hover:border-slate-100 shadow-none hover:shadow-xl transition-all duration-300 group">
+                  <div className="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-white border border-slate-100 group-hover:border-indigo-200 shrink-0 shadow-sm transition-colors">
+                    <span className="text-[10px] font-bold text-indigo-400 uppercase leading-none">{month}</span>
+                    <span className="text-lg font-bold text-indigo-600 leading-none mt-0.5">{day}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-sm text-slate-800 group-hover:text-indigo-600 transition-colors truncate">{holiday.holidayName}</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">{dayName}</p>
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
       </div>
