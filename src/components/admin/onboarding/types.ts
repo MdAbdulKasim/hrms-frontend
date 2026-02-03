@@ -96,6 +96,7 @@ export interface CandidateForm {
     empType: string;
     siteId?: string;
     buildingId?: string;
+    teamPosition?: string;
     // Contract Details
     contractStartDate?: string;
     contractEndDate?: string;
@@ -120,6 +121,7 @@ export interface CandidateForm {
     passportNumber?: string;
     drivingLicenseNumber?: string;
     iqamaId?: string;
+    iban?: string;
     // Identity Document Copies (File names or Keys from API)
     passportCopy?: string | File | null;
     emiratesIdCopy?: string | File | null;
@@ -128,6 +130,8 @@ export interface CandidateForm {
     drivingLicenseCopy?: string | File | null;
     uidCopy?: string | File | null;
     iqamaCopy?: string | File | null;
+    ibanCopy?: string | File | null;
+    profilePicture?: string | File | null;
     // Address Information
     presentAddress?: {
         addressLine1: string;

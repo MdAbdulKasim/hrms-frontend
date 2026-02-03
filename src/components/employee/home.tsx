@@ -595,7 +595,7 @@ const ActivitiesSection = ({ currentUser }: { currentUser: CurrentUser | null })
   const currentDayBg = dayColors[dayIndex];
 
   return (
-    <div className={`relative overflow-hidden bg-gradient-to-r ${currentDayBg} rounded-[2.5rem] p-8 shadow-2xl group transition-all duration-700 hover:scale-[1.01]`}>
+    <div className={`relative overflow-hidden bg-gradient-to-r ${currentDayBg} rounded-[2.5rem] p-6 shadow-2xl group transition-all duration-700 hover:scale-[1.01]`}>
       {/* Decorative background patterns */}
       <div className="absolute top-0 right-0 -mt-20 -mr-20 w-64 h-64 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all duration-700" />
       <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-48 h-48 bg-black/10 rounded-full blur-2xl" />
@@ -606,9 +606,9 @@ const ActivitiesSection = ({ currentUser }: { currentUser: CurrentUser | null })
             <Sun className="text-white" size={32} strokeWidth={2.5} />
           </div>
           <div>
-            <h3 className="text-white text-3xl font-black tracking-tighter leading-tight italic">
+            <h3 className="text-white text-2xl font-black not-italic leading-tight italic">
               Welcome back,
-              <span className="block text-white/90 font-black not-italic mt-1 text-4xl">
+              <span className="block text-white/90 font-black not-italic mt-1 text-3xl">
                 {currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'User'}
               </span>
             </h3>
@@ -1173,21 +1173,26 @@ export default function Dashboard() {
   // (Using attendanceTrendData from state)
 
   return (
-    <div className="bg-slate-50/50 min-h-screen p-4 md:p-12 font-sans transition-colors duration-500">
+    <div className="bg-slate-50/50 min-h-screen p-4 md:p-6 font-sans transition-colors duration-500">
       <div className="max-w-7xl mx-auto space-y-20">
-        {/* Dashboards Sections - FINAL ORDER V4 */}
+        {/* Dashboards Sections - FINAL ORDER V5 */}
 
         {/* 1. Welcome Card (Dynamic & Full Width) */}
         <div>
           <ActivitiesSection currentUser={currentUser} />
         </div>
 
-        {/* 2. Employee Metrics / Stats */}
-        <div className="w-full">
-          <StatsCards
-            status={isSelfAbsent ? 'Absent' : isSelfCheckedOut ? 'Completed' : isSelfCheckedIn ? 'Active' : 'Pending'}
-            workHours={workHours}
-            shift={shift}
+        {/* 2. Teamsheet Attendance Overview (Charts) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-stretch">
+          <LeaveStatisticsPieChart
+            data={reportees.length > 0 ? teamSnapshotData : leaveBreakdown}
+            title={reportees.length > 0 ? "Team Status" : "Leave Statistics"}
+            subtitle={reportees.length > 0 ? "TEAM SNAPSHOT" : "YOUR LEAVE HISTORY"}
+          />
+          <AttendanceOverviewChart
+            data={attendanceTrendData}
+            activePeriod={attendancePeriod}
+            onPeriodChange={setAttendancePeriod}
           />
         </div>
 
@@ -1246,27 +1251,22 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 4. Announcements & Holidays */}
+        {/* 4. Employee Metrics / Stats (Cards) */}
+        <div className="w-full">
+          <StatsCards
+            status={isSelfAbsent ? 'Absent' : isSelfCheckedOut ? 'Completed' : isSelfCheckedIn ? 'Active' : 'Pending'}
+            workHours={workHours}
+            shift={shift}
+          />
+        </div>
+
+        {/* 5. Latest Updates (Announcements & Holidays) */}
         <div className="pt-4">
           <h3 className="text-2xl font-bold text-slate-800 mb-8 px-1 tracking-tight">Latest Updates</h3>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-stretch min-h-[450px]">
             <AnnouncementsSection />
             <UpcomingHolidaysSection />
           </div>
-        </div>
-
-        {/* 5. Leave Statistics */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-stretch">
-          <LeaveStatisticsPieChart
-            data={reportees.length > 0 ? teamSnapshotData : leaveBreakdown}
-            title={reportees.length > 0 ? "Team Status" : "Leave Statistics"}
-            subtitle={reportees.length > 0 ? "TEAM SNAPSHOT" : "YOUR LEAVE HISTORY"}
-          />
-          <AttendanceOverviewChart
-            data={attendanceTrendData}
-            activePeriod={attendancePeriod}
-            onPeriodChange={setAttendancePeriod}
-          />
         </div>
 
         {/* 4. Manage Organization (Bottom) */}

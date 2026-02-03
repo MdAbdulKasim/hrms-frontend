@@ -115,7 +115,7 @@ export default function Sidebar({
         }`}
     >
       {/* Brand Section */}
-      <div className={`h-20 md:h-28 flex items-center justify-between px-25 ${isDesktopCollapsed ? "md:justify-center md:px-0" : ""}`}>
+      <div className={`h-20 md:h-28 flex items-center justify-between px-5   ${isDesktopCollapsed ? "md:justify-center md:px-0" : ""}`}>
         <div
           className={`flex items-center cursor-pointer group w-full ${isDesktopCollapsed ? "justify-center" : "justify-start"}`}
           onClick={() => window.location.href = userRole === 'admin' ? '/admin/my-space/dashboard' : '/employee/my-space/dashboard'}

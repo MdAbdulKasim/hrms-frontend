@@ -789,7 +789,7 @@ export default function EmployeeProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/50 pb-12 text-gray-900">
+    <div className="min-h-screen bg-white p-2 text-gray-900">
       {/* Profile Header Banner */}
       <div className="h-48 bg-gradient-to-r from-blue-600 to-indigo-700 relative">
         <button
@@ -849,7 +849,7 @@ export default function EmployeeProfilePage() {
               </div>
 
               <div className="flex flex-wrap justify-center gap-3 mb-2">
-                <Button onClick={() => setShowPasswordChange(true)} variant="outline" className="rounded-xl px-6 h-11 text-sm font-semibold">
+                <Button onClick={() => setShowPasswordChange(true)} variant="outline" className="rounded-xl px-4 h-11 text-sm font-semibold">
                   Update Security
                 </Button>
                 {!isEditing ? (
