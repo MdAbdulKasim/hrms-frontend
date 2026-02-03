@@ -10,6 +10,7 @@ export interface AttendanceRecord {
   checkIn?: string;
   checkOut?: string;
   hoursWorked?: string;
+  totalHours?: number;
   status?: 'Present' | 'Late' | 'Leave' | 'Weekend' | 'Absent';
 }
 

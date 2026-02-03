@@ -574,7 +574,7 @@ const ActivitiesSection = ({ currentUser }: { currentUser: CurrentUser | null })
   const currentDayBg = dayColors[dayIndex];
 
   return (
-    <div className={`relative overflow-hidden bg-gradient-to-r ${currentDayBg} rounded-[2.5rem] p-8 shadow-2xl group transition-all duration-700 hover:scale-[1.01]`}>
+    <div className={`relative overflow-hidden bg-gradient-to-r ${currentDayBg} rounded-[2.5rem] p-5 shadow-2xl group transition-all duration-700 hover:scale-[1.01]`}>
       {/* Decorative background patterns */}
       <div className="absolute top-0 right-0 -mt-20 -mr-20 w-64 h-64 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all duration-700" />
       <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-48 h-48 bg-black/10 rounded-full blur-2xl" />
@@ -585,9 +585,9 @@ const ActivitiesSection = ({ currentUser }: { currentUser: CurrentUser | null })
             <Sun className="text-white" size={32} strokeWidth={2.5} />
           </div>
           <div>
-            <h3 className="text-white text-3xl font-black tracking-tighter leading-tight italic">
+            <h3 className="text-white text-2xl font-black not-italic leading-tight italic">
               Welcome back,
-              <span className="block text-white/90 font-black not-italic mt-1 text-4xl">
+              <span className="block text-white/90 font-black not-italic mt-1 text-3xl">
                 {currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'User'}
               </span>
             </h3>
@@ -1281,24 +1281,33 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="bg-slate-50/50 min-h-screen p-4 md:p-10 font-sans transition-colors duration-500">
+    <div className="bg-white min-h-screen p-4 md:p-10 font-sans transition-colors duration-500">
       <div className="max-w-7xl mx-auto space-y-16">
 
         {/* 1. Welcome Card */}
         <ActivitiesSection currentUser={currentUser} />
 
-        {/* 2. Employee Summary (Single Cards) */}
-        <div className="w-full">
-          <EmployeeSummaryCards
-            totalEmployees={totalEmployees}
-            activeEmployees={activeEmployeesCount}
-            inactive={inactiveCount}
-            present={presentCount}
-            absent={absentCount}
-            departments={totalDepartments}
-            designations={totalDesignations}
-            locations={totalLocations}
-          />
+        {/* 2. Leave Insights (Charts) */}
+        <div>
+          <h3 className="text-2xl font-black text-slate-800 mb-8 px-1 tracking-tight">Leave Insights</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2">
+              <AttendanceOverviewChart
+                data={attendanceTrendData}
+                activePeriod={attendancePeriod}
+                onPeriodChange={setAttendancePeriod}
+              />
+            </div>
+            <div className="lg:col-span-1">
+              <LeaveStatisticsPieChart
+                data={snapshotData}
+                title="Workforce Status"
+                subtitle="LIVE SNAPSHOT"
+                todaysLeaves={onLeaveCount}
+                pendingRequests={pendingLeaveCount}
+              />
+            </div>
+          </div>
         </div>
 
         {/* 3. Operations & Team */}
@@ -1343,35 +1352,26 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 4. Latest Updates (Announcements & Holidays) */}
+        {/* 4. Employee Summary (Single Cards) */}
+        <div className="w-full">
+          <EmployeeSummaryCards
+            totalEmployees={totalEmployees}
+            activeEmployees={activeEmployeesCount}
+            inactive={inactiveCount}
+            present={presentCount}
+            absent={absentCount}
+            departments={totalDepartments}
+            designations={totalDesignations}
+            locations={totalLocations}
+          />
+        </div>
+
+        {/* 5. Latest Updates (Announcements & Holidays) */}
         <div>
           <h3 className="text-2xl font-black text-slate-800 mb-8 px-1 tracking-tight">Latest Updates</h3>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
             <AnnouncementsSection />
             <UpcomingHolidaysSection />
-          </div>
-        </div>
-
-        {/* 5. Leave Insights (Charts) */}
-        <div>
-          <h3 className="text-2xl font-black text-slate-800 mb-8 px-1 tracking-tight">Leave Insights</h3>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2">
-              <AttendanceOverviewChart
-                data={attendanceTrendData}
-                activePeriod={attendancePeriod}
-                onPeriodChange={setAttendancePeriod}
-              />
-            </div>
-            <div className="lg:col-span-1">
-              <LeaveStatisticsPieChart
-                data={snapshotData}
-                title="Workforce Status"
-                subtitle="LIVE SNAPSHOT"
-                todaysLeaves={onLeaveCount}
-                pendingRequests={pendingLeaveCount}
-              />
-            </div>
           </div>
         </div>
 

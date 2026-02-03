@@ -191,20 +191,20 @@ export const EmployeeSummaryCards = ({
                         <Users className="w-6 h-6 text-indigo-600" />
                     </div>
                     <div>
-                        <CardTitle className="text-2xl font-bold text-slate-900 tracking-tight">Employee Summary</CardTitle>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">WORKFORCE SNAPSHOT</p>
+                        <CardTitle className="text-3xl font-bold text-slate-900 tracking-tight">Employee Summary</CardTitle>
+                        <p className="text-[15px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">WORKFORCE SNAPSHOT</p>
                     </div>
                 </div>
             </CardHeader>
             <CardContent className="px-0 pt-0">
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-10">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-9">
                     {cards.map((card, idx) => (
-                        <div key={idx} className="group relative bg-white/70 backdrop-blur-xl p-10 rounded-[3rem] shadow-2xl border border-white/40 flex flex-col items-center text-center transition-all duration-700 hover:shadow-3xl hover:-translate-y-4 overflow-hidden">
+                        <div key={idx} className="group relative bg-white/70 backdrop-blur-xl p-4 rounded-[3rem] shadow-2xl border border-white/40 flex flex-col items-center text-center transition-all duration-700 hover:shadow-3xl hover:-translate-y-4 overflow-hidden">
                             {/* Decorative element */}
                             <div className={`absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br ${card.color} opacity-5 blur-3xl group-hover:opacity-20 transition-opacity duration-700`} />
 
-                            <div className={`w-24 h-24 bg-gradient-to-br ${card.color} rounded-[2rem] flex items-center justify-center mb-10 transform group-hover:rotate-[15deg] group-hover:scale-110 transition-all duration-700 shadow-2xl ${card.shadow}`}>
-                                <card.icon className="w-12 h-12 text-white" />
+                            <div className={`w-20 h-18 bg-gradient-to-br ${card.color} rounded-[2rem] flex items-center justify-center mb-10 transform group-hover:rotate-[15deg] group-hover:scale-110 transition-all duration-700 shadow-2xl ${card.shadow}`}>
+                                <card.icon className="w-7 h-7 text-white" />
                             </div>
 
                             <div className="relative z-10">

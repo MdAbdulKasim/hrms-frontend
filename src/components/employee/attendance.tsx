@@ -46,6 +46,7 @@ interface AttendanceRecord {
   checkIn: string;
   checkOut: string;
   hoursWorked: string;
+  totalHours?: number;
   status: string;
 }
 
@@ -126,7 +127,9 @@ const AttendanceTracker: React.FC = () => {
                 date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : format(currentDate, 'yyyy-MM-dd'),
                 checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : (r.checkIn ? format(new Date(r.checkIn), 'hh:mm a') : '-'),
                 checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : (r.checkOut ? format(new Date(r.checkOut), 'hh:mm a') : '-'),
-                hoursWorked: r.totalHours ? `${r.totalHours}h` : (r.hoursWorked ? `${r.hoursWorked}h` : '-'),
+
+                hoursWorked: r.totalHours ? `${Math.floor(r.totalHours)}h ${Math.round((r.totalHours % 1) * 60)}m` : (r.hoursWorked ? `${r.hoursWorked}h` : '-'),
+                totalHours: r.totalHours,
                 status: transformedStatus
               };
               setAllAttendanceData([transformed]);
@@ -186,7 +189,9 @@ const AttendanceTracker: React.FC = () => {
               date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : '-',
               checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : (r.checkIn ? format(new Date(r.checkIn), 'hh:mm a') : '-'),
               checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : (r.checkOut ? format(new Date(r.checkOut), 'hh:mm a') : '-'),
-              hoursWorked: r.totalHours ? `${r.totalHours}h` : (r.hoursWorked ? `${r.hoursWorked}h` : '-'),
+
+              hoursWorked: r.totalHours ? `${Math.floor(r.totalHours)}h ${Math.round((r.totalHours % 1) * 60)}m` : (r.hoursWorked ? `${r.hoursWorked}h` : '-'),
+              totalHours: r.totalHours,
               status: status
             };
           });
@@ -231,7 +236,9 @@ const AttendanceTracker: React.FC = () => {
     // Estimate hours
     let totalMinutes = 0;
     filteredData.forEach(r => {
-      if (r.hoursWorked && r.hoursWorked !== '-') {
+      if (typeof r.totalHours === 'number') {
+        totalMinutes += r.totalHours * 60;
+      } else if (r.hoursWorked && r.hoursWorked !== '-') {
         const h = parseFloat(r.hoursWorked);
         if (!isNaN(h)) totalMinutes += h * 60;
       }

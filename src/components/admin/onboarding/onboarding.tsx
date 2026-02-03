@@ -65,7 +65,11 @@ const EmployeeOnboardingSystem: React.FC = () => {
       accountNumber: '',
       accountHolderName: '',
       ifscCode: ''
-    }
+    },
+    teamPosition: '',
+    iban: '',
+    ibanCopy: null,
+    profilePicture: null
   });
 
   // Dialog States
@@ -401,9 +405,11 @@ const EmployeeOnboardingSystem: React.FC = () => {
       appendOptional('emiratesId', candidateForm.eid);
       appendOptional('visaNumber', candidateForm.visaNumber);
       appendOptional('iqamaId', candidateForm.iqamaId);
+      appendOptional('iban', candidateForm.iban);
       appendOptional('contractType', candidateForm.contractType);
       appendOptional('contractStartDate', candidateForm.contractStartDate);
       appendOptional('contractEndDate', candidateForm.contractEndDate);
+      appendOptional('teamPosition', candidateForm.teamPosition);
 
       if (candidateForm.basicSalary) {
         formData.append('basicSalary', candidateForm.basicSalary);
@@ -473,6 +479,8 @@ const EmployeeOnboardingSystem: React.FC = () => {
       if (candidateForm.drivingLicenseCopy instanceof File) formData.append('drivingLicenseCopy', candidateForm.drivingLicenseCopy);
       if (candidateForm.uidCopy instanceof File) formData.append('uidCopy', candidateForm.uidCopy);
       if (candidateForm.iqamaCopy instanceof File) formData.append('iqamaCopy', candidateForm.iqamaCopy);
+      if (candidateForm.ibanCopy instanceof File) formData.append('ibanCopy', candidateForm.ibanCopy);
+      if (candidateForm.profilePicture instanceof File) formData.append('profilePicture', candidateForm.profilePicture);
 
       console.log("ONBOARDING DEBUG: Sending FormData");
 
@@ -521,7 +529,11 @@ const EmployeeOnboardingSystem: React.FC = () => {
             ifscCode: ''
           },
           iqamaId: '',
-          iqamaCopy: ''
+          iqamaCopy: '',
+          teamPosition: '',
+          iban: '',
+          ibanCopy: null,
+          profilePicture: null
         });
 
         return response.data.data || response.data;

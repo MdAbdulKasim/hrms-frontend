@@ -56,6 +56,7 @@ interface AttendanceRecord {
   standardHours?: number;
   overtimeHours?: number;
   status: 'Present' | 'Late' | 'Leave' | 'Weekend' | 'Absent' | string;
+  totalHours?: number;
 }
 
 interface PersonalAttendanceRecord {
@@ -211,7 +212,9 @@ const AttendanceTracker: React.FC = () => {
                     checkInTime: rawData.checkInTime || rawData.checkIn,
                     checkOutTime: rawData.checkOutTime || rawData.checkOut,
                     totalHours: rawData.totalHours || rawData.hoursWorked,
-                    status: rawData.status || (rawData.checkInTime || rawData.checkIn ? 'Present' : 'Absent')
+                    status: rawData.status || (rawData.checkInTime || rawData.checkIn ? 'Present' : 'Absent'),
+                    standardHours: rawData.standardHours,
+                    overtimeHours: rawData.overtimeHours
                   };
                 }
               }
@@ -270,7 +273,8 @@ const AttendanceTracker: React.FC = () => {
               date: startDateStr,
               checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
               checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : '-',
-              hoursWorked: r.totalHours ? `${r.totalHours}h` : '-',
+              hoursWorked: r.totalHours ? `${Math.floor(r.totalHours)}h ${Math.round((r.totalHours % 1) * 60)}m` : (r.hoursWorked || '-'),
+              totalHours: r.totalHours,
               standardHours: r.standardHours,
               overtimeHours: r.overtimeHours,
               status: status
@@ -297,7 +301,8 @@ const AttendanceTracker: React.FC = () => {
                   date: startDateStr,
                   checkIn: adminRealTimeRecord.checkInTime ? format(new Date(adminRealTimeRecord.checkInTime), 'hh:mm a') : '-',
                   checkOut: adminRealTimeRecord.checkOutTime ? format(new Date(adminRealTimeRecord.checkOutTime), 'hh:mm a') : '-',
-                  hoursWorked: adminRealTimeRecord.totalHours ? `${adminRealTimeRecord.totalHours}h` : '-',
+                  hoursWorked: adminRealTimeRecord.totalHours ? `${Math.floor(adminRealTimeRecord.totalHours)}h ${Math.round((adminRealTimeRecord.totalHours % 1) * 60)}m` : '-',
+                  totalHours: adminRealTimeRecord.totalHours,
                   status: adminRealTimeRecord.status || 'Present'
                 };
                 employeeRecords.unshift(adminEntry);
@@ -344,7 +349,8 @@ const AttendanceTracker: React.FC = () => {
                 date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : '-',
                 checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
                 checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : '-',
-                hoursWorked: r.totalHours ? `${r.totalHours}h` : '-',
+                hoursWorked: r.totalHours ? `${Math.floor(r.totalHours)}h ${Math.round((r.totalHours % 1) * 60)}m` : (r.hoursWorked || '-'),
+                totalHours: r.totalHours,
                 standardHours: r.standardHours,
                 overtimeHours: r.overtimeHours,
                 status: status
@@ -414,10 +420,13 @@ const AttendanceTracker: React.FC = () => {
     const absentCount = workingDaysData.filter(d => d.status === 'Absent').length;
     const holidayCount = filteredData.filter(d => d.status === 'Holiday').length;
 
-    // Estimate hours if not provided
+    // Estimate hours using totalHours number from backend (more accurate)
     let totalMinutes = 0;
     filteredData.forEach(r => {
-      if (r.hoursWorked && r.hoursWorked !== '-') {
+      if (typeof r.totalHours === 'number') {
+        totalMinutes += r.totalHours * 60;
+      } else if (r.hoursWorked && r.hoursWorked !== '-') {
+        // Fallback for string parsing if totalHours is missing
         const h = parseFloat(r.hoursWorked);
         if (!isNaN(h)) totalMinutes += h * 60;
       }
