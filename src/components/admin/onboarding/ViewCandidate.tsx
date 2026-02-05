@@ -350,6 +350,21 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
                                 <label className="block text-sm font-medium text-gray-500 mb-1">Contract End</label>
                                 <div className="text-gray-900 font-medium">{candidate.contractEndDate || 'N/A'}</div>
                             </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-500 mb-1">Candidate Source</label>
+                                <div className="text-gray-900 font-medium">{candidate.candidateSource || 'N/A'}</div>
+                            </div>
+                            {candidate.candidateSource === 'Employee Reference' ? (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500 mb-1">Referred By</label>
+                                    <div className="text-gray-900 font-medium">{getManagerName(candidate.referredById || '')}</div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500 mb-1">Source Summary</label>
+                                    <div className="text-gray-900 font-medium">{candidate.sourceSummary || 'N/A'}</div>
+                                </div>
+                            )}
                         </div>
                     </div>
 

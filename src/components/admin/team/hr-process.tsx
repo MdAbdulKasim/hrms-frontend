@@ -68,7 +68,7 @@ export default function HRProcessPage() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Form State
-  const [activeTab, setActiveTab] = useState<'Department' | 'Location' | 'Promotion' | 'Termination'>('Department');
+  const [activeTab, setActiveTab] = useState<'Department' | 'Location' | 'Promotion' | 'Termination' | 'Custom'>('Department');
   const [form, setForm] = useState({
     departmentId: '',
     locationId: '',
@@ -170,19 +170,33 @@ export default function HRProcessPage() {
 
         const empRaw = empRes.data.data || empRes.data || [];
         setAllEmployees(empRaw.map((e: any) => {
-          // Robust name resolution: Try object.name -> try ID lookup -> fallback to raw value
-          const deptName = e.department?.departmentName || e.department?.name || formattedDepartments.find((d: any) => d.id === (e.departmentId || e.department))?.name || e.department || '';
-          const desigName = e.designation?.name || formattedDesignations.find((d: any) => d.id === (e.designationId || e.designation))?.name || e.designation || '';
-          const locName = e.location?.name || formattedLocations.find((l: any) => l.id === (e.locationId || e.location))?.name || e.location || '';
+          // Exhaustive name resolution: Try every possible field name variant
+          const targetDeptId = String(e.departmentId || e.department_id || e.deptId || e.dept_id || (typeof e.department === 'string' ? e.department : e.department?.id) || '');
+          const deptName = e.departmentName || e.department_name || e.department?.departmentName || e.department?.name ||
+            formattedDepartments.find((d: any) => String(d.id) === targetDeptId)?.name ||
+            (typeof e.department === 'string' && e.department.length > 10 ? '' : e.department) || '';
+
+          const targetDesigId = String(e.designationId || e.designation_id || e.desigId || e.desig_id || (typeof e.designation === 'string' ? e.designation : e.designation?.id) || '');
+          const desigName = e.designationName || e.designation_name || e.designation?.name ||
+            formattedDesignations.find((d: any) => String(d.id) === targetDesigId)?.name ||
+            (typeof e.designation === 'string' && e.designation.length > 10 ? '' : e.designation) || '';
+
+          const targetLocId = String(e.locationId || e.location_id || e.locId || e.loc_id || (typeof e.location === 'string' ? e.location : e.location?.id) || '');
+          const locName = e.locationName || e.location_name || e.location?.name ||
+            formattedLocations.find((l: any) => String(l.id) === targetLocId)?.name ||
+            (typeof e.location === 'string' && e.location.length > 10 ? '' : e.location) || '';
+
+          // 4. Dates & Salary
+          const joiningDate = e.dateOfJoining || e.date_of_joining || e.joiningDate || e.joining_date || e.createdAt;
 
           return {
             id: e.id || e._id,
             name: e.fullName || `${e.firstName} ${e.lastName}`,
-            role: desigName,
-            department: deptName,
-            location: locName,
-            salary: e.salary || 0,
-            dateOfJoining: e.dateOfJoining
+            role: desigName || 'N/A',
+            department: deptName || 'N/A',
+            location: locName || 'N/A',
+            salary: Number(e.basicSalary) || Number(e.salary) || Number(e.activeContract?.basicSalary) || 0,
+            dateOfJoining: joiningDate
           };
         }));
 
@@ -238,21 +252,37 @@ export default function HRProcessPage() {
       const headers = { Authorization: `Bearer ${token}` };
 
       for (const emp of selectedEmployees) {
-        const updateData: any = {};
+        let updateData: any = {};
 
-        if (activeTab === 'Department') updateData.departmentId = form.departmentId;
-        if (activeTab === 'Location') {
-          updateData.locationId = form.locationId;
-          updateData.siteId = form.siteId;
-          updateData.buildingId = form.buildingId;
-        }
-        if (activeTab === 'Promotion') {
-          updateData.designationId = form.designationId;
-        }
-        if (activeTab === 'Termination') {
-          updateData.terminationDate = form.date;
-          updateData.remark = form.reason;
-          updateData.status = 'Terminated';
+        if (activeTab === 'Custom') {
+          if (form.departmentId) updateData.departmentId = form.departmentId;
+          if (form.locationId) {
+            updateData.locationId = form.locationId;
+            updateData.siteId = form.siteId;
+            updateData.buildingId = form.buildingId;
+          }
+          if (form.designationId) updateData.designationId = form.designationId;
+          if (form.amount && parseFloat(form.amount) > 0) {
+            updateData.basicSalary = Number(emp.salary) + parseFloat(form.amount);
+          }
+        } else {
+          if (activeTab === 'Department') updateData.departmentId = form.departmentId;
+          if (activeTab === 'Location') {
+            updateData.locationId = form.locationId;
+            updateData.siteId = form.siteId;
+            updateData.buildingId = form.buildingId;
+          }
+          if (activeTab === 'Promotion') {
+            updateData.designationId = form.designationId;
+            if (form.amount && parseFloat(form.amount) > 0) {
+              updateData.basicSalary = Number(emp.salary) + parseFloat(form.amount);
+            }
+          }
+          if (activeTab === 'Termination') {
+            updateData.terminationDate = form.date;
+            updateData.remark = form.reason;
+            updateData.status = 'Terminated';
+          }
         }
 
         console.log(`PROCESS_SYNC: Dispatching update for ${emp.id}`, updateData);
@@ -264,22 +294,25 @@ export default function HRProcessPage() {
           setAllEmployees(prev => prev.map(e => {
             if (e.id === emp.id) {
               const updated = { ...e };
-              if (activeTab === 'Department') {
-                updated.department = departments.find(d => d.id === form.departmentId)?.name || e.department;
-              } else if (activeTab === 'Location') {
-                updated.location = locations.find(l => l.id === form.locationId)?.name || e.location;
-              } else if (activeTab === 'Promotion') {
-                updated.role = designations.find(d => d.id === form.designationId)?.name || e.role;
+              if (updateData.departmentId) {
+                updated.department = departments.find(d => d.id === updateData.departmentId)?.name || e.department;
               }
-              // For Termination, we might want to keep it in state but mark as terminated if needed, 
-              // but typically we might just refetch or the user will see it in history.
+              if (updateData.locationId) {
+                updated.location = locations.find(l => l.id === updateData.locationId)?.name || e.location;
+              }
+              if (updateData.designationId) {
+                updated.role = designations.find(d => d.id === updateData.designationId)?.name || e.role;
+              }
+              if (updateData.basicSalary) {
+                updated.salary = updateData.basicSalary;
+              }
               return updated;
             }
             return e;
           }));
 
           // If terminated, remove from current visible list after processing all
-          if (activeTab === 'Termination') {
+          if (updateData.status === 'Terminated') {
             setAllEmployees(prev => prev.filter(e => e.id !== emp.id));
           }
         } catch (innerErr: any) {
@@ -291,16 +324,19 @@ export default function HRProcessPage() {
 
       // Resolve Names for History
       let toLabel = 'N/A';
-      if (activeTab === 'Department') {
+      if (activeTab === 'Custom') {
+        const updates = [];
+        if (form.departmentId) updates.push(`Dept: ${departments.find(d => d.id === form.departmentId)?.name}`);
+        if (form.locationId) updates.push(`Loc: ${locations.find(l => l.id === form.locationId)?.name}`);
+        if (form.designationId) updates.push(`Desig: ${designations.find(d => d.id === form.designationId)?.name}`);
+        if (form.amount && parseFloat(form.amount) > 0) updates.push(`Salary Up`);
+        if (form.date && activeTab === 'Custom' && form.reason) updates.push(`Terminated`);
+        toLabel = updates.join(', ') || 'No Changes';
+      } else if (activeTab === 'Department') {
         toLabel = departments.find(d => d.id === form.departmentId)?.name || 'N/A';
       } else if (activeTab === 'Location') {
         const loc = locations.find(l => l.id === form.locationId);
         const site = loc?.sites?.find(s => s.id === form.siteId)?.name;
-        // Building is usually just a name if it's from the array, but if we stored ID we'd look it up.
-        // Assuming buildingId is the name for now as the Select often uses names for sub-items or simple strings
-        // But let's check the Select logic below. We will make Select use IDs.
-        // Ideally we should lookup building name too if buildingId is an ID.
-        // For now, let's assume simple string or find in array.
         const buildingName = form.buildingId;
         toLabel = `${loc?.name || ''} ${site ? `(${site})` : ''} ${buildingName ? `[${buildingName}]` : ''}`;
       } else if (activeTab === 'Promotion') {
@@ -459,6 +495,7 @@ export default function HRProcessPage() {
                   { id: 'Location', icon: MapPin, label: 'Location' },
                   { id: 'Promotion', icon: TrendingUp, label: 'Promotion' },
                   { id: 'Termination', icon: X, label: 'Termination' },
+                  { id: 'Custom', icon: LayoutGrid, label: 'Custom' },
                 ].map(tab => (
                   <button
                     key={tab.id}
@@ -739,30 +776,213 @@ export default function HRProcessPage() {
                   </div>
                 )}
 
+                {/* Custom Tab */}
+                {activeTab === 'Custom' && (
+                  <div className="space-y-8 animate-in fade-in duration-500 pb-10">
+                    <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 flex items-center gap-2">
+                      <LayoutGrid className="w-4 h-4 text-blue-600" />
+                      <p className="text-xs font-semibold text-blue-700">Custom Process: Multiple Updates for {selectedEmployees[0]?.name || 'Employee'}</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-8">
+                      {/* Section 1: Department Change */}
+                      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                        <h3 className="text-base font-bold text-gray-900 flex items-center gap-2 pb-2 border-b">
+                          <LayoutGrid className="w-5 h-5 text-blue-500" />
+                          1. Department Change
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-wider">Current Department</label>
+                            <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 text-sm text-gray-600 italic">
+                              {selectedEmployees[0]?.department || 'N/A'}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-wider">Target Department <span className="text-red-500">*</span></label>
+                            <select
+                              className="w-full p-3 bg-white rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500/20 outline-none text-sm"
+                              value={form.departmentId}
+                              onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
+                            >
+                              <option value="">No Change</option>
+                              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-wider">Effective Date <span className="text-red-500">*</span></label>
+                            <input
+                              type="date"
+                              className="w-full p-3 bg-white rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500/20 outline-none text-sm"
+                              value={form.date}
+                              onChange={(e) => setForm({ ...form, date: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-wider">Remarks</label>
+                            <input
+                              className="w-full p-3 bg-white rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500/20 outline-none text-sm"
+                              placeholder="Note for department change..."
+                              value={form.reason}
+                              onChange={(e) => setForm({ ...form, reason: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Section 2: Location Change */}
+                      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                        <h3 className="text-base font-bold text-gray-900 flex items-center gap-2 pb-2 border-b">
+                          <MapPin className="w-5 h-5 text-orange-500" />
+                          2. Location Change
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-wider">Current Location</label>
+                            <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 text-sm text-gray-600 italic">
+                              {selectedEmployees[0]?.location || 'N/A'}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-wider">Location <span className="text-red-500">*</span></label>
+                            <select
+                              className="w-full p-3 bg-white rounded-xl border border-gray-200 focus:ring-2 focus:ring-orange-500/20 outline-none text-sm"
+                              value={form.locationId}
+                              onChange={(e) => setForm({ ...form, locationId: e.target.value, siteId: '', buildingId: '' })}
+                            >
+                              <option value="">No Change</option>
+                              {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-wider">Site</label>
+                            <select
+                              disabled={!form.locationId}
+                              className="w-full p-3 bg-white rounded-xl border border-gray-200 focus:ring-2 focus:ring-orange-500/20 outline-none text-sm disabled:opacity-50"
+                              value={form.siteId}
+                              onChange={(e) => setForm({ ...form, siteId: e.target.value, buildingId: '' })}
+                            >
+                              <option value="">Select Site...</option>
+                              {locations.find(l => l.id === form.locationId)?.sites?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-wider">Building</label>
+                            <select
+                              disabled={!form.siteId}
+                              className="w-full p-3 bg-white rounded-xl border border-gray-200 focus:ring-2 focus:ring-orange-500/20 outline-none text-sm disabled:opacity-50"
+                              value={form.buildingId}
+                              onChange={(e) => setForm({ ...form, buildingId: e.target.value })}
+                            >
+                              <option value="">Select Building...</option>
+                              {locations.find(l => l.id === form.locationId)?.sites?.find(s => s.id === form.siteId)?.buildings?.map((b, idx) => {
+                                const bId = typeof b === 'object' ? (b.id || b._id || b.name || idx.toString()) : b;
+                                const bName = typeof b === 'object' ? (b.name || b.buildingName || bId) : b;
+                                return <option key={bId} value={bId}>{bName}</option>;
+                              })}
+                            </select>
+                          </div>
+                          {/* Reiterating Date/Remarks as requested, though binding to same state for single action utility */}
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-wider">Effective Date <span className="text-red-500">*</span></label>
+                            <input
+                              type="date"
+                              className="w-full p-3 bg-white rounded-xl border border-gray-200 focus:ring-2 focus:ring-orange-500/20 outline-none text-sm"
+                              value={form.date}
+                              onChange={(e) => setForm({ ...form, date: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-wider">Remarks</label>
+                            <input
+                              className="w-full p-3 bg-white rounded-xl border border-gray-200 focus:ring-2 focus:ring-orange-500/20 outline-none text-sm"
+                              placeholder="Note for location change..."
+                              value={form.reason}
+                              onChange={(e) => setForm({ ...form, reason: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Section 3: Promotion */}
+                      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                        <h3 className="text-base font-bold text-gray-900 flex items-center gap-2 pb-2 border-b">
+                          <TrendingUp className="w-5 h-5 text-green-500" />
+                          3. Promotion
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-wider">Current Designation</label>
+                            <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 text-sm text-gray-600 italic">
+                              {selectedEmployees[0]?.role || 'N/A'}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-wider">New Designation <span className="text-red-500">*</span></label>
+                            <select
+                              className="w-full p-3 bg-white rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500/20 outline-none text-sm"
+                              value={form.designationId}
+                              onChange={(e) => setForm({ ...form, designationId: e.target.value })}
+                            >
+                              <option value="">No Change</option>
+                              {designations.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <div className="bg-green-50/50 p-4 rounded-xl border border-green-100 grid grid-cols-2 gap-4 mt-2">
+                          <div>
+                            <label className="block text-[10px] font-bold text-green-700 uppercase mb-2 tracking-wider text-center">Increase (%)</label>
+                            <input
+                              type="number"
+                              className="w-full p-3 bg-white rounded-xl border border-green-200 focus:ring-2 focus:ring-green-500/20 outline-none text-sm text-center"
+                              placeholder="0"
+                              value={form.percent}
+                              onChange={(e) => handleSalaryCalc(e.target.value, true)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-green-700 uppercase mb-2 tracking-wider text-center">Amount ($)</label>
+                            <input
+                              type="number"
+                              className="w-full p-3 bg-white rounded-xl border border-green-200 focus:ring-2 focus:ring-green-500/20 outline-none text-sm text-center"
+                              placeholder="0.00"
+                              value={form.amount}
+                              onChange={(e) => handleSalaryCalc(e.target.value, false)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                )}
+
                 {/* Common Fields */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6 border-t border-gray-200">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {activeTab === 'Termination' ? 'Termination Date' : 'Effective Date'} <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      className="w-full p-3 bg-white rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                      value={form.date}
-                      onChange={(e) => setForm({ ...form, date: e.target.value })}
-                    />
+                {activeTab !== 'Custom' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6 border-t border-gray-200">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {activeTab === 'Termination' ? 'Termination Date' : 'Effective Date'} <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        className="w-full p-3 bg-white rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        value={form.date}
+                        onChange={(e) => setForm({ ...form, date: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{activeTab === 'Termination' ? 'Termination Remark' : 'Remarks'}</label>
+                      <textarea
+                        className="w-full p-3 bg-white rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+                        rows={1}
+                        placeholder="Optional notes..."
+                        value={form.reason}
+                        onChange={(e) => setForm({ ...form, reason: e.target.value })}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{activeTab === 'Termination' ? 'Termination Remark' : 'Remarks'}</label>
-                    <textarea
-                      className="w-full p-3 bg-white rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
-                      rows={1}
-                      placeholder="Optional notes..."
-                      value={form.reason}
-                      onChange={(e) => setForm({ ...form, reason: e.target.value })}
-                    />
-                  </div>
-                </div>
+                )}
 
                 {/* Submit Button */}
                 <div className="flex justify-end pt-4">
@@ -837,7 +1057,8 @@ export default function HRProcessPage() {
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${req.type === 'Promotion' ? 'bg-green-100 text-green-700' :
                         req.type === 'Location' ? 'bg-orange-100 text-orange-700' :
                           req.type === 'Termination' ? 'bg-red-100 text-red-700' :
-                            'bg-blue-100 text-blue-700'
+                            req.type === 'Custom' ? 'bg-purple-100 text-purple-700' :
+                              'bg-blue-100 text-blue-700'
                         }`}>
                         {req.type}
                       </span>
