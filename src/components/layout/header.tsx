@@ -40,7 +40,8 @@ export default function NavigationHeader({
   const [userData, setUserData] = useState({
     name: '',
     email: '',
-    initials: ''
+    initials: '',
+    designation: ''
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -57,7 +58,8 @@ export default function NavigationHeader({
         setUserData({
           name: cachedDetails.fullName,
           email: cachedDetails.email,
-          initials: cachedDetails.initials
+          initials: cachedDetails.initials,
+          designation: (typeof window !== 'undefined' ? localStorage.getItem('hrms_user_designation') : '') || ''
         });
         setIsLoading(false);
 
@@ -114,7 +116,8 @@ export default function NavigationHeader({
               setUserData({
                 name: details.fullName,
                 email: details.email,
-                initials: details.initials
+                initials: details.initials,
+                designation: (typeof window !== 'undefined' ? localStorage.getItem('hrms_user_designation') : '') || ''
               });
               setIsLoading(false);
               return;
@@ -132,7 +135,8 @@ export default function NavigationHeader({
               setUserData({
                 name: details.fullName,
                 email: details.email,
-                initials: details.initials
+                initials: details.initials,
+                designation: (typeof window !== 'undefined' ? localStorage.getItem('hrms_user_designation') : '') || ''
               });
               setIsLoading(false);
               return;
@@ -155,7 +159,8 @@ export default function NavigationHeader({
             setUserData({
               name: details.fullName,
               email: details.email,
-              initials: details.initials
+              initials: details.initials,
+              designation: (typeof window !== 'undefined' ? localStorage.getItem('hrms_user_designation') : '') || ''
             });
             setIsLoading(false);
             return;
@@ -206,10 +211,14 @@ export default function NavigationHeader({
               .toUpperCase()
             : (role === 'admin' ? 'AD' : 'EM');
 
+          // Designation resolution
+          const designationName = user.designationName || user.designation?.name || user.role || '';
+
           setUserData({
             name: fullName,
             email: email,
-            initials: initials
+            initials: initials,
+            designation: designationName
           });
 
           // Persist to storage for consistency
@@ -224,6 +233,7 @@ export default function NavigationHeader({
               localStorage.setItem('hrms_user_lastName', lastName || '');
               localStorage.setItem('hrms_user_fullName', fullName || '');
               localStorage.setItem('hrms_user_email', email || '');
+              localStorage.setItem('hrms_user_designation', designationName || '');
               localStorage.setItem('hrms_user_role', role || '');
             }
           }
@@ -235,7 +245,8 @@ export default function NavigationHeader({
           setUserData({
             name: details.fullName,
             email: details.email,
-            initials: details.initials
+            initials: details.initials,
+            designation: (typeof window !== 'undefined' ? localStorage.getItem('hrms_user_designation') : '') || ''
           });
         }
         setIsLoading(false);
@@ -251,7 +262,8 @@ export default function NavigationHeader({
         setUserData({
           name: details.fullName,
           email: details.email,
-          initials: details.initials
+          initials: details.initials,
+          designation: (typeof window !== 'undefined' ? localStorage.getItem('hrms_user_designation') : '') || ''
         });
       }
     };
@@ -310,12 +322,13 @@ export default function NavigationHeader({
             <div className="flex items-center ml-2">
               <h1 className="text-sm md:text-base font-bold text-gray-900">
                 {pathname.includes('/onboarding') ? 'Employees' :
-                  pathname.includes('/leavetracker') ? 'Leave Tracker' :
-                    pathname.includes('/attendance') ? 'Attendance' :
-                      pathname.includes('/reports') ? 'Reports' :
-                        pathname.includes('/salary') ? 'Payroll' :
-                          pathname.includes('/profile') ? 'Profile' :
-                            'Dashboard'}
+                  pathname.includes('/contractors') ? 'Contractors' :
+                    pathname.includes('/leavetracker') ? 'Leave Tracker' :
+                      pathname.includes('/attendance') ? 'Attendance' :
+                        pathname.includes('/reports') ? 'Reports' :
+                          pathname.includes('/salary') ? 'Payroll' :
+                            pathname.includes('/profile') ? 'Profile' :
+                              'Dashboard'}
               </h1>
             </div>
           )}
@@ -344,7 +357,7 @@ export default function NavigationHeader({
               </div>
               <div className="hidden lg:flex flex-col items-start mr-1">
                 <span className="text-[13px] font-bold text-gray-900 leading-tight">{userData.name}</span>
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{userRole}</span>
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{userData.designation || userRole}</span>
               </div>
             </button>
           )}

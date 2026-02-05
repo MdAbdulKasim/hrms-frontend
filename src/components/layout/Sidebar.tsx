@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, Users, Bell, Calendar, Clock, UserCircle, ClipboardList, X, LogOut, ReceiptIndianRupeeIcon } from "lucide-react";
+import { Home, Users, Bell, Calendar, Clock, UserCircle, ClipboardList, X, LogOut, ReceiptIndianRupeeIcon, FileText } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from 'react';
 import { clearSetupData, getAuthToken, decodeToken, getCookie, setCookie, getUserDetails, getOrgId, getEmployeeId, getApiUrl } from "@/lib/auth";
@@ -90,6 +90,7 @@ export default function Sidebar({
   const adminMenu = [
     { label: "Home", href: "/admin/my-space/dashboard", icon: Home, protected: true },
     { label: "Employees", href: "/admin/onboarding", icon: Users, protected: true },
+    { label: "Contractors", href: "/admin/contractors", icon: FileText, protected: true },
     { label: "Leave Tracker", href: "/admin/leavetracker", icon: Calendar, protected: true },
     { label: "Attendance", href: "/admin/attendance", icon: Clock, protected: true },
     { label: "Reports", href: "/admin/reports", icon: Bell, protected: true },

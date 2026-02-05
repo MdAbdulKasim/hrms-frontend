@@ -3,6 +3,8 @@ import React from 'react';
 import { X, ChevronDown, Check, Plus, Trash2 } from 'lucide-react';
 import { CandidateForm, AccommodationAllowance, Insurance, BankDetails } from './types';
 import SuccessDialog from './SuccessDialog';
+import ContractDetails from './ContractDetails';
+import CandidateSource from './CandidateSource';
 import { getAuthToken, getOrgId, getApiUrl } from '@/lib/auth';
 
 interface ComboboxProps {
@@ -930,43 +932,6 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                             />
 
                             <Combobox
-                                label="Contract Type"
-                                value={candidateForm.contractType || ''}
-                                onChange={(val) => onInputChange('contractType', val)}
-                                placeholder="Select contract type..."
-                                options={[
-                                    { id: 'fixed-term', label: 'Fixed Term' },
-                                    { id: 'consultant', label: 'Consultant' },
-                                    { id: 'freelance', label: 'Freelance' },
-                                    { id: 'internship', label: 'Internship' },
-                                ]}
-                            />
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Contract Start Date
-                                </label>
-                                <input
-                                    type="date"
-                                    value={candidateForm.contractStartDate || ''}
-                                    onChange={(e) => onInputChange('contractStartDate', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Contract End Date
-                                </label>
-                                <input
-                                    type="date"
-                                    value={candidateForm.contractEndDate || ''}
-                                    onChange={(e) => onInputChange('contractEndDate', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                />
-                            </div>
-
-                            <Combobox
                                 label="Time Zone"
                                 value={candidateForm.timeZone || ''}
                                 onChange={(val) => onInputChange('timeZone', val)}
@@ -981,6 +946,20 @@ const AddCandidateForm: React.FC<AddCandidateFormProps> = ({
                             />
                         </div>
                     </div>
+
+                    {/* Candidate Source Section */}
+                    <CandidateSource
+                        candidateForm={candidateForm}
+                        onInputChange={onInputChange}
+                        employees={employees}
+                    />
+
+                    {/* Contract Details Section */}
+                    <ContractDetails
+                        candidateForm={candidateForm}
+                        onInputChange={onInputChange}
+                        employees={employees}
+                    />
 
                     {/* Address Information Section */}
                     <div>

@@ -95,12 +95,22 @@ export interface CandidateForm {
     timeZone: string;
     empType: string;
     siteId?: string;
-    buildingId?: string;
+    buildingId?: string;    
     teamPosition?: string;
     // Contract Details
+    contractId?: string; // To track existing contract for updates
     contractStartDate?: string;
     contractEndDate?: string;
     contractType?: string;
+    candidateSource?: 'Employee Reference' | 'Walk-in' | 'Website' | 'LinkedIn' | 'Job Portal' | 'Other';
+    referredById?: string;
+    sourceSummary?: string;
+    // Contractor Details (for external contractor management)
+    contractorName?: string;
+    contractDocumentUrl?: string;
+    contractorId?: string; // To link with an existing contractor record
+    contractDocuments?: File[]; // Multiple contract document uploads
+    referenceAmount?: string; // One-time bonus for employee referral
     // Compensation & Benefits
     basicSalary: string;
     accommodationAllowances: AccommodationAllowance[];

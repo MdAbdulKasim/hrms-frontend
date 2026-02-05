@@ -8,6 +8,8 @@ import BulkImport from './BulkImport';
 import ViewCandidate from './ViewCandidate';
 import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
 import { ConfirmDialog, CustomAlertDialog } from '@/components/ui/custom-dialogs';
+import ContractorService from '@/lib/contractorService';
+import ContractService from '@/lib/contractService';
 
 const EmployeeOnboardingSystem: React.FC = () => {
   const [currentView, setCurrentView] = useState<OnboardingView>('list');
@@ -59,6 +61,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
     contractStartDate: '',
     contractEndDate: '',
     contractType: '',
+    candidateSource: undefined,
+    referredById: '',
+    sourceSummary: '',
     bankDetails: {
       bankName: '',
       branchName: '',
@@ -137,15 +142,12 @@ const EmployeeOnboardingSystem: React.FC = () => {
         axios.get(`${apiUrl}/org/${orgId}/locations`)
       ]);
 
-      // Shifts endpoint doesn't exist in backend, so skip fetching
-      // Shifts are optional and have default values in the UI
-      const shiftRes = { data: { data: [] } };
-
       const deptData = deptRes.data.data || deptRes.data || [];
       setDepartments(deptData);
       setDesignations(desigRes.data.data || desigRes.data || []);
       setLocations(locRes.data.data || locRes.data || []);
-      setShifts(shiftRes.data.data || shiftRes.data || []);
+      // Shifts are handled via local defaults in the UI if not available from backend
+      setShifts([]);
 
       console.log('FETCHED DEPARTMENTS:', deptData.length, deptData.map((d: any) => ({ id: d.id || d._id, name: d.departmentName || d.name })));
 
@@ -406,14 +408,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
       appendOptional('visaNumber', candidateForm.visaNumber);
       appendOptional('iqamaId', candidateForm.iqamaId);
       appendOptional('iban', candidateForm.iban);
-      appendOptional('contractType', candidateForm.contractType);
-      appendOptional('contractStartDate', candidateForm.contractStartDate);
-      appendOptional('contractEndDate', candidateForm.contractEndDate);
       appendOptional('teamPosition', candidateForm.teamPosition);
 
-      if (candidateForm.basicSalary) {
-        formData.append('basicSalary', candidateForm.basicSalary);
-      }
+      // NOTE: Contract fields removed from employee creation - will be created separately via Contract API
 
       // Append complex objects as JSON strings
       formData.append('experience', JSON.stringify(candidateForm.experience || []));
@@ -491,8 +488,30 @@ const EmployeeOnboardingSystem: React.FC = () => {
       );
 
       if (response.status === 200 || response.status === 201) {
-        // Don't show alert here - let AddCandidateForm show the success dialog
-        // showAlert("Success", "Employee onboarded successfully! An invitation email has been sent.", "success");
+        const createdEmployee = response.data.data || response.data;
+        const employeeNumber = createdEmployee.employeeNumber || candidateForm.employeeNumber;
+
+        // Create contract if contract details are provided
+        if (employeeNumber && candidateForm.contractType && candidateForm.contractStartDate) {
+          try {
+            const contractData: any = {
+              employeeNumber: employeeNumber,
+              contractType: candidateForm.contractType,
+              startDate: candidateForm.contractStartDate,
+              endDate: candidateForm.contractEndDate || undefined,
+              basicSalary: Number(candidateForm.basicSalary) || 0,
+              allowances: allowances,
+              deductions: deductions
+            };
+
+            console.log("Creating contract with data:", contractData);
+            await ContractService.createContract(contractData);
+            console.log("Contract created successfully");
+          } catch (contractError: any) {
+            console.error("Failed to create contract:", contractError);
+            showAlert("Warning", `Employee created successfully but contract creation failed: ${contractError.message}`, "warning");
+          }
+        }
 
         // Refresh employee list
         fetchEmployees();
@@ -521,6 +540,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
           contractStartDate: '',
           contractEndDate: '',
           contractType: '',
+          candidateSource: undefined,
+          referredById: '',
+          sourceSummary: '',
           bankDetails: {
             bankName: '',
             branchName: '',
@@ -662,6 +684,9 @@ const EmployeeOnboardingSystem: React.FC = () => {
         contractEndDate: activeContract?.endDate ? new Date(activeContract.endDate).toISOString().split('T')[0] :
           (emp.contractEndDate ? new Date(emp.contractEndDate).toISOString().split('T')[0] : ''),
         contractType: activeContract?.contractType || emp.contractType || '',
+        candidateSource: activeContract?.candidateSource || emp.candidateSource || undefined,
+        referredById: activeContract?.referredById || emp.referredById || '',
+        sourceSummary: activeContract?.sourceSummary || emp.sourceSummary || '',
         accommodationAllowances: getAllowances(),
         insurances: getInsurances(),
         bankDetails: bankData,
@@ -823,6 +848,10 @@ const EmployeeOnboardingSystem: React.FC = () => {
         contractEndDate: activeContract?.endDate ? new Date(activeContract.endDate).toISOString().split('T')[0] :
           (emp.contractEndDate ? new Date(emp.contractEndDate).toISOString().split('T')[0] : ''),
         contractType: activeContract?.contractType || emp.contractType || '',
+        contractId: activeContract?.id || '',
+        candidateSource: activeContract?.candidateSource || emp.candidateSource || undefined,
+        referredById: activeContract?.referredById || emp.referredById || '',
+        sourceSummary: activeContract?.sourceSummary || emp.sourceSummary || '',
         accommodationAllowances: getAllowances(),
         insurances: getInsurances(),
         bankDetails: bankData,
@@ -937,13 +966,8 @@ const EmployeeOnboardingSystem: React.FC = () => {
       appendOptional('emiratesId', candidateForm.eid);
       appendOptional('visaNumber', candidateForm.visaNumber);
       appendOptional('iqamaId', candidateForm.iqamaId);
-      appendOptional('contractType', candidateForm.contractType);
-      appendOptional('contractStartDate', candidateForm.contractStartDate);
-      appendOptional('contractEndDate', candidateForm.contractEndDate);
 
-      if (candidateForm.basicSalary) {
-        formData.append('basicSalary', candidateForm.basicSalary);
-      }
+      // NOTE: Contract fields removed from employee update - will be updated separately via Contract API
 
       // Append complex objects as JSON strings
       formData.append('experience', JSON.stringify(candidateForm.experience || []));
@@ -1062,6 +1086,39 @@ const EmployeeOnboardingSystem: React.FC = () => {
           );
         } else {
           throw putError;
+        }
+      }
+
+      // Handle contract update/creation
+      if (candidateForm.contractType && candidateForm.contractStartDate) {
+        try {
+          const contractData: any = {
+            employeeNumber: candidateForm.employeeNumber,
+            contractType: candidateForm.contractType,
+            startDate: candidateForm.contractStartDate,
+            endDate: candidateForm.contractEndDate || undefined,
+            basicSalary: Number(candidateForm.basicSalary) || 0,
+            allowances: allowances,
+            deductions: deductions
+          };
+
+          // Check if contract ID exists (means we need to update)
+          if (candidateForm.contractId) {
+            console.log("Updating contract ID:", candidateForm.contractId, "with data:", contractData);
+            await ContractService.updateContract(candidateForm.contractId, contractData);
+            console.log("Contract updated successfully");
+          } else if (candidateForm.employeeNumber) {
+            // Create new contract for existing employee
+            console.log("Creating new contract for existing employee with data:", contractData);
+            await ContractService.createContract({
+              ...contractData,
+              employeeNumber: candidateForm.employeeNumber // Ensure employeeNumber is present
+            });
+            console.log("Contract created successfully");
+          }
+        } catch (contractError: any) {
+          console.error("Failed to update/create contract:", contractError);
+          showAlert("Warning", `Employee updated successfully but contract update failed: ${contractError.message}`, "warning");
         }
       }
 
