@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { Bell, PanelLeft, Menu } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Bell, PanelLeft, Menu, X, Check, Clock, AlertTriangle, AlertCircle, Info, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { getAuthToken, getUserDetails, setCookie, getOrgId, getEmployeeId, getUserRole, getApiUrl, clearSetupData } from '@/lib/auth';
+import { notificationService, Notification, NotificationSeverity } from '@/lib/notificationService';
 
 type SubTab = {
   name: string;
@@ -32,6 +33,7 @@ export default function NavigationHeader({
   userRole = 'admin'
 }: NavigationHeaderProps) {
   const pathname = usePathname();
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const navigationConfig = userRole === 'admin' ? adminNavigationConfig : employeeNavigationConfig;
   const isHomeSection = navigationConfig.some(tab => pathname.startsWith(tab.path.split('/').slice(0, 3).join('/')));
@@ -45,6 +47,99 @@ export default function NavigationHeader({
   });
 
   const [isLoading, setIsLoading] = useState(true);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Fetch notifications
+  const fetchNotifications = async () => {
+    const orgId = getOrgId();
+    const empId = getEmployeeId();
+    if (orgId && empId) {
+      const data = await notificationService.getNotifications(orgId, empId);
+      setNotifications(data);
+      setUnreadCount(data.filter(n => !n.isRead).length);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    // Poll for notifications every 2 minutes
+    const interval = setInterval(fetchNotifications, 120000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Handle outside click for dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleMarkAsRead = async (id: string) => {
+    const orgId = getOrgId();
+    if (orgId) {
+      const success = await notificationService.markAsRead(orgId, id);
+      if (success) {
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    const orgId = getOrgId();
+    const empId = getEmployeeId();
+    if (orgId && empId) {
+      const success = await notificationService.markAllAsRead(orgId, empId);
+      if (success) {
+        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+        setUnreadCount(0);
+      }
+    }
+  };
+
+  const getSeverityStyles = (severity: NotificationSeverity) => {
+    switch (severity) {
+      case 'critical':
+        return {
+          bg: 'bg-red-50',
+          text: 'text-red-700',
+          border: 'border-red-100',
+          icon: <AlertCircle className="w-4 h-4 text-red-600" />,
+          dot: 'bg-red-600'
+        };
+      case 'warning':
+        return {
+          bg: 'bg-orange-50',
+          text: 'text-orange-700',
+          border: 'border-orange-100',
+          icon: <AlertTriangle className="w-4 h-4 text-orange-600" />,
+          dot: 'bg-orange-600'
+        };
+      case 'success':
+        return {
+          bg: 'bg-green-50',
+          text: 'text-green-700',
+          border: 'border-green-100',
+          icon: <CheckCircle2 className="w-4 h-4 text-green-600" />,
+          dot: 'bg-green-600'
+        };
+      case 'info':
+      default:
+        return {
+          bg: 'bg-blue-50',
+          text: 'text-blue-700',
+          border: 'border-blue-100',
+          icon: <Info className="w-4 h-4 text-blue-600" />,
+          dot: 'bg-blue-600'
+        };
+    }
+  };
 
   // Fetch user data based on role
   useEffect(() => {
@@ -336,17 +431,124 @@ export default function NavigationHeader({
 
         {/* Right Section - Icons */}
         <div className="flex items-center gap-2 md:gap-4 shrink-0">
-          {/* <button className="p-2.5 text-gray-500 hover:bg-gray-50 hover:text-blue-600 rounded-xl transition-all active:scale-95 relative">
-            <Bell className="w-5 h-5" />
-          </button> */}
+          {/* Notification Bell */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className={`p-2.5 rounded-xl transition-all active:scale-95 relative group ${showNotifications ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-blue-600'
+                }`}
+            >
+              <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'animate-wiggle' : ''}`} />
+              {unreadCount > 0 && (
+                <span className="absolute top-2 right-2 w-4 h-4 bg-red-600 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
 
-          {/* {userRole === 'admin' && (
-            <Link href="/admin/settings/permissions" className="hidden sm:block">
-              <button className="p-2.5 text-gray-500 hover:bg-gray-50 hover:text-blue-600 rounded-xl transition-all active:scale-95">
-                <Settings className="w-5 h-5" />
-              </button>
-            </Link>
-          )} */}
+            {/* Notification Dropdown */}
+            {showNotifications && (
+              <div className="absolute right-0 mt-3 w-[320px] md:w-[400px] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-in fade-in zoom-in duration-200">
+                <div className="p-4 border-b border-gray-50 flex items-center justify-between bg-white sticky top-0 z-10">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-gray-900">Notifications</h3>
+                    {unreadCount > 0 && (
+                      <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[11px] font-bold rounded-full">
+                        {unreadCount} New
+                      </span>
+                    )}
+                  </div>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={handleMarkAllAsRead}
+                      className="text-[12px] font-bold text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      Mark all as read
+                    </button>
+                  )}
+                </div>
+
+                <div className={`max-h-[400px] overflow-y-auto ${noScrollbarClass}`}>
+                  {notifications.length > 0 ? (
+                    <div className="divide-y divide-gray-50">
+                      {notifications.map((notification) => {
+                        const styles = getSeverityStyles(notification.severity);
+                        return (
+                          <div
+                            key={notification.id}
+                            className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer relative group ${!notification.isRead ? 'bg-blue-50/30' : ''
+                              }`}
+                            onClick={() => handleMarkAsRead(notification.id)}
+                          >
+                            <div className="flex gap-3">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${styles.bg} ${styles.border} border`}>
+                                {styles.icon}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <h4 className={`text-[13px] font-bold truncate ${!notification.isRead ? 'text-gray-900' : 'text-gray-600'}`}>
+                                    {notification.title}
+                                  </h4>
+                                  {!notification.isRead && (
+                                    <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${styles.dot}`}></div>
+                                  )}
+                                </div>
+                                <p className="text-[12px] text-gray-500 mt-0.5 line-clamp-2 leading-relaxed">
+                                  {notification.message}
+                                </p>
+                                <div className="flex items-center gap-3 mt-2">
+                                  <div className="flex items-center gap-1 text-[10px] font-medium text-gray-400">
+                                    <Clock className="w-3 h-3" />
+                                    {new Date(notification.createdAt).toLocaleDateString()}
+                                  </div>
+                                  <span className={`text-[10px] font-bold uppercase tracking-wider ${styles.text}`}>
+                                    {notification.severity}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            {!notification.isRead && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleMarkAsRead(notification.id);
+                                }}
+                                className="absolute right-4 bottom-4 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                                title="Mark as read"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-12 flex flex-col items-center justify-center text-center">
+                      <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                        <Bell className="w-8 h-8 text-gray-300" />
+                      </div>
+                      <h4 className="text-[14px] font-bold text-gray-900">No notifications yet</h4>
+                      <p className="text-[12px] text-gray-500 mt-1">
+                        We'll notify you when something important happens.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3 bg-gray-50 text-center border-t border-gray-100 mt-2">
+                  <Link
+                    href={userRole === 'admin' ? '/admin/notifications' : '/employee/notifications'}
+                    onClick={() => setShowNotifications(false)}
+                    className="block w-full text-[12px] font-bold text-blue-600 hover:text-blue-700 transition-colors py-1.5"
+                  >
+                    View All Activity
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="h-8 w-px bg-gray-100 mx-1 hidden sm:block"></div>
 
