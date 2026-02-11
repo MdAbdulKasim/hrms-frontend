@@ -21,8 +21,8 @@ export default function ViewContractor({ contractor, onBack }: ViewContractorPro
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center gap-4">
+        <div className="max-w-4xl mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 ">
+            <div className="flex items-center gap-2">
                 <button
                     onClick={onBack}
                     className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 transition-all"

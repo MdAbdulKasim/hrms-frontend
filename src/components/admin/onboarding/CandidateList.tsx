@@ -227,8 +227,8 @@ const CandidateList: React.FC<CandidateListProps> = ({
                     </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                    <div className="overflow-x-auto max-h-[calc(100vh-200px)] sm:max-h-[calc(100vh-250px)] overflow-y-auto">
+                <div className="bg-white rounded-lg shadow overflow-hidden flex flex-col flex-1 min-h-0">
+                    <div className="overflow-x-auto flex-1 overflow-y-auto">
                         <table className="w-full whitespace-nowrap responsive-table">
                             <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                                 <tr>

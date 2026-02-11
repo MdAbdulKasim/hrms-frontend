@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, PanelLeft, Menu, X, Check, Clock, AlertTriangle, AlertCircle, Info, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { getAuthToken, getUserDetails, setCookie, getOrgId, getEmployeeId, getUserRole, getApiUrl, clearSetupData } from '@/lib/auth';
 import { notificationService, Notification, NotificationSeverity } from '@/lib/notificationService';
 
@@ -33,6 +33,7 @@ export default function NavigationHeader({
   userRole = 'admin'
 }: NavigationHeaderProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const navigationConfig = userRole === 'admin' ? adminNavigationConfig : employeeNavigationConfig;
@@ -89,6 +90,34 @@ export default function NavigationHeader({
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
     }
+  };
+
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!notification.isRead) {
+      await handleMarkAsRead(notification.id);
+    }
+
+    const role = getUserRole();
+    const type = notification.type;
+
+    if (role === 'admin') {
+      if (['leave_applied'].includes(type)) {
+        router.push('/admin/leavetracker');
+      } else if (['contract_expiry', 'employee_contract_expiry_admin', 'contract_extended'].includes(type)) {
+        router.push('/admin/onboarding');
+      } else if (type === 'announcement') {
+        router.push('/admin/home');
+      }
+    } else {
+      if (['leave_approved', 'leave_rejected'].includes(type)) {
+        router.push('/employee/leavetracker');
+      } else if (['employee_contract_expiry', 'contract_extended'].includes(type)) {
+        router.push('/employee/profile');
+      } else if (type === 'announcement') {
+        router.push('/employee/home');
+      }
+    }
+    setShowNotifications(false);
   };
 
   const handleMarkAllAsRead = async () => {
@@ -472,14 +501,14 @@ export default function NavigationHeader({
                 <div className={`max-h-[400px] overflow-y-auto ${noScrollbarClass}`}>
                   {notifications.length > 0 ? (
                     <div className="divide-y divide-gray-50">
-                      {notifications.map((notification) => {
+                      {notifications.slice(0, 2).map((notification) => {
                         const styles = getSeverityStyles(notification.severity);
                         return (
                           <div
                             key={notification.id}
                             className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer relative group ${!notification.isRead ? 'bg-blue-50/30' : ''
                               }`}
-                            onClick={() => handleMarkAsRead(notification.id)}
+                            onClick={() => handleNotificationClick(notification)}
                           >
                             <div className="flex gap-3">
                               <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${styles.bg} ${styles.border} border`}>

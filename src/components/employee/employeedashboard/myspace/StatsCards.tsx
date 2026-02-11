@@ -19,7 +19,7 @@ export const StatsCards = ({ status, workHours, shift }: StatsProps) => {
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10 h-full">
             {stats.map((stat, idx) => (
-                <div key={idx} className="group relative bg-white/70 backdrop-blur-xl p-10 rounded-[2rem] shadow-2xl border border-white/40 flex flex-col items-center text-center transition-all duration-700 hover:shadow-3xl hover:-translate-y-4 overflow-hidden">
+                <div key={idx} className="group relative bg-white/70 backdrop-blur-xl p-10 rounded-[5rem] shadow-2xl border border-white/40 flex flex-col items-center text-center transition-all duration-700 hover:shadow-3xl hover:-translate-y-4 overflow-hidden">
                     {/* Decorative element */}
                     <div className={`absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br ${stat.color} opacity-5 blur-3xl group-hover:opacity-20 transition-opacity duration-700`} />
 
@@ -28,7 +28,7 @@ export const StatsCards = ({ status, workHours, shift }: StatsProps) => {
                     </div>
 
                     <div className="relative z-10">
-                        <h3 className="text-3xl font-bold text-slate-900 tracking-tight mb-3 leading-none uppercase truncate drop-shadow-sm">
+                        <h3 className="text-[25px] font-bold text-slate-900 tracking-tight mb-3 leading-none uppercase truncate drop-shadow-sm">
                             {stat.value}
                         </h3>
                         <p className="text-[13px] font-bold text-slate-400 uppercase tracking-[0.25em] leading-tight">
