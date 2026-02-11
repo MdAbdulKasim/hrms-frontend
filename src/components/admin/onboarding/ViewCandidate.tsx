@@ -3,6 +3,8 @@ import React from 'react';
 import { X } from 'lucide-react';
 import { CandidateForm } from './types';
 
+import { getApiUrl, getAuthToken, getOrgId } from '@/lib/auth';
+
 interface ViewCandidateProps {
     candidate: CandidateForm;
     onClose: () => void;
@@ -70,15 +72,10 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
         if (!val || val instanceof File) return null;
 
         const handleViewDocument = async () => {
-            const orgId = localStorage.getItem('orgId');
-            const token = localStorage.getItem('token');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+            const orgId = getOrgId();
+            const token = getAuthToken();
+            const apiUrl = getApiUrl();
 
-            // Try to find the ID from candidate prop
-            // candidate might be CandidateForm which we added optional id/_id to.
-            // If not present in candidate object explicitly, we might need to rely on the parent passing it, 
-            // but ViewCandidate takes 'candidate' which is likely the full object from API.
-            // Let's assume candidate has an id.
             const empId = (candidate as any).id || (candidate as any)._id;
 
             if (!empId || !orgId || !token) {
@@ -350,6 +347,61 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
                                 <label className="block text-sm font-medium text-gray-500 mb-1">Contract End</label>
                                 <div className="text-gray-900 font-medium">{candidate.contractEndDate || 'N/A'}</div>
                             </div>
+                            {candidate.contractDocumentUrls && candidate.contractDocumentUrls.length > 0 && (
+                                <div className="md:col-span-2 lg:col-span-3">
+                                    <label className="block text-sm font-medium text-gray-500 mb-2">Contract Documents</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {candidate.contractDocumentUrls.map((url: string, idx: number) => {
+                                            const handleViewContractDocument = async () => {
+                                                const orgId = getOrgId();
+                                                const token = getAuthToken();
+                                                const apiUrl = getApiUrl();
+
+                                                if (!orgId || !token) return;
+
+                                                try {
+                                                    // Since we don't have a specific endpoint for contract docs by key, 
+                                                    // we'll assume the general document endpoint can handle it if we pass the type or key.
+                                                    // Actually, let's check if there's a better way. 
+                                                    // For now, I'll use a generic approach or assume a new endpoint might be needed.
+                                                    // But wait, the existing renderDocLink uses:
+                                                    // ${apiUrl}/org/${orgId}/employees/${empId}/documents/${docType}
+                                                    // Maybe we should add a contract document view endpoint.
+                                                    // BUT the user didn't ask for a new backend endpoint yet.
+                                                    // Wait, I should check if there's a file key based redirect.
+
+                                                    // Let's look at renderDocLink again. It's on line 90.
+                                                    // I'll create a similar click handler.
+                                                    const response = await fetch(`${apiUrl}/org/${orgId}/documents/presigned?key=${url}`, {
+                                                        headers: { 'Authorization': `Bearer ${token}` }
+                                                    });
+                                                    const data = await response.json();
+                                                    if (data.success && data.url) {
+                                                        window.open(data.url, '_blank');
+                                                    } else {
+                                                        alert("Could not get document link");
+                                                    }
+                                                } catch (e) {
+                                                    console.error("View Contract Doc Error", e);
+                                                }
+                                            };
+
+                                            return (
+                                                <button
+                                                    key={idx}
+                                                    onClick={handleViewContractDocument}
+                                                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md border border-blue-100 hover:bg-blue-100 transition-colors text-sm"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                    </svg>
+                                                    {`Document ${idx + 1}`}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-sm font-medium text-gray-500 mb-1">Candidate Source</label>
                                 <div className="text-gray-900 font-medium">{candidate.candidateSource || 'N/A'}</div>

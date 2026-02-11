@@ -66,23 +66,20 @@ export const ContractService = {
      * @param contractData - Contract details
      * @returns The created contract
      */
-    async createContract(contractData: {
-        employeeNumber: string;
-        contractType: string;
-        startDate: Date | string;
-        endDate?: Date | string;
-        basicSalary: number;
-        allowances?: any;
-        deductions?: any;
-    }) {
+    async createContract(contractData: any) {
         const apiUrl = getApiUrl();
         const orgId = getOrgId();
         const token = getAuthToken();
 
+        const headers: any = { Authorization: `Bearer ${token}` };
+        if (contractData instanceof FormData) {
+            headers['Content-Type'] = 'multipart/form-data';
+        }
+
         const response = await axios.post(
             `${apiUrl}/org/${orgId}/contracts`,
             contractData,
-            { headers: { Authorization: `Bearer ${token}` } }
+            { headers }
         );
 
         return response.data.data || response.data;
@@ -94,7 +91,7 @@ export const ContractService = {
      * @param contractData - Partial contract details to update
      * @returns The updated contract
      */
-    async updateContract(contractId: string, contractData: Partial<Contract> & { basicSalary?: number }) {
+    async updateContract(contractId: string, contractData: any) {
         const apiUrl = getApiUrl();
         const orgId = getOrgId();
         const token = getAuthToken();
@@ -103,10 +100,15 @@ export const ContractService = {
             throw new Error('Missing required parameters for contract update');
         }
 
+        const headers: any = { Authorization: `Bearer ${token}` };
+        if (contractData instanceof FormData) {
+            headers['Content-Type'] = 'multipart/form-data';
+        }
+
         const response = await axios.put(
             `${apiUrl}/org/${orgId}/contracts/${contractId}`,
             contractData,
-            { headers: { Authorization: `Bearer ${token}` } }
+            { headers }
         );
 
         return response.data.data || response.data;
