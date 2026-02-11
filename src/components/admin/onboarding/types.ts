@@ -42,6 +42,7 @@ export interface Employee {
     accountNumber?: string;
     accountHolderName?: string;
     ifscCode?: string;
+    contractDocumentUrls?: string[];
 }
 
 export interface AccommodationAllowance {
@@ -95,7 +96,7 @@ export interface CandidateForm {
     timeZone: string;
     empType: string;
     siteId?: string;
-    buildingId?: string;    
+    buildingId?: string;
     teamPosition?: string;
     // Contract Details
     contractId?: string; // To track existing contract for updates
@@ -172,6 +173,7 @@ export interface CandidateForm {
     mobileNumber?: string;
     employeeType?: string;
     employeeStatus?: string;
+    contractDocumentUrls?: string[];
 }
 
 export type OnboardingView = 'list' | 'addCandidate' | 'bulkImport' | 'viewCandidate' | 'editCandidate';

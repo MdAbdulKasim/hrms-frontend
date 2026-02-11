@@ -494,18 +494,26 @@ const EmployeeOnboardingSystem: React.FC = () => {
         // Create contract if contract details are provided
         if (employeeNumber && candidateForm.contractType && candidateForm.contractStartDate) {
           try {
-            const contractData: any = {
-              employeeNumber: employeeNumber,
-              contractType: candidateForm.contractType,
-              startDate: candidateForm.contractStartDate,
-              endDate: candidateForm.contractEndDate || undefined,
-              basicSalary: Number(candidateForm.basicSalary) || 0,
-              allowances: allowances,
-              deductions: deductions
-            };
+            const contractFormData = new FormData();
+            contractFormData.append('employeeNumber', employeeNumber);
+            contractFormData.append('contractType', candidateForm.contractType);
+            contractFormData.append('startDate', candidateForm.contractStartDate);
+            if (candidateForm.contractEndDate) {
+              contractFormData.append('endDate', candidateForm.contractEndDate);
+            }
+            contractFormData.append('basicSalary', String(candidateForm.basicSalary || 0));
+            contractFormData.append('allowances', JSON.stringify(allowances));
+            contractFormData.append('deductions', JSON.stringify(deductions));
 
-            console.log("Creating contract with data:", contractData);
-            await ContractService.createContract(contractData);
+            // Append contract documents here
+            if (candidateForm.contractDocuments && candidateForm.contractDocuments.length > 0) {
+              candidateForm.contractDocuments.forEach((file: File) => {
+                contractFormData.append('contractDocuments', file);
+              });
+            }
+
+            console.log("Creating contract with FormData");
+            await ContractService.createContract(contractFormData);
             console.log("Contract created successfully");
           } catch (contractError: any) {
             console.error("Failed to create contract:", contractError);
@@ -729,7 +737,8 @@ const EmployeeOnboardingSystem: React.FC = () => {
         },
         // Education & Experience
         education: emp.education || [],
-        experience: emp.experience || []
+        experience: emp.experience || [],
+        contractDocumentUrls: activeContract?.contractDocumentUrls || []
       };
       setSelectedCandidate(form);
       setCurrentView('viewCandidate');
@@ -902,6 +911,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
         drivingLicenseCopy: emp.drivingLicenseCopyUrl || '',
         uidCopy: emp.uidCopyUrl || '',
         iqamaCopy: emp.iqamaCopyUrl || '',
+        contractDocumentUrls: activeContract?.contractDocumentUrls || []
       });
 
       setEditingEmployeeId(id);
@@ -1092,28 +1102,33 @@ const EmployeeOnboardingSystem: React.FC = () => {
       // Handle contract update/creation
       if (candidateForm.contractType && candidateForm.contractStartDate) {
         try {
-          const contractData: any = {
-            employeeNumber: candidateForm.employeeNumber,
-            contractType: candidateForm.contractType,
-            startDate: candidateForm.contractStartDate,
-            endDate: candidateForm.contractEndDate || undefined,
-            basicSalary: Number(candidateForm.basicSalary) || 0,
-            allowances: allowances,
-            deductions: deductions
-          };
+          const contractFormData = new FormData();
+          contractFormData.append('employeeNumber', candidateForm.employeeNumber || '');
+          contractFormData.append('contractType', candidateForm.contractType || 'permanent');
+          contractFormData.append('startDate', candidateForm.contractStartDate);
+          if (candidateForm.contractEndDate) {
+            contractFormData.append('endDate', candidateForm.contractEndDate);
+          }
+          contractFormData.append('basicSalary', String(candidateForm.basicSalary || 0));
+          contractFormData.append('allowances', JSON.stringify(allowances));
+          contractFormData.append('deductions', JSON.stringify(deductions));
+
+          // Append contract documents
+          if (candidateForm.contractDocuments && candidateForm.contractDocuments.length > 0) {
+            candidateForm.contractDocuments.forEach((file: File) => {
+              contractFormData.append('contractDocuments', file);
+            });
+          }
 
           // Check if contract ID exists (means we need to update)
           if (candidateForm.contractId) {
-            console.log("Updating contract ID:", candidateForm.contractId, "with data:", contractData);
-            await ContractService.updateContract(candidateForm.contractId, contractData);
+            console.log("Updating contract ID:", candidateForm.contractId, "with FormData");
+            await ContractService.updateContract(candidateForm.contractId, contractFormData);
             console.log("Contract updated successfully");
           } else if (candidateForm.employeeNumber) {
             // Create new contract for existing employee
-            console.log("Creating new contract for existing employee with data:", contractData);
-            await ContractService.createContract({
-              ...contractData,
-              employeeNumber: candidateForm.employeeNumber // Ensure employeeNumber is present
-            });
+            console.log("Creating new contract for existing employee with FormData");
+            await ContractService.createContract(contractFormData);
             console.log("Contract created successfully");
           }
         } catch (contractError: any) {
