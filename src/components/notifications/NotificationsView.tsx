@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { Bell, Clock, Check, AlertCircle, AlertTriangle, Info, CheckCircle2, ChevronRight, Search, Filter, FileText, Calendar, UserCheck, UserX, UserMinus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { notificationService, Notification, NotificationSeverity } from '@/lib/notificationService';
-import { getOrgId, getEmployeeId } from '@/lib/auth';
+import { getOrgId, getEmployeeId, getUserRole } from '@/lib/auth';
 import { format } from 'date-fns';
 
 export default function NotificationsView() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [filter, setFilter] = useState<'all' | 'unread'>('all');
+    const [filter, setFilter] = useState<'all' | 'unread'>('unread');
+    const router = useRouter();
 
     const fetchNotifications = async () => {
         const orgId = getOrgId();
@@ -32,6 +34,33 @@ export default function NotificationsView() {
             const success = await notificationService.markAsRead(orgId, id);
             if (success) {
                 setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+            }
+        }
+    };
+
+    const handleNotificationClick = async (notification: Notification) => {
+        if (!notification.isRead) {
+            await handleMarkAsRead(notification.id);
+        }
+
+        const role = getUserRole();
+        const type = notification.type;
+
+        if (role === 'admin') {
+            if (['leave_applied'].includes(type)) {
+                router.push('/admin/leavetracker');
+            } else if (['contract_expiry', 'employee_contract_expiry_admin', 'contract_extended'].includes(type)) {
+                router.push('/admin/onboarding');
+            } else if (type === 'announcement') {
+                router.push('/admin/home');
+            }
+        } else {
+            if (['leave_approved', 'leave_rejected'].includes(type)) {
+                router.push('/employee/leavetracker');
+            } else if (['employee_contract_expiry', 'contract_extended'].includes(type)) {
+                router.push('/employee/profile');
+            } else if (type === 'announcement') {
+                router.push('/employee/home');
             }
         }
     };
@@ -85,6 +114,14 @@ export default function NotificationsView() {
                     border: 'border-orange-100',
                     label: 'Contract Alert'
                 };
+            case 'announcement':
+                return {
+                    ...severityStyles,
+                    icon: <Bell className="w-5 h-5 text-purple-600" />,
+                    bg: 'bg-purple-50',
+                    border: 'border-purple-100',
+                    label: 'Announcement'
+                };
             default:
                 return {
                     ...severityStyles,
@@ -132,7 +169,7 @@ export default function NotificationsView() {
     };
 
     const filteredNotifications = filter === 'all'
-        ? notifications
+        ? notifications.filter(n => n.isRead)
         : notifications.filter(n => !n.isRead);
 
     return (
@@ -178,7 +215,7 @@ export default function NotificationsView() {
                         : 'text-gray-500 hover:text-gray-900'
                         }`}
                 >
-                    Unread
+                    Unread ({notifications.filter(n => !n.isRead).length})
                 </button>
             </div>
 
@@ -203,7 +240,7 @@ export default function NotificationsView() {
                             return (
                                 <div
                                     key={notification.id}
-                                    onClick={() => handleMarkAsRead(notification.id)}
+                                    onClick={() => handleNotificationClick(notification)}
                                     className={`group p-6 hover:bg-gray-50/80 transition-all cursor-pointer relative ${!notification.isRead ? 'bg-blue-50/20' : ''
                                         }`}
                                 >
@@ -218,8 +255,10 @@ export default function NotificationsView() {
                                                     <h3 className={`text-base font-bold truncate ${!notification.isRead ? 'text-gray-900' : 'text-gray-600'}`}>
                                                         {notification.title}
                                                     </h3>
-                                                    {!notification.isRead && (
+                                                    {!notification.isRead ? (
                                                         <span className="shrink-0 px-2 py-0.5 bg-blue-600 text-[10px] font-bold text-white rounded-full uppercase tracking-wider">New</span>
+                                                    ) : (
+                                                        <span className="shrink-0 px-2 py-0.5 bg-gray-100 text-[10px] font-bold text-gray-500 rounded-full uppercase tracking-wider border border-gray-200">Read</span>
                                                     )}
                                                 </div>
                                                 <span className="text-xs font-bold text-gray-400 whitespace-nowrap bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
@@ -242,17 +281,6 @@ export default function NotificationsView() {
                                                         {format(new Date(notification.createdAt), 'hh:mm a')}
                                                     </div>
                                                 </div>
-
-                                                {notification.type === 'leave_applied' && (
-                                                    <div className="flex items-center gap-2">
-                                                        <button className="px-3 py-1 text-[10px] font-bold text-green-700 bg-green-50 border border-green-100 rounded-lg hover:bg-green-100 transition-colors">
-                                                            Approve
-                                                        </button>
-                                                        <button className="px-3 py-1 text-[10px] font-bold text-red-700 bg-red-50 border border-red-100 rounded-lg hover:bg-red-100 transition-colors">
-                                                            Reject
-                                                        </button>
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
 

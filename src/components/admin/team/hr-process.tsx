@@ -35,7 +35,9 @@ interface Employee {
   department: string;
   location: string;
   salary: number;
+  status: string;
   dateOfJoining?: string;
+  contractEndDate?: string;
 }
 
 interface LocationData extends Resource {
@@ -196,7 +198,9 @@ export default function HRProcessPage() {
             department: deptName || 'N/A',
             location: locName || 'N/A',
             salary: Number(e.basicSalary) || Number(e.salary) || Number(e.activeContract?.basicSalary) || 0,
-            dateOfJoining: joiningDate
+            status: e.status || 'Active',
+            dateOfJoining: joiningDate,
+            contractEndDate: e.contractEndDate || e.activeContract?.endDate
           };
         }));
 
@@ -220,9 +224,16 @@ export default function HRProcessPage() {
         (emp.department?.toLowerCase() || '').includes(term) ||
         (emp.location?.toLowerCase() || '').includes(term)
       ) &&
-      !selectedIds.includes(emp.id)
+      !selectedIds.includes(emp.id) &&
+      emp.status?.toLowerCase() === 'active'
     );
   }, [allEmployees, employeeSearch, selectedIds]);
+
+  const terminatedEmployees = useMemo(() => {
+    return allEmployees.filter(emp =>
+      emp.status?.toLowerCase() === 'terminated' || emp.status?.toLowerCase() === 'inactive'
+    );
+  }, [allEmployees]);
 
   const selectedEmployees = useMemo(() => {
     return allEmployees.filter(emp => selectedIds.includes(emp.id));
@@ -513,11 +524,7 @@ export default function HRProcessPage() {
 
               <div className="space-y-10">
                 {/* Context: Global Data Info */}
-                {/* <div className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
-                  <LayoutGrid size={18} className="text-blue-500" />
-                  {/* <p className="text-xs font-semibold text-blue-700">
-                  Showing all available <span className="font-bold underline">{activeTab}</span> options from the database.
-                </p> */}
+                {/* Context: Global Data Info */}
 
 
                 {/* Tab: Department */}
@@ -694,14 +701,33 @@ export default function HRProcessPage() {
                         </div>
                       </div>
                       <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">End Date (Termination)</label>
+                        <div className="w-full p-3 bg-gray-100 rounded-lg border border-gray-200 text-sm text-gray-700">
+                          {selectedEmployees[0]?.contractEndDate ? new Date(selectedEmployees[0].contractEndDate).toLocaleDateString() : 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          End Date (Termination) <span className="text-red-500">*</span>
+                          Termination Date <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="date"
                           className="w-full p-3 bg-white rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                           value={form.date}
                           onChange={(e) => setForm({ ...form, date: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Termination Remark</label>
+                        <textarea
+                          className="w-full p-3 bg-white rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+                          rows={1}
+                          placeholder="Optional notes..."
+                          value={form.reason}
+                          onChange={(e) => setForm({ ...form, reason: e.target.value })}
                         />
                       </div>
                     </div>
@@ -773,6 +799,91 @@ export default function HRProcessPage() {
                         })()}
                       </div>
                     )}
+
+                    {/* Submit Button for Termination */}
+                    <div className="flex justify-end pt-4">
+                      <button
+                        onClick={handleProcess}
+                        disabled={selectedIds.length === 0 || !form.date || isProcessing}
+                        className={`px-6 py-3 text-white rounded-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-red-600 hover:bg-red-700`}
+                      >
+                        {isProcessing ? (
+                          <>Processing...</>
+                        ) : (
+                          <>
+                            <X size={18} />
+                            Terminate Employee
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Termination History Section */}
+                    <div className="mt-12 pt-8 border-t border-gray-100">
+                      <div className="flex items-center justify-between mb-6">
+                        <div>
+                          <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                            <History className="w-5 h-5 text-red-600" />
+                            Termination History
+                          </h3>
+                          <p className="text-sm text-gray-500 mt-1">List of all terminated and inactive candidates</p>
+                        </div>
+                        <div className="px-4 py-1.5 bg-red-50 text-red-700 text-xs font-bold rounded-full border border-red-100 uppercase tracking-wider">
+                          {terminatedEmployees.length} Total
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-50/50 rounded-2xl border border-gray-100 overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-100/50 border-b border-gray-100">
+                            <tr>
+                              <th className="px-6 py-4 text-left font-bold text-gray-600 uppercase tracking-wider text-[10px]">Name & ID</th>
+                              <th className="px-6 py-4 text-left font-bold text-gray-600 uppercase tracking-wider text-[10px]">Department</th>
+                              <th className="px-6 py-4 text-left font-bold text-gray-600 uppercase tracking-wider text-[10px]">Designation</th>
+                              <th className="px-6 py-4 text-left font-bold text-gray-600 uppercase tracking-wider text-[10px]">Last Working Date</th>
+                              <th className="px-6 py-4 text-right font-bold text-gray-600 uppercase tracking-wider text-[10px]">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {terminatedEmployees.length > 0 ? (
+                              terminatedEmployees.map((emp) => (
+                                <tr key={emp.id} className="hover:bg-white transition-colors group">
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-bold text-xs text-gray-600">
+                                        {emp.name.split(' ').map(n => n[0]).join('')}
+                                      </div>
+                                      <div>
+                                        <p className="font-bold text-gray-900">{emp.name}</p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 font-medium text-gray-600">{emp.department}</td>
+                                  <td className="px-6 py-4 font-medium text-gray-600">{emp.role}</td>
+                                  <td className="px-6 py-4 font-medium text-gray-600">
+                                    {emp.dateOfJoining ? new Date(emp.dateOfJoining).toLocaleDateString() : 'N/A'}
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${emp.status?.toLowerCase() === 'terminated'
+                                      ? 'bg-red-50 text-red-700 border-red-100'
+                                      : 'bg-gray-100 text-gray-700 border-gray-200'
+                                      }`}>
+                                      {emp.status}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan={5} className="px-6 py-12 text-center text-gray-500 font-medium leading-relaxed italic">
+                                  No termination history found in the system.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -958,11 +1069,11 @@ export default function HRProcessPage() {
                 )}
 
                 {/* Common Fields */}
-                {activeTab !== 'Custom' && (
+                {activeTab !== 'Custom' && activeTab !== 'Termination' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6 border-t border-gray-200">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {activeTab === 'Termination' ? 'Termination Date' : 'Effective Date'} <span className="text-red-500">*</span>
+                        Effective Date <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="date"
@@ -972,7 +1083,7 @@ export default function HRProcessPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">{activeTab === 'Termination' ? 'Termination Remark' : 'Remarks'}</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
                       <textarea
                         className="w-full p-3 bg-white rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
                         rows={1}
@@ -985,132 +1096,131 @@ export default function HRProcessPage() {
                 )}
 
                 {/* Submit Button */}
-                <div className="flex justify-end pt-4">
-                  <button
-                    onClick={handleProcess}
-                    disabled={selectedIds.length === 0 || !form.date || isProcessing}
-                    className={`px-6 py-3 text-white rounded-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${activeTab === 'Termination'
-                      ? 'bg-red-600 hover:bg-red-700'
-                      : 'bg-blue-600 hover:bg-blue-700'
-                      }`}
-                  >
-                    {isProcessing ? (
-                      <>Processing...</>
-                    ) : (
-                      <>
-                        {activeTab === 'Termination' ? <X size={18} /> : <ArrowRight size={18} />}
-                        {activeTab === 'Termination' ? 'Terminate Employee' : 'Process Request'}
-                      </>
-                    )}
-                  </button>
-                </div>
+                {activeTab !== 'Termination' && (
+                  <div className="flex justify-end pt-4">
+                    <button
+                      onClick={handleProcess}
+                      disabled={selectedIds.length === 0 || !form.date || isProcessing}
+                      className={`px-6 py-3 text-white rounded-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-700`}
+                    >
+                      {isProcessing ? (
+                        <>Processing...</>
+                      ) : (
+                        <>
+                          <ArrowRight size={18} />
+                          Process Request
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
+            </div>
+          </div>
+
+          {/* History Section */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <History className="w-5 h-5 text-blue-600" />
+                Process History
+              </h3>
+              {history.length > 0 && (
+                <button
+                  onClick={() => {
+                    showConfirm(
+                      "Clear History",
+                      "Are you sure you want to clear all process history? This action cannot be undone.",
+                      () => {
+                        setHistory([]);
+                        localStorage.removeItem('hr_process_history');
+                      }
+                    );
+                  }}
+                  className="text-sm text-red-600 hover:text-red-700 font-medium flex items-center gap-1"
+                >
+                  <Trash2 size={14} />
+                  Clear
+                </button>
+              )}
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employees</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Change</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {history.filter(req => !req.endTime).map((req) => (
+                    <tr key={req.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm font-medium text-blue-600">#{req.id}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">{req.employeeNames}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${req.type === 'Promotion' ? 'bg-green-100 text-green-700' :
+                          req.type === 'Location' ? 'bg-orange-100 text-orange-700' :
+                            req.type === 'Termination' ? 'bg-red-100 text-red-700' :
+                              req.type === 'Custom' ? 'bg-purple-100 text-purple-700' :
+                                'bg-blue-100 text-blue-700'
+                          }`}>
+                          {req.type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        <div className="flex items-center gap-2">
+                          <span>{req.from}</span>
+                          <ChevronRight size={14} className="text-gray-400" />
+                          <span className="font-medium">{req.to}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">{req.effectiveDate}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 size={16} className="text-green-500" />
+                          <span className="text-sm text-gray-700">Completed</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {history.filter(req => !req.endTime).length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-10 text-center text-gray-500 text-sm">
+                        No process history available
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
 
-        {/* History Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-            <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <History className="w-5 h-5 text-blue-600" />
-              Process History
-            </h3>
-            {history.length > 0 && (
-              <button
-                onClick={() => {
-                  showConfirm(
-                    "Clear History",
-                    "Are you sure you want to clear all process history? This action cannot be undone.",
-                    () => {
-                      setHistory([]);
-                      localStorage.removeItem('hr_process_history');
-                    }
-                  );
-                }}
-                className="text-sm text-red-600 hover:text-red-700 font-medium flex items-center gap-1"
-              >
-                <Trash2 size={14} />
-                Clear
-              </button>
-            )}
-          </div>
+        <CustomAlertDialog
+          open={alertState.open}
+          onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+          title={alertState.title}
+          description={alertState.description}
+          variant={alertState.variant}
+        />
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employees</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Change</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {history.filter(req => !req.endTime).map((req) => (
-                  <tr key={req.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm font-medium text-blue-600">#{req.id}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">{req.employeeNames}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${req.type === 'Promotion' ? 'bg-green-100 text-green-700' :
-                        req.type === 'Location' ? 'bg-orange-100 text-orange-700' :
-                          req.type === 'Termination' ? 'bg-red-100 text-red-700' :
-                            req.type === 'Custom' ? 'bg-purple-100 text-purple-700' :
-                              'bg-blue-100 text-blue-700'
-                        }`}>
-                        {req.type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      <div className="flex items-center gap-2">
-                        <span>{req.from}</span>
-                        <ChevronRight size={14} className="text-gray-400" />
-                        <span className="font-medium">{req.to}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{req.effectiveDate}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 size={16} className="text-green-500" />
-                        <span className="text-sm text-gray-700">Completed</span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {history.filter(req => !req.endTime).length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-10 text-center text-gray-500 text-sm">
-                      No process history available
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <ConfirmDialog
+          open={confirmState.open}
+          onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
+          title={confirmState.title}
+          description={confirmState.description}
+          onConfirm={() => {
+            confirmState.onConfirm();
+            setConfirmState(prev => ({ ...prev, open: false }));
+          }}
+          variant="destructive"
+        />
       </div>
-
-      <CustomAlertDialog
-        open={alertState.open}
-        onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
-        title={alertState.title}
-        description={alertState.description}
-        variant={alertState.variant}
-      />
-
-      <ConfirmDialog
-        open={confirmState.open}
-        onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
-        title={confirmState.title}
-        description={confirmState.description}
-        onConfirm={() => {
-          confirmState.onConfirm();
-          setConfirmState(prev => ({ ...prev, open: false }));
-        }}
-        variant="destructive"
-      />
     </div>
   );
 }

@@ -595,7 +595,7 @@ const ActivitiesSection = ({ currentUser }: { currentUser: CurrentUser | null })
   const currentDayBg = dayColors[dayIndex];
 
   return (
-    <div className={`relative overflow-hidden bg-gradient-to-r ${currentDayBg} rounded-[2.5rem] p-6 shadow-2xl group transition-all duration-700 hover:scale-[1.01]`}>
+    <div className={`relative overflow-hidden bg-gradient-to-r ${currentDayBg} rounded-[2.5rem] p-3 shadow-2xl group transition-all duration-700 hover:scale-[1.01]`}>
       {/* Decorative background patterns */}
       <div className="absolute top-0 right-0 -mt-20 -mr-20 w-64 h-64 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all duration-700" />
       <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-48 h-48 bg-black/10 rounded-full blur-2xl" />
@@ -608,7 +608,7 @@ const ActivitiesSection = ({ currentUser }: { currentUser: CurrentUser | null })
           <div>
             <h3 className="text-white text-2xl font-black not-italic leading-tight italic">
               Welcome back,
-              <span className="block text-white/90 font-black not-italic mt-1 text-3xl">
+              <span className="block text-white/90 font-black not-italic leading-tight italicmt-1 text-2xl">
                 {currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'User'}
               </span>
             </h3>
