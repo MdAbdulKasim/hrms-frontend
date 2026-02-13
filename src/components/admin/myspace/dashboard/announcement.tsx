@@ -211,10 +211,10 @@ const AnnouncementsSection: React.FC = () => {
           {!isEmployee && (
             <button
               onClick={() => setShowAnnouncementModal(true)}
-              className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-blue-600 transition-all bg-slate-50 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-slate-100 hover:border-blue-100"
+              className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-blue-600 transition-all bg-slate-50 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-slate-300 hover:border-blue-100"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add</span>
+              <Plus className="w-3.5 h-3.5 text-blue-600" />
+              <span className="text-blue-600">Add</span>
             </button>
           )}
         </div>

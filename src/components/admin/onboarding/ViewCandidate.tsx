@@ -221,6 +221,11 @@ const ViewCandidate: React.FC<ViewCandidateProps> = ({
                                 <div className="text-gray-900 font-medium uppercase">{candidate.iqamaId || 'N/A'}</div>
                                 {renderDocLink('iqama', candidate.iqamaCopy)}
                             </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-500 mb-1">IBAN Number</label>
+                                <div className="text-gray-900 font-medium uppercase">{candidate.iban || 'N/A'}</div>
+                                {renderDocLink('iban', candidate.ibanCopy)}
+                            </div>
                         </div>
                     </div>
 

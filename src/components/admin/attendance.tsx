@@ -149,215 +149,139 @@ const AttendanceTracker: React.FC = () => {
         let adminRealTimeRecord: any = null;
         let foundMyRecord: any = null;
 
-        // 1. If DAILY view, fetch daily attendance for everyone first (Single source of truth)
-        if (viewMode === 'daily') {
-          const dailyRes = await attendanceService.getDailyAttendance(orgId, startDateStr);
-          if (dailyRes && !dailyRes.error) {
-            const rawDaily = dailyRes as any;
-            dailyAttendanceData = Array.isArray(rawDaily) ? rawDaily :
-              (rawDaily.data && Array.isArray(rawDaily.data) ? rawDaily.data :
-                (rawDaily.data && Array.isArray(rawDaily.data.attendance) ? rawDaily.data.attendance : []));
-          }
-
-          // Populate Admin Records from this Daily Data
-          const myId = getCookie('hrms_user_id');
-
-          if (myId) {
-            foundMyRecord = dailyAttendanceData.find((r: any) =>
-              r.employeeId === myId ||
-              (r.employee && (r.employee.id === myId || r.employee._id === myId))
-            );
-          }
-
-          if (foundMyRecord) {
-            // Found in daily list data
-            const hasCheckedIn = !!(foundMyRecord.checkInTime || foundMyRecord.checkIn);
-            const hasCheckedOut = !!(foundMyRecord.checkOutTime || foundMyRecord.checkOut);
-            const isToday = isSameDay(new Date(), parse(startDateStr, 'yyyy-MM-dd', new Date()));
-
-            let status = 'Absent';
-            if (hasCheckedIn) {
-              if (hasCheckedOut) {
-                status = 'Present';
-                if (foundMyRecord.status === 'Late') status = 'Late';
-              } else {
-                status = isToday ? 'Present' : 'Absent';
-              }
-            }
-
-            const record = {
-              date: startDateStr,
-              checkInTime: foundMyRecord.checkInTime || foundMyRecord.checkIn,
-              checkOutTime: foundMyRecord.checkOutTime || foundMyRecord.checkOut,
-              totalHours: foundMyRecord.totalHours || foundMyRecord.hoursWorked,
-              status: foundMyRecord.status || status
-            };
-            setAdminRecords([record]);
-            adminRealTimeRecord = record;
-          } else {
-            // Not found in daily list (or list empty).
-            // If TODAY, try getStatus as fallback/supplement
-            if (isSameDay(currentDate, new Date())) {
-              const statusRes = await attendanceService.getStatus(orgId);
-              let currentStatusRecord: PersonalAttendanceRecord = {
-                date: format(currentDate, 'yyyy-MM-dd'),
-                status: 'Absent'
-              };
-
-              if (statusRes && !statusRes.error) {
-                const rawData = statusRes.data as any;
-                if (rawData) {
-                  currentStatusRecord = {
-                    date: rawData.date ? (typeof rawData.date === 'string' && rawData.date.includes('T') ? format(new Date(rawData.date), 'yyyy-MM-dd') : rawData.date) : format(currentDate, 'yyyy-MM-dd'),
-                    checkInTime: rawData.checkInTime || rawData.checkIn,
-                    checkOutTime: rawData.checkOutTime || rawData.checkOut,
-                    totalHours: rawData.totalHours || rawData.hoursWorked,
-                    status: rawData.status || (rawData.checkInTime || rawData.checkIn ? 'Present' : 'Absent'),
-                    standardHours: rawData.standardHours,
-                    overtimeHours: rawData.overtimeHours
-                  };
-                }
-              }
-              setAdminRecords([currentStatusRecord]);
-              adminRealTimeRecord = currentStatusRecord;
-            } else {
-              // Past day, not in list -> Absent
-              setAdminRecords([{ date: startDateStr, status: 'Absent' }]);
-            }
-          }
-        } else {
-          // Weekly/Monthly/Yearly -> Use getMyHistory
-          const adminHistoryRes = await attendanceService.getMyHistory(orgId, startDateStr, endDateStr);
-          if (adminHistoryRes && !adminHistoryRes.error) {
-            const rawData = adminHistoryRes as any;
-            const records = rawData.attendance ||
-              (rawData.data && rawData.data.attendance) ||
-              (Array.isArray(rawData.data) ? rawData.data : (Array.isArray(rawData) ? rawData : []));
-            setAdminRecords(records);
-          }
-        }
-
-        // 2. Populate All Employees Table
-        let employeeRecords: AttendanceRecord[] = [];
+        // Prepare team and personal data promises
         const qParam = selectedEmployee !== 'all' ? selectedEmployee : searchQuery;
+        const myId = getCookie('hrms_user_id');
 
-        if (viewMode === 'daily' && !qParam) {
-          // Use the ALREADY FETCHED dailyAttendanceData
-          employeeRecords = dailyAttendanceData.map((r: any) => {
+        const teamPromise = (viewMode === 'daily' && !qParam)
+          ? attendanceService.getDailyAttendance(orgId, startDateStr)
+          : attendanceService.searchAttendance(orgId, qParam, startDateStr, endDateStr);
+
+        const personalPromise = (viewMode === 'daily')
+          ? (isSameDay(currentDate, new Date()) ? attendanceService.getStatus(orgId) : Promise.resolve({ data: { date: startDateStr, status: 'Absent' }, error: null } as any))
+          : attendanceService.getMyHistory(orgId, startDateStr, endDateStr);
+
+        // Fetch in parallel
+        const [teamRes, personalRes] = await Promise.allSettled([teamPromise, personalPromise]);
+
+        // 1. Process Team Records
+        let employeeRecords: AttendanceRecord[] = [];
+        if (teamRes.status === 'fulfilled' && teamRes.value && !teamRes.value.error) {
+          const rawTeam = teamRes.value as any;
+          const data = (viewMode === 'daily' && !qParam)
+            ? (rawTeam.data && Array.isArray(rawTeam.data) ? rawTeam.data : (rawTeam.data && Array.isArray(rawTeam.data.attendance) ? rawTeam.data.attendance : (Array.isArray(rawTeam) ? rawTeam : [])))
+            : ((rawTeam.data && Array.isArray(rawTeam.data)) ? rawTeam.data : (Array.isArray(rawTeam) ? rawTeam : []));
+
+          if (viewMode === 'daily' && !qParam) {
+            dailyAttendanceData = data;
+          }
+
+          employeeRecords = data.map((r: any) => {
             const rawStatus = r.status?.toLowerCase();
             const hasCheckedIn = !!(r.checkInTime || r.checkIn);
             const hasCheckedOut = !!(r.checkOutTime || r.checkOut);
-            const isToday = isSameDay(new Date(), parse(startDateStr, 'yyyy-MM-dd', new Date()));
+            const recordDateStr = r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : startDateStr;
+            const isToday = isSameDay(new Date(), parse(recordDateStr, 'yyyy-MM-dd', new Date()));
 
-            let status = 'Absent';
+            let statusStr = 'Absent';
             if (hasCheckedIn) {
               if (hasCheckedOut) {
-                status = 'Present';
-                if (rawStatus === 'late') status = 'Late';
+                statusStr = 'Present';
+                if (r.status === 'Late') statusStr = 'Late';
               } else {
-                status = isToday ? 'Present' : 'Absent';
+                statusStr = isToday ? 'Present' : 'Absent';
               }
             } else {
-              if (rawStatus === 'late') status = 'Late';
-              else if (rawStatus === 'present') status = 'Present';
+              if (rawStatus === 'late') statusStr = 'Late';
+              else if (rawStatus === 'present') statusStr = 'Present';
             }
 
-            if (rawStatus === 'holiday') status = 'Holiday';
-            else if (rawStatus === 'leave') status = 'Leave';
-            else if (rawStatus === 'weekend') status = 'Weekend';
-            else if (rawStatus === 'absent') status = 'Absent';
+            if (rawStatus === 'holiday') statusStr = 'Holiday';
+            else if (rawStatus === 'leave' || rawStatus === 'on-leave') statusStr = 'Leave';
+            else if (rawStatus === 'weekend') statusStr = 'Weekend';
+            else if (rawStatus === 'absent') statusStr = 'Absent';
+
+            // Normalize status to Capitalized version
+            const normalizedStatus = statusStr.charAt(0).toUpperCase() + statusStr.slice(1).toLowerCase();
 
             return {
               employeeId: r.employee?.employeeNumber || r.employeeNumber || 'N/A',
               employeeName: r.employeeName || (r.employee && (r.employee.fullName || r.employee.name)) || 'Unknown',
-              date: startDateStr,
+              date: (viewMode === 'daily' && !qParam) ? startDateStr : recordDateStr,
               checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
               checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : '-',
               hoursWorked: r.totalHours ? `${Math.floor(r.totalHours)}h ${Math.round((r.totalHours % 1) * 60)}m` : (r.hoursWorked || '-'),
               totalHours: r.totalHours,
               standardHours: r.standardHours,
               overtimeHours: r.overtimeHours,
-              status: status
+              status: (normalizedStatus === 'On-leave' ? 'Leave' : normalizedStatus) as any
             };
           });
+        }
 
-          // If we found a specific admin record via fallback (getStatus) for Today that wasn't in dailyRes,
-          // we might want to inject it into the main list if not present?
-          // But usually, if it wasn't in dailyRes, it might not be relevant for the team list unless we want to force it.
-          // The previous code forced it. Let's keep that behavior if checkIn exists.
-          // We need this injection if dailyRes didn't find us (e.g. backend lag) but getStatus found us.
-          if (adminRealTimeRecord && isSameDay(currentDate, new Date()) && adminRealTimeRecord.status !== 'Absent') {
-            const myId = getCookie('hrms_user_id');
-            if (myId) { // Only inject if we can identify ourselves
-              const myName = employees.find(e => e.id === myId)?.fullName || 'Me';
+        // 2. Process Personal Records
+        if (personalRes.status === 'fulfilled' && personalRes.value && !personalRes.value.error) {
+          const rawPersonal = personalRes.value as any;
+          if (viewMode === 'daily') {
+            const rawData = rawPersonal.data || rawPersonal;
+            let currentStatusRecord: PersonalAttendanceRecord = {
+              date: rawData.date ? (typeof rawData.date === 'string' && rawData.date.includes('T') ? format(new Date(rawData.date), 'yyyy-MM-dd') : rawData.date) : format(currentDate, 'yyyy-MM-dd'),
+              checkInTime: rawData.checkInTime || rawData.checkIn,
+              checkOutTime: rawData.checkOutTime || rawData.checkOut,
+              totalHours: rawData.totalHours || rawData.hoursWorked,
+              status: rawData.status || (rawData.checkInTime || rawData.checkIn ? 'Present' : 'Absent'),
+              standardHours: rawData.standardHours,
+              overtimeHours: rawData.overtimeHours
+            };
 
-              // Check if we are already in the list to avoid duplication
-              const existingIndex = employeeRecords.findIndex(r => r.employeeName === myName);
+            // If found in daily list, daily list is single source of truth for Consistency
+            if (myId && dailyAttendanceData.length > 0) {
+              const fromDaily = dailyAttendanceData.find((r: any) => r.employeeId === myId || (r.employee && (r.employee.id === myId || r.employee._id === myId)));
+              if (fromDaily) {
+                const hasIn = !!(fromDaily.checkInTime || fromDaily.checkIn);
+                const hasOut = !!(fromDaily.checkOutTime || fromDaily.checkOut);
+                const isToday = isSameDay(new Date(), parse(startDateStr, 'yyyy-MM-dd', new Date()));
+                let status = fromDaily.status || 'Absent';
+                if (hasIn && !hasOut && isToday) status = 'Present';
+                else if (hasIn && hasOut) status = 'Present';
 
-              if (existingIndex === -1 && !foundMyRecord) { // Only inject if NOT found in daily list (foundMyRecord covers this conceptually, but checking index is safer)
-                const adminEntry: AttendanceRecord = {
-                  employeeId: employees.find(e => e.id === myId)?.employeeId || 'N/A', // Assuming employee object in state has employeeId
-                  employeeName: myName,
+                // Normalize status
+                const normalizedStatus = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+
+                currentStatusRecord = {
                   date: startDateStr,
-                  checkIn: adminRealTimeRecord.checkInTime ? format(new Date(adminRealTimeRecord.checkInTime), 'hh:mm a') : '-',
-                  checkOut: adminRealTimeRecord.checkOutTime ? format(new Date(adminRealTimeRecord.checkOutTime), 'hh:mm a') : '-',
-                  hoursWorked: adminRealTimeRecord.totalHours ? `${Math.floor(adminRealTimeRecord.totalHours)}h ${Math.round((adminRealTimeRecord.totalHours % 1) * 60)}m` : '-',
-                  totalHours: adminRealTimeRecord.totalHours,
-                  status: adminRealTimeRecord.status || 'Present'
+                  checkInTime: fromDaily.checkInTime || fromDaily.checkIn,
+                  checkOutTime: fromDaily.checkOutTime || fromDaily.checkOut,
+                  totalHours: fromDaily.totalHours || fromDaily.hoursWorked,
+                  status: normalizedStatus === 'On-leave' ? 'Leave' : normalizedStatus
                 };
-                employeeRecords.unshift(adminEntry);
               }
             }
-          }
 
-        } else {
-          // Search Mode or Date Range
-          const searchRes = await attendanceService.searchAttendance(orgId, qParam, startDateStr, endDateStr);
-          if (searchRes && !searchRes.error) {
-            const rawSearch = searchRes as any;
-            const data = (rawSearch.data && Array.isArray(rawSearch.data)) ? rawSearch.data :
-              (Array.isArray(rawSearch) ? rawSearch : []);
+            setAdminRecords([currentStatusRecord]);
 
-            employeeRecords = data.map((r: any) => {
-              const rawStatus = r.status?.toLowerCase();
-              const hasCheckedIn = !!(r.checkInTime || r.checkIn);
-              const hasCheckedOut = !!(r.checkOutTime || r.checkOut);
-              const recordDateStr = r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : startDateStr;
-              const isToday = isSameDay(new Date(), parse(recordDateStr, 'yyyy-MM-dd', new Date()));
-
-              let status = 'Absent';
-              if (hasCheckedIn) {
-                if (hasCheckedOut) {
-                  status = 'Present';
-                  if (rawStatus === 'late') status = 'Late';
-                } else {
-                  status = isToday ? 'Present' : 'Absent';
-                }
-              } else {
-                if (rawStatus === 'late') status = 'Late';
-                else if (rawStatus === 'present') status = 'Present';
-              }
-
-              if (rawStatus === 'holiday') status = 'Holiday';
-              else if (rawStatus === 'leave') status = 'Leave';
-              else if (rawStatus === 'weekend') status = 'Weekend';
-              else if (rawStatus === 'absent') status = 'Absent';
-
-              return {
-                employeeId: r.employee?.employeeNumber || r.employeeNumber || 'N/A',
-                employeeName: r.employeeName || (r.employee && (r.employee.fullName || r.employee.name)) || 'Unknown',
-                date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : '-',
-                checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : '-',
-                checkOut: r.checkOutTime ? format(new Date(r.checkOutTime), 'hh:mm a') : '-',
-                hoursWorked: r.totalHours ? `${Math.floor(r.totalHours)}h ${Math.round((r.totalHours % 1) * 60)}m` : (r.hoursWorked || '-'),
-                totalHours: r.totalHours,
-                standardHours: r.standardHours,
-                overtimeHours: r.overtimeHours,
-                status: status
-              };
-            });
+            // Inject into employee list if missing and relevant
+            if (myId && !employeeRecords.some(r => r.employeeId === (employees.find(e => e.id === myId)?.employeeId || 'N/A')) && currentStatusRecord.status !== 'Absent') {
+              const myName = employees.find(e => e.id === myId)?.fullName || 'Me';
+              employeeRecords.push({
+                employeeId: employees.find(e => e.id === myId)?.employeeId || 'N/A',
+                employeeName: myName,
+                date: startDateStr,
+                checkIn: currentStatusRecord.checkInTime ? format(new Date(currentStatusRecord.checkInTime), 'hh:mm a') : '-',
+                checkOut: currentStatusRecord.checkOutTime ? format(new Date(currentStatusRecord.checkOutTime), 'hh:mm a') : '-',
+                hoursWorked: currentStatusRecord.totalHours ? `${Math.floor(currentStatusRecord.totalHours)}h ${Math.round((currentStatusRecord.totalHours % 1) * 60)}m` : '-',
+                totalHours: currentStatusRecord.totalHours,
+                status: currentStatusRecord.status || 'Present'
+              } as AttendanceRecord);
+            }
+          } else {
+            const records = rawPersonal.attendance ||
+              (rawPersonal.data && rawPersonal.data.attendance) ||
+              (Array.isArray(rawPersonal.data) ? rawPersonal.data : (Array.isArray(rawPersonal) ? rawPersonal : []));
+            setAdminRecords(records);
           }
         }
+
         setAllEmployeesRecords(employeeRecords);
 
       } catch (error) {
@@ -414,11 +338,10 @@ const AttendanceTracker: React.FC = () => {
     const workingDaysData = filteredData.filter(d => d.status !== 'Holiday' && d.status !== 'Weekend');
     const totalWorkingDays = workingDaysData.length;
 
-    const presentCount = filteredData.filter(d => d.status === 'Present' || d.status === 'Late').length;
-    const lateCount = filteredData.filter(d => d.status === 'Late').length;
-    const leaveCount = filteredData.filter(d => d.status === 'Leave').length;
-    const absentCount = workingDaysData.filter(d => d.status === 'Absent').length;
-    const holidayCount = filteredData.filter(d => d.status === 'Holiday').length;
+    const presentCount = filteredData.filter(d => d.status.toLowerCase() === 'present' || d.status.toLowerCase() === 'late').length;
+    const leaveCount = filteredData.filter(d => d.status.toLowerCase() === 'leave' || d.status.toLowerCase() === 'on-leave').length;
+    const absentCount = workingDaysData.filter(d => d.status.toLowerCase() === 'absent').length;
+    const holidayCount = filteredData.filter(d => d.status.toLowerCase() === 'holiday').length;
 
     // Estimate hours using totalHours number from backend (more accurate)
     let totalMinutes = 0;
@@ -439,7 +362,6 @@ const AttendanceTracker: React.FC = () => {
     return [
       { icon: CalendarIcon, label: 'Total Records', value: totalRecords.toString(), color: 'text-gray-700' },
       { icon: CheckCircle, label: 'Present', value: presentCount.toString(), color: 'text-green-500' },
-      { icon: Clock, label: 'Late', value: lateCount.toString(), color: 'text-yellow-500' },
       { icon: FileText, label: 'Leave', value: leaveCount.toString(), color: 'text-blue-500' },
       { icon: CalendarIcon, label: 'Holiday', value: holidayCount.toString(), color: 'text-orange-500' },
       { icon: XCircle, label: 'Absent', value: absentCount.toString(), color: 'text-red-500' },
@@ -449,8 +371,8 @@ const AttendanceTracker: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Present': return 'bg-green-100 text-green-700';
-      case 'Late': return 'bg-yellow-100 text-yellow-700';
+      case 'Present':
+      case 'Late': return 'bg-green-100 text-green-700';
       case 'Leave': return 'bg-blue-100 text-blue-700';
       case 'Holiday': return 'bg-orange-100 text-orange-700';
       case 'Weekend': return 'bg-gray-100 text-gray-600';
@@ -743,7 +665,6 @@ const AttendanceTracker: React.FC = () => {
                     <option value="all">All Status</option>
                     <option value="Present">Present</option>
                     <option value="Absent">Absent</option>
-                    <option value="Late">Late</option>
                     <option value="Leave">Leave</option>
                     <option value="Weekend">Weekend</option>
                     <option value="Holiday">Holiday</option>

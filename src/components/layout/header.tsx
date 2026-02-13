@@ -452,7 +452,7 @@ export default function NavigationHeader({
                         pathname.includes('/reports') ? 'Reports' :
                           pathname.includes('/salary') ? 'Payroll' :
                             pathname.includes('/profile') ? 'Profile' :
-                              'Dashboard'}
+                              'Notification'}
               </h1>
             </div>
           )}

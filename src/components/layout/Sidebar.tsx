@@ -91,17 +91,17 @@ export default function Sidebar({
     { label: "Home", href: "/admin/my-space/dashboard", icon: Home, protected: true },
     { label: "Employees", href: "/admin/onboarding", icon: Users, protected: true },
     { label: "Contractors", href: "/admin/contractors", icon: FileText, protected: true },
-    { label: "Leave Tracker", href: "/admin/leavetracker", icon: Calendar, protected: true },
     { label: "Attendance", href: "/admin/attendance", icon: Clock, protected: true },
-    { label: "Reports", href: "/admin/reports", icon: Bell, protected: true },
+    { label: "Leave Tracker", href: "/admin/leavetracker", icon: Calendar, protected: true },
     { label: "Payroll", href: "/admin/salary", icon: ReceiptIndianRupeeIcon, protected: true },
+    { label: "Reports", href: "/admin/reports", icon: Bell, protected: true },
     { label: "Profile", href: "/admin/profile", icon: UserCircle, protected: true },
   ];
 
   const employeeMenu = [
     { label: "Home", href: "/employee/my-space/dashboard", icon: Home, protected: true },
-    { label: "Leave Tracker", href: "/employee/leavetracker", icon: Calendar, protected: true },
     { label: "Attendance", href: "/employee/attendance", icon: Clock, protected: true },
+    { label: "Leave Tracker", href: "/employee/leavetracker", icon: Calendar, protected: true },
     { label: "Payslip", href: "/employee/payslips", icon: ReceiptIndianRupeeIcon, protected: true },
     { label: "Profile", href: "/employee/profile", icon: UserCircle, protected: true },
   ];

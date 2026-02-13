@@ -88,7 +88,7 @@ const ContractDetails: React.FC<ContractDetailsProps> = ({
             </div>
 
             {/* Contract Information Row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 {/* Contractor Dropdown */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1.5">
@@ -113,6 +113,23 @@ const ContractDetails: React.FC<ContractDetailsProps> = ({
                                 {c.contractorName}
                             </option>
                         ))}
+                    </select>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Contract Type
+                    </label>
+                    <select
+                        value={candidateForm.contractType || ''}
+                        onChange={(e) => onInputChange('contractType', e.target.value)}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
+                    >
+                        <option value="">Select Type</option>
+                        <option value="permanent">Permanent</option>
+                        <option value="temporary">Temporary</option>
+                        <option value="probation">Probation</option>
+                        <option value="freelance">Freelance</option>
                     </select>
                 </div>
 

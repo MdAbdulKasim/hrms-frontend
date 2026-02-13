@@ -131,7 +131,6 @@ const LeaveTracker = () => {
   // Icon mapping for leave types
   const iconMap: { [key: string]: React.ReactNode } = {
     'AL': <Calendar className="w-5 h-5" />,
-    'SL_CL': <Heart className="w-5 h-5" />,
     'SL': <Heart className="w-5 h-5" />,
     'CL': <Heart className="w-5 h-5" />,
     'EL': <Gift className="w-5 h-5" />,
@@ -142,13 +141,12 @@ const LeaveTracker = () => {
 
   const colorMap: { [key: string]: { color: string; bgColor: string; gradient: string } } = {
     'AL': { color: 'text-indigo-600', bgColor: 'bg-indigo-50', gradient: 'from-indigo-500 to-blue-600' },
-    'SL_CL': { color: 'text-rose-600', bgColor: 'bg-rose-50', gradient: 'from-rose-500 to-pink-600' },
     'SL': { color: 'text-rose-600', bgColor: 'bg-rose-50', gradient: 'from-rose-500 to-pink-600' },
-    'CL': { color: 'text-rose-600', bgColor: 'bg-rose-50', gradient: 'from-rose-500 to-pink-600' },
+    'CL': { color: 'text-orange-600', bgColor: 'bg-orange-50', gradient: 'from-orange-500 to-amber-600' },
     'EL': { color: 'text-emerald-600', bgColor: 'bg-emerald-50', gradient: 'from-emerald-500 to-teal-600' },
     'LWP': { color: 'text-amber-600', bgColor: 'bg-amber-50', gradient: 'from-amber-500 to-orange-600' },
     'PL': { color: 'text-purple-600', bgColor: 'bg-purple-50', gradient: 'from-purple-500 to-violet-600' },
-    'SBL': { color: 'text-pink-600', bgColor: 'bg-pink-50', gradient: 'from-pink-500 to-rose-600' },
+    'SBL': { color: 'text-pink-600', bgColor: 'bg-pink-100', gradient: 'from-pink-500 to-rose-600' },
   };
 
   // Fetch employees for name mapping
@@ -261,7 +259,7 @@ const LeaveTracker = () => {
         return {
           id: type.code || type.id,
           code: type.code,
-          name: (type.code === 'SL_CL' || type.code === 'SL' || type.code === 'CL') ? 'SL/CL' : (type.name || 'Unknown'),
+          name: type.name || 'Unknown',
           total: totalDays,
           available: isNaN(available) ? 0 : available,
           booked: isNaN(booked) ? 0 : booked,
@@ -1141,13 +1139,10 @@ const LeaveTracker = () => {
             </div>
 
             <div className="pt-4 border-t border-dashed border-gray-200">
-              <p className="text-xs font-bold text-gray-400 uppercase mb-3">Quick Add Missing Types</p>
               <div className="flex flex-wrap gap-2">
                 {[
                   { name: 'Annual Leave', code: 'AL', days: 30 },
                   { name: 'SL/CL', code: 'SL_CL', days: 2 },
-                  { name: 'Earned Leave', code: 'EL', days: 15 },
-                  { name: 'Probationary Leave', code: 'PL', days: 12 }
                 ].filter(t => !leaveConfigs.find(c => c.code === t.code)).map(type => (
                   <button
                     key={type.code}
@@ -1162,19 +1157,19 @@ const LeaveTracker = () => {
             </div>
           </div>
 
-          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => setIsConfigDialogOpen(false)}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto "
             >
               Cancel
             </Button>
             <Button
               type="button"
               onClick={handleConfigUpdate}
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 gap-2"
               disabled={loading}
             >
               Save Configuration
