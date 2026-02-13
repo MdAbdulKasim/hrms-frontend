@@ -23,6 +23,8 @@ import {
   LeaveStatisticsChart,
   LeaveStatisticsPieChart
 } from './myspace/dashboard/Charts';
+import { UserProfileCard } from './myspace/dashboard/UserProfileCard';
+import { LiveAttendanceCard } from './myspace/dashboard/LiveAttendanceCard';
 
 
 // --- Types ---
@@ -559,50 +561,7 @@ const ReporteesCard = ({
   );
 };
 
-const ActivitiesSection = ({ currentUser }: { currentUser: CurrentUser | null }) => {
-  const dayIndex = new Date().getDay();
-  const dayColors = [
-    "from-indigo-600 via-purple-600 to-pink-600 shadow-indigo-200", // Sunday
-    "from-blue-600 via-indigo-600 to-violet-600 shadow-blue-200",   // Monday
-    "from-teal-500 via-emerald-500 to-green-600 shadow-teal-200",  // Tuesday
-    "from-amber-500 via-orange-500 to-red-600 shadow-orange-200",  // Wednesday
-    "from-purple-600 via-violet-600 to-fuchsia-600 shadow-purple-200", // Thursday
-    "from-pink-500 via-rose-500 to-red-600 shadow-pink-200",       // Friday
-    "from-slate-700 via-slate-800 to-slate-900 shadow-slate-300",  // Saturday
-  ];
 
-  const currentDayBg = dayColors[dayIndex];
-
-  return (
-    <div className={`relative overflow-hidden bg-gradient-to-r ${currentDayBg} rounded-[2.5rem] p-3 shadow-2xl group transition-all duration-700 hover:scale-[1.01]`}>
-      {/* Decorative background patterns */}
-      <div className="absolute top-0 right-0 -mt-20 -mr-20 w-64 h-64 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all duration-700" />
-      <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-48 h-48 bg-black/10 rounded-full blur-2xl" />
-
-      <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="flex items-center gap-6">
-          <div className="w-16 h-16 flex shrink-0 items-center justify-center bg-white/20 rounded-3xl backdrop-blur-xl border border-white/20 shadow-inner transform group-hover:rotate-12 transition-transform duration-500">
-            <Sun className="text-white" size={32} strokeWidth={2.5} />
-          </div>
-          <div>
-            <h3 className="text-white text-2xl font-black not-italic leading-tight italic">
-              Welcome back,
-              <span className="block text-white/90 font-black not-italic leading-tight italic mt-1 text-2xl">
-                {currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'User'}
-              </span>
-            </h3>
-            <p className="text-white/70 text-sm font-bold uppercase tracking-[0.2em] mt-3">Ready for a productive day?</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-6 py-3 rounded-full border border-white/20 shadow-sm">
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-[0_0_10px_#4ade80]" />
-          <span className="text-white text-xs font-black uppercase tracking-widest">Active Session</span>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // --- Main Page Component ---
 
@@ -671,55 +630,68 @@ export default function Dashboard() {
 
         if (!authToken || !authOrgId || !authEmployeeId) return;
 
-        // Store in state for ProfileCard
         setToken(authToken);
         setOrgId(authOrgId);
         setCurrentEmployeeId(authEmployeeId);
 
-        // Fetch current user data
-        const currentUserRes = await axios.get(`${apiUrl}/org/${authOrgId}/employees/${authEmployeeId}`, {
-          headers: { Authorization: `Bearer ${authToken}` }
-        });
-        const userData = currentUserRes.data.data || currentUserRes.data;
+        const today = new Date().toISOString().split('T')[0];
+        const headers = { Authorization: `Bearer ${authToken}` };
 
-        // Parse full name - API returns fullName as single string
-        const fullName = userData.fullName || `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
-        const [firstName, ...lastNameParts] = fullName.split(' ');
-        const lastName = lastNameParts.join(' ');
+        // Parallelize API calls
+        const [
+          userRes,
+          statusRes,
+          attendanceRes,
+          leaveRequestsRes,
+          leaveReportRes,
+          workforceRes
+        ] = await Promise.allSettled([
+          axios.get(`${apiUrl}/org/${authOrgId}/employees/${authEmployeeId}`, { headers }),
+          attendanceService.getStatus(authOrgId),
+          attendanceService.getDailyAttendance(authOrgId, today),
+          leaveService.getPendingLeaves(authOrgId),
+          leaveService.getLeaveReport(authOrgId),
+          Promise.all([
+            axios.get(`${apiUrl}/org/${authOrgId}/departments?limit=1`, { headers }),
+            axios.get(`${apiUrl}/org/${authOrgId}/designations?limit=1`, { headers }),
+            axios.get(`${apiUrl}/org/${authOrgId}/locations?limit=1`, { headers })
+          ])
+        ]);
 
-        setCurrentUser({
-          id: userData.id || userData._id,
-          employeeId: userData.employeeId || userData.id,
-          firstName: firstName || '',
-          lastName: lastName || '',
-          designation: (typeof userData.designation === 'object' ? userData.designation?.name : userData.designation) || 'N/A',
-          shiftType: userData.shiftType,
-          profileImage: userData.profileImage || userData.profilePicUrl
-        });
+        // 1. Process User Data
+        if (userRes.status === 'fulfilled') {
+          const userData = userRes.value.data.data || userRes.value.data;
+          const fullName = userData.fullName || `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+          const [firstName, ...lastNameParts] = fullName.split(' ');
+          const lastName = lastNameParts.join(' ');
 
-        // Fetch profile picture if available
-        if (userData.profileImage || userData.profilePicUrl) {
-          try {
-            // Use axios with explicit headers since we have the token
-            const picResponse = await axios.get(`${apiUrl}/org/${authOrgId}/employees/${authEmployeeId}/profile-pic`, {
-              headers: { Authorization: `Bearer ${authToken}` }
-            });
+          setCurrentUser({
+            id: userData.id || userData._id,
+            employeeId: userData.employeeId || userData.id,
+            firstName: firstName || '',
+            lastName: lastName || '',
+            designation: (typeof userData.designation === 'object' ? userData.designation?.name : userData.designation) || 'N/A',
+            shiftType: userData.shiftType,
+            profileImage: userData.profileImage || userData.profilePicUrl
+          });
 
-            // Check if response has data.imageUrl
-            const picData = picResponse.data;
-            if (picData.success && picData.imageUrl) {
-              setCurrentUser(prev => prev ? { ...prev, profileImage: picData.imageUrl } : null);
-            }
-          } catch (picError) {
-            console.error("Failed to fetch specific profile picture:", picError);
+          // Fetch profile picture if available (non-blocking)
+          if (userData.profileImage || userData.profilePicUrl) {
+            axios.get(`${apiUrl}/org/${authOrgId}/employees/${authEmployeeId}/profile-pic`, { headers })
+              .then(picResponse => {
+                const picData = picResponse.data;
+                if (picData.success && picData.imageUrl) {
+                  setCurrentUser(prev => prev ? { ...prev, profileImage: picData.imageUrl } : null);
+                }
+              })
+              .catch(err => console.error("Failed to fetch profile picture:", err));
           }
         }
 
-        // Fetch current user attendance status
-        try {
-          const statusRes = await attendanceService.getStatus(authOrgId);
-          const record = (statusRes as any).data || statusRes;
-          if (record && !record.error) {
+        // 2. Process Self Status
+        if (statusRes.status === 'fulfilled' && statusRes.value && !statusRes.value.error) {
+          const record = (statusRes.value as any).data || statusRes.value;
+          if (record && !record.message) {
             const hasIn = !!(record.checkInTime || record.checkIn);
             const hasOut = !!(record.checkOutTime || record.checkOut);
             const status = (record.status || '').toLowerCase();
@@ -731,23 +703,16 @@ export default function Dashboard() {
             setSelfCheckInTime(record.checkInTime || record.checkIn);
             setSelfCheckOutTime(record.checkOutTime || record.checkOut);
           }
-        } catch (statusError) {
-          console.error("Failed to fetch self status:", statusError);
         }
 
-        // Fetch attendance status for all employees
+        // 3. Process Attendance Maps
         let attendanceMap: Record<string, boolean> = {};
         let checkedOutMap: Record<string, boolean> = {};
         let absentMap: Record<string, boolean> = {};
         let attendanceDetails: Record<string, { checkInTime?: string; checkOutTime?: string }> = {};
 
-        try {
-          const today = new Date().toISOString().split('T')[0];
-          const attendanceRes = await attendanceService.getDailyAttendance(authOrgId, today);
-
-          // Handle both { data: [...] } and [...] formats
-          const attendanceData = (attendanceRes as any).data || (Array.isArray(attendanceRes) ? attendanceRes : []);
-
+        if (attendanceRes.status === 'fulfilled') {
+          const attendanceData = (attendanceRes.value as any).data || (Array.isArray(attendanceRes.value) ? attendanceRes.value : []);
           if (Array.isArray(attendanceData)) {
             attendanceData.forEach((record: any) => {
               if (record.employeeId) {
@@ -755,237 +720,157 @@ export default function Dashboard() {
                   checkInTime: record.checkInTime || record.checkIn,
                   checkOutTime: record.checkOutTime || record.checkOut
                 };
-
-                // Check for absent status
-                if (record.status === 'Absent' || record.status === 'absent') {
-                  absentMap[record.employeeId] = true;
-                }
-
-                // If there's a check-in but no check-out, they are active
-                if ((record.checkInTime || record.checkIn) && !(record.checkOutTime || record.checkOut)) {
-                  attendanceMap[record.employeeId] = true;
-                }
-                // If they have both, they are finished for the day
-                else if ((record.checkInTime || record.checkIn) && (record.checkOutTime || record.checkOut)) {
-                  checkedOutMap[record.employeeId] = true;
-                }
+                if (record.status === 'Absent' || record.status === 'absent') absentMap[record.employeeId] = true;
+                if ((record.checkInTime || record.checkIn) && !(record.checkOutTime || record.checkOut)) attendanceMap[record.employeeId] = true;
+                else if ((record.checkInTime || record.checkIn) && (record.checkOutTime || record.checkOut)) checkedOutMap[record.employeeId] = true;
               }
             });
           }
-        } catch (attendanceError) {
-          console.log('Could not fetch attendance data');
         }
 
-        // Fetch on-leave employees for better status mapping
+        // 4. Process Leave Maps
         let onLeaveMap: Record<string, boolean> = {};
-        try {
-          const reportRes = await leaveService.getLeaveReport(authOrgId);
-          if (reportRes.success) {
-            const allLeaves = reportRes.data as any[] || [];
-            const today = new Date().toISOString().split('T')[0];
-            allLeaves.forEach(l => {
-              if (l.status === 'approved' && l.startDate <= today && l.endDate >= today) {
-                onLeaveMap[l.employeeId] = true;
-              }
-            });
-          }
-        } catch (e) { }
+        if (leaveReportRes.status === 'fulfilled' && leaveReportRes.value.success) {
+          const allLeaves = leaveReportRes.value.data as any[] || [];
+          allLeaves.forEach(l => {
+            if (l.status === 'approved' && l.startDate <= today && l.endDate >= today) {
+              onLeaveMap[l.employeeId] = true;
+            }
+          });
 
-        // Fetch reportees
-        const reporteesRes = await axios.get(`${apiUrl}/org/${authOrgId}/employees`, {
-          headers: { Authorization: `Bearer ${authToken}` }
-        });
-        const reporteesData = reporteesRes.data.data || reporteesRes.data || [];
+          // Summary Stats
+          const activeToday = allLeaves.filter(l => l.status === 'approved' && l.startDate <= today && l.endDate >= today);
+          setOnLeaveCount(activeToday.length);
 
-        setReportees(reporteesData.map((emp: any) => {
-          const empId = emp.id || emp._id;
-          const isCheckedIn = !!attendanceMap[empId];
-          const isCheckedOut = !!checkedOutMap[empId];
-          const isAbsent = !!absentMap[empId];
-          const isOnLeave = !!onLeaveMap[empId];
-          const times = attendanceDetails[empId] || {};
+          const breakdown: Record<string, number> = {};
+          allLeaves.forEach(l => {
+            if (l.status === 'approved') {
+              const code = l.leaveTypeCode || 'OTHER';
+              breakdown[code] = (breakdown[code] || 0) + 1;
+            }
+          });
 
-          return {
-            id: empId,
-            name: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.email,
-            roleId: emp.employeeId || empId,
-            status: isOnLeave ? 'on-leave' : (isAbsent ? 'absent' : (isCheckedIn ? 'checked-in' : (isCheckedOut ? 'checked-out' : 'yet-to-check-in'))),
-            employeeId: empId,
-            isCheckedIn: isCheckedIn,
-            isCheckedOut: isCheckedOut,
-            checkInTime: times.checkInTime,
-            checkOutTime: times.checkOutTime,
-            departmentId: emp.departmentId || emp.department?.id,
-            departmentName: emp.department?.name || 'Other',
-            locationId: emp.locationId || emp.location?.id,
-            locationName: emp.location?.name || 'Main Office',
-            designationId: emp.designationId || emp.designation?.id,
-            shiftType: emp.shiftType
-          };
-        }));
-
-        // Fetch leave data
-        try {
-          // Pending requests
-          const pendingRes = await leaveService.getPendingLeaves(authOrgId);
-          if (pendingRes.success) {
-            const pendingData = pendingRes.data as any[] || [];
-            setPendingLeaveCount(pendingData.length);
-          }
-
-          // On leave today
-          const reportRes = await leaveService.getLeaveReport(authOrgId);
-          if (reportRes.success) {
-            const allLeaves = reportRes.data as any[] || [];
-            const today = new Date().toISOString().split('T')[0];
-            const activeToday = allLeaves.filter(l =>
-              l.status === 'approved' &&
-              l.startDate <= today &&
-              l.endDate >= today
-            );
-            setOnLeaveCount(activeToday.length);
-
-            // Breakdown
-            const breakdown: Record<string, number> = {};
-            allLeaves.forEach(l => {
-              if (l.status === 'approved') {
-                const code = l.leaveTypeCode || 'OTHER';
-                breakdown[code] = (breakdown[code] || 0) + 1;
-              }
-            });
-
-            const colors = ["#3b82f6", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4"];
-            const names: Record<string, string> = { 'AL': 'Annual', 'SL': 'Sick', 'CL': 'Casual', 'PL': 'Personal', 'SL_CL': 'Sick/Casual' };
-            const formattedBreakdown = Object.entries(breakdown).map(([code, count], idx) => ({
-              name: names[code] || code,
-              value: count,
-              color: colors[idx % colors.length]
-            }));
-            setLeaveBreakdown(formattedBreakdown.length > 0 ? formattedBreakdown : [
-              { name: "Annual", value: 0, color: "#10b981" },
-              { name: "Sick", value: 0, color: "#f59e0b" }
-            ]);
-          }
-        } catch (leaveError) {
-          console.error("Failed to fetch leave stats:", leaveError);
-        }
-
-        // Fetch counts for Departments, Designations, Locations
-        try {
-          const [deptRes, desigRes, locRes] = await Promise.all([
-            axios.get(`${apiUrl}/org/${authOrgId}/departments?limit=1`, { headers: { Authorization: `Bearer ${authToken}` } }),
-            axios.get(`${apiUrl}/org/${authOrgId}/designations?limit=1`, { headers: { Authorization: `Bearer ${authToken}` } }),
-            axios.get(`${apiUrl}/org/${authOrgId}/locations?limit=1`, { headers: { Authorization: `Bearer ${authToken}` } })
+          const colors = ["#3b82f6", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4"];
+          const names: Record<string, string> = { 'AL': 'Annual', 'SL': 'Sick', 'CL': 'Casual', 'PL': 'Personal' };
+          const formattedBreakdown = Object.entries(breakdown).map(([code, count], idx) => ({
+            name: names[code] || code,
+            value: count,
+            color: colors[idx % colors.length]
+          }));
+          setLeaveBreakdown(formattedBreakdown.length > 0 ? formattedBreakdown : [
+            { name: "Annual", value: 0, color: "#10b981" },
+            { name: "Sick", value: 0, color: "#f59e0b" }
           ]);
-
-          if (deptRes.data && deptRes.data.total !== undefined) setTotalDepartments(deptRes.data.total);
-          else if (Array.isArray(deptRes.data)) setTotalDepartments(deptRes.data.length);
-
-          if (desigRes.data && desigRes.data.total !== undefined) setTotalDesignations(desigRes.data.total);
-          else if (Array.isArray(desigRes.data)) setTotalDesignations(desigRes.data.length);
-
-          if (locRes.data && locRes.data.total !== undefined) setTotalLocations(locRes.data.total);
-          else if (Array.isArray(locRes.data)) setTotalLocations(locRes.data.length);
-        } catch (countError) {
-          console.error("Failed to fetch workforce counts:", countError);
         }
 
-        // Fetch Attendance Trend (Based on attendancePeriod)
+        if (leaveRequestsRes.status === 'fulfilled' && leaveRequestsRes.value.success) {
+          setPendingLeaveCount((leaveRequestsRes.value.data as any[] || []).length);
+        }
+
+        // 5. Fetch and Set Reportees (Requires initial employee list)
         try {
-          const endDate = new Date();
-          const startDate = new Date();
+          const reporteesRes = await axios.get(`${apiUrl}/org/${authOrgId}/employees`, { headers });
+          const reporteesData = reporteesRes.data.data || reporteesRes.data || [];
 
-          if (attendancePeriod === 'Day') {
-            startDate.setHours(0, 0, 0, 0);
-          } else if (attendancePeriod === 'Week') {
-            startDate.setDate(endDate.getDate() - 6);
-          } else if (attendancePeriod === 'Month') {
-            startDate.setDate(endDate.getDate() - 29);
-          } else if (attendancePeriod === 'Year') {
-            startDate.setFullYear(endDate.getFullYear() - 1);
-          }
+          const currentReportees = reporteesData.map((emp: any) => {
+            const empId = emp.id || emp._id;
+            const isCheckedIn = !!attendanceMap[empId];
+            const isCheckedOut = !!checkedOutMap[empId];
+            const isAbsent = !!absentMap[empId];
+            const isOnLeave = !!onLeaveMap[empId];
+            const times = attendanceDetails[empId] || {};
 
-          const historyRes = await attendanceService.getReporteesHistory(
-            authOrgId,
-            startDate.toISOString().split('T')[0],
-            endDate.toISOString().split('T')[0]
-          );
+            return {
+              id: empId,
+              name: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.email,
+              roleId: emp.employeeId || empId,
+              status: isOnLeave ? 'on-leave' : (isAbsent ? 'absent' : (isCheckedIn ? 'checked-in' : (isCheckedOut ? 'checked-out' : 'yet-to-check-in'))),
+              employeeId: empId,
+              isCheckedIn: isCheckedIn,
+              isCheckedOut: isCheckedOut,
+              checkInTime: times.checkInTime,
+              checkOutTime: times.checkOutTime,
+              departmentId: emp.departmentId || emp.department?.id,
+              departmentName: emp.department?.name || 'Other',
+              locationId: emp.locationId || emp.location?.id,
+              locationName: emp.location?.name || 'Main Office',
+              designationId: emp.designationId || emp.designation?.id,
+              shiftType: emp.shiftType
+            };
+          });
+          setReportees(currentReportees);
 
-          if (historyRes && !historyRes.error) {
-            const rawHistory = (historyRes as any).data || (Array.isArray(historyRes) ? historyRes : []);
+          // After reportees are set, fetch trend (this depends on reportees in original logic for some context, but here it's mostly org-wide)
+          try {
+            const endDate = new Date();
+            const startDate = new Date();
+            if (attendancePeriod === 'Day') startDate.setHours(0, 0, 0, 0);
+            else if (attendancePeriod === 'Week') startDate.setDate(endDate.getDate() - 6);
+            else if (attendancePeriod === 'Month') startDate.setDate(endDate.getDate() - 29);
+            else if (attendancePeriod === 'Year') startDate.setFullYear(endDate.getFullYear() - 1);
 
-            // Aggregate history based on period
-            const trendMap: Record<string, { present: number, absent: number }> = {};
-            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const trendRes = await attendanceService.getReporteesHistory(authOrgId, startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]);
+            if (trendRes && !trendRes.error) {
+              const rawHistory = (trendRes as any).data || (Array.isArray(trendRes) ? trendRes : []);
+              const trendMap: Record<string, { present: number, absent: number }> = {};
+              const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-            if (attendancePeriod === 'Day') {
-              // Show hourly or just a single point for today
-              const todayKey = new Date().toISOString().split('T')[0];
-              trendMap[todayKey] = { present: 0, absent: 0 };
-            } else if (attendancePeriod === 'Week' || attendancePeriod === 'Month') {
-              const numDays = attendancePeriod === 'Week' ? 7 : 30;
-              for (let i = numDays - 1; i >= 0; i--) {
-                const d = new Date();
-                d.setDate(d.getDate() - i);
-                const dateKey = d.toISOString().split('T')[0];
-                trendMap[dateKey] = { present: 0, absent: 0 };
-              }
-            } else if (attendancePeriod === 'Year') {
-              // Aggregate by month
-              for (let i = 11; i >= 0; i--) {
-                const d = new Date();
-                d.setMonth(d.getMonth() - i);
-                const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                trendMap[monthKey] = { present: 0, absent: 0 };
-              }
-            }
-
-            if (Array.isArray(rawHistory)) {
-              rawHistory.forEach((record: any) => {
-                const recordDate = new Date(record.date || record.checkInTime);
-                let key = '';
-                if (attendancePeriod === 'Year') {
-                  key = `${recordDate.getFullYear()}-${String(recordDate.getMonth() + 1).padStart(2, '0')}`;
-                } else {
-                  key = recordDate.toISOString().split('T')[0];
+              if (attendancePeriod === 'Day') trendMap[today] = { present: 0, absent: 0 };
+              else if (attendancePeriod === 'Week' || attendancePeriod === 'Month') {
+                const numDays = attendancePeriod === 'Week' ? 7 : 30;
+                for (let i = numDays - 1; i >= 0; i--) {
+                  const d = new Date(); d.setDate(d.getDate() - i);
+                  trendMap[d.toISOString().split('T')[0]] = { present: 0, absent: 0 };
                 }
+              } else if (attendancePeriod === 'Year') {
+                for (let i = 11; i >= 0; i--) {
+                  const d = new Date(); d.setMonth(d.getMonth() - i);
+                  trendMap[`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`] = { present: 0, absent: 0 };
+                }
+              }
 
-                if (trendMap[key]) {
-                  if (record.status?.toLowerCase() === 'present' || record.checkInTime) {
-                    trendMap[key].present++;
-                  } else if (record.status?.toLowerCase() === 'absent') {
-                    trendMap[key].absent++;
+              if (Array.isArray(rawHistory)) {
+                rawHistory.forEach((record: any) => {
+                  const recordDate = new Date(record.date || record.checkInTime);
+                  const key = attendancePeriod === 'Year' ? `${recordDate.getFullYear()}-${String(recordDate.getMonth() + 1).padStart(2, '0')}` : recordDate.toISOString().split('T')[0];
+                  if (trendMap[key]) {
+                    if (record.status?.toLowerCase() === 'present' || record.checkInTime) trendMap[key].present++;
+                    else if (record.status?.toLowerCase() === 'absent') trendMap[key].absent++;
                   }
-                }
-              });
-            }
-
-            const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const formattedTrend = Object.entries(trendMap).map(([key, stats]) => {
-              let name = '';
-              if (attendancePeriod === 'Year') {
-                const [y, m] = key.split('-');
-                name = monthsShort[parseInt(m) - 1];
-              } else if (attendancePeriod === 'Month') {
-                const d = new Date(key);
-                name = `${d.getDate()} ${monthsShort[d.getMonth()]}`;
-              } else {
-                const d = new Date(key);
-                name = days[d.getDay()];
+                });
               }
-              return { name, present: stats.present, absent: stats.absent };
-            });
 
-            setAttendanceTrendData(formattedTrend);
-          }
-        } catch (trendError) {
-          console.error("Failed to fetch attendance trend:", trendError);
+              if (trendMap[today]) {
+                const livePresent = currentReportees.filter((r: any) => r.status?.toLowerCase() === 'present' || r.checkInTime).length;
+                const liveAbsent = currentReportees.filter((r: any) => r.status?.toLowerCase() === 'absent').length;
+                trendMap[today] = { present: Math.max(trendMap[today].present, livePresent), absent: Math.max(trendMap[today].absent, liveAbsent) };
+              }
+
+              const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+              const formattedTrend = Object.entries(trendMap).map(([key, stats]) => {
+                let name = '';
+                if (attendancePeriod === 'Year') name = monthsShort[parseInt(key.split('-')[1]) - 1];
+                else if (attendancePeriod === 'Month') { const d = new Date(key); name = `${d.getDate()} ${monthsShort[d.getMonth()]}`; }
+                else { name = days[new Date(key).getDay()]; }
+                return { name, present: stats.present, absent: stats.absent };
+              });
+              setAttendanceTrendData(formattedTrend);
+            }
+          } catch (trendError) { console.error("Trend error:", trendError); }
+        } catch (reporteesError) { console.error("Reportees error:", reporteesError); }
+
+        // 6. Process Workforce Counts
+        if (workforceRes.status === 'fulfilled') {
+          const [deptRes, desigRes, locRes] = workforceRes.value;
+          if (deptRes.data?.total !== undefined) setTotalDepartments(deptRes.data.total); else if (Array.isArray(deptRes.data)) setTotalDepartments(deptRes.data.length);
+          if (desigRes.data?.total !== undefined) setTotalDesignations(desigRes.data.total); else if (Array.isArray(desigRes.data)) setTotalDesignations(desigRes.data.length);
+          if (locRes.data?.total !== undefined) setTotalLocations(locRes.data.total); else if (Array.isArray(locRes.data)) setTotalLocations(locRes.data.length);
         }
+
       } catch (error: any) {
         console.error('Error fetching dashboard data:', error);
         if (axios.isAxiosError(error) && error.response?.status === 401) {
-          console.warn("Session expired (401), redirecting to login...");
-          clearSetupData(); // Clear cookies
+          clearSetupData();
           router.push('/auth/login');
         }
       } finally {
@@ -1281,16 +1166,58 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="bg-white min-h-screen p-4 md:p-10 font-sans transition-colors duration-500">
-      <div className="max-w-7xl mx-auto space-y-16">
+    <div className="bg-slate-50 min-h-screen p-4 md:p-8 font-sans transition-colors duration-500">
+      <div className="max-w-7xl mx-auto space-y-10">
 
         {/* 1. Welcome Card */}
-        <ActivitiesSection currentUser={currentUser} />
 
-        {/* 2. Leave Insights (Charts) */}
+
+        {/* 2. Profile + Live Attendance Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <UserProfileCard user={currentUser} />
+          <LiveAttendanceCard
+            isCheckedIn={isSelfCheckedIn}
+            checkInTime={selfCheckInTime}
+            onCheckIn={async () => {
+              if (!token || !orgId || !currentEmployeeId) return;
+              try {
+                const now = new Date();
+                const response = await attendanceService.adminCheckIn(orgId, currentEmployeeId, now.toISOString());
+                if (response.error) {
+                  showAlert('Check-in Failed', response.error, 'error');
+                  return;
+                }
+                setIsSelfCheckedIn(true);
+                setSelfCheckInTime(now.toISOString());
+                setRefreshTrigger(prev => prev + 1);
+              } catch (e) {
+                showAlert('Error', 'Check-in failed', 'error');
+              }
+            }}
+            onCheckOut={async () => {
+              if (!token || !orgId || !currentEmployeeId) return;
+              try {
+                const now = new Date();
+                const response = await attendanceService.adminCheckOut(orgId, currentEmployeeId, now.toISOString());
+                if (response.error) {
+                  showAlert('Check-out Failed', response.error, 'error');
+                  return;
+                }
+                setIsSelfCheckedIn(false);
+                setIsSelfCheckedOut(true);
+                setRefreshTrigger(prev => prev + 1);
+              } catch (e) {
+                showAlert('Error', 'Check-out failed', 'error');
+              }
+            }}
+            loading={false}
+          />
+        </div>
+
+        {/* 3. Leave Insights (Charts) */}
         <div>
-          <h3 className="text-2xl font-black text-slate-800 mb-8 px-1 tracking-tight">Leave Insights</h3>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <h3 className="text-2xl font-black text-slate-800 mb-6 px-1 tracking-tight">Leave Insights</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
               <AttendanceOverviewChart
                 data={attendanceTrendData}
@@ -1310,72 +1237,53 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 3. Operations & Team */}
+        {/* 4. Employee Summary */}
+        <EmployeeSummaryCards
+          totalEmployees={totalEmployees}
+          activeEmployees={activeEmployeesCount}
+          inactive={inactiveCount}
+          present={presentCount}
+          absent={absentCount}
+          departments={totalDepartments}
+          designations={totalDesignations}
+          locations={totalLocations}
+        />
+
+        {/* 5. Operations & Team */}
         <div>
-          <h3 className="text-2xl font-black text-slate-800 mb-8 px-1 tracking-tight">Operations & Team</h3>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
-            <div className="lg:col-span-1">
-              <ProfileCard
-                currentUser={currentUser}
-                token={token}
-                orgId={orgId}
-                currentEmployeeId={currentEmployeeId}
-                initialIsCheckedIn={isSelfCheckedIn}
-                initialIsCheckedOut={isSelfCheckedOut}
-                isAbsent={isSelfAbsent}
-                checkInTime={selfCheckInTime}
-                checkOutTime={selfCheckOutTime}
-                onCheckInStatusChange={() => setRefreshTrigger(prev => prev + 1)}
-                showAlert={showAlert}
-              />
-            </div>
-            <div className="lg:col-span-2 h-full min-h-[500px]">
-              <ReporteesCard
-                onEmployeeClick={handleEmployeeClick}
-                reportees={reportees}
-                selectedReporteeIds={selectedReporteeIds}
-                reporteeTimes={reporteeTimes}
-                globalCheckInTime={globalCheckInTime}
-                globalCheckOutTime={globalCheckOutTime}
-                onSelectReportee={handleSelectReportee}
-                onSelectAll={handleSelectAll}
-                onTimeChange={handleTimeChange}
-                onGlobalCheckInTimeChange={setGlobalCheckInTime}
-                onGlobalCheckOutTimeChange={setGlobalCheckOutTime}
-                onCheckInReportees={handleCheckInReportees}
-                onCheckOutReportees={handleCheckOutReportees}
-                onMarkAbsentReportees={handleMarkAbsentReportees}
-                checkInLoading={checkInLoading}
-                showAlert={showAlert}
-              />
-            </div>
+          <h3 className="text-2xl font-black text-slate-800 mb-6 px-1 tracking-tight">Operations & Team</h3>
+          <div className="min-h-[500px]">
+            <ReporteesCard
+              onEmployeeClick={handleEmployeeClick}
+              reportees={reportees}
+              selectedReporteeIds={selectedReporteeIds}
+              reporteeTimes={reporteeTimes}
+              globalCheckInTime={globalCheckInTime}
+              globalCheckOutTime={globalCheckOutTime}
+              onSelectReportee={handleSelectReportee}
+              onSelectAll={handleSelectAll}
+              onTimeChange={handleTimeChange}
+              onGlobalCheckInTimeChange={setGlobalCheckInTime}
+              onGlobalCheckOutTimeChange={setGlobalCheckOutTime}
+              onCheckInReportees={handleCheckInReportees}
+              onCheckOutReportees={handleCheckOutReportees}
+              onMarkAbsentReportees={handleMarkAbsentReportees}
+              checkInLoading={checkInLoading}
+              showAlert={showAlert}
+            />
           </div>
         </div>
 
-        {/* 4. Employee Summary (Single Cards) */}
-        <div className="w-full">
-          <EmployeeSummaryCards
-            totalEmployees={totalEmployees}
-            activeEmployees={activeEmployeesCount}
-            inactive={inactiveCount}
-            present={presentCount}
-            absent={absentCount}
-            departments={totalDepartments}
-            designations={totalDesignations}
-            locations={totalLocations}
-          />
-        </div>
-
-        {/* 5. Latest Updates (Announcements & Holidays) */}
+        {/* 6. Latest Updates (Announcements & Holidays) */}
         <div>
-          <h3 className="text-2xl font-black text-slate-800 mb-8 px-1 tracking-tight">Latest Updates</h3>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+          <h3 className="text-2xl font-black text-slate-800 mb-6 px-1 tracking-tight">Latest Updates</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
             <AnnouncementsSection />
             <UpcomingHolidaysSection />
           </div>
         </div>
 
-        {/* 6. Manage Organization */}
+        {/* 7. Manage Organization */}
         <div>
           <ManageSection />
         </div>

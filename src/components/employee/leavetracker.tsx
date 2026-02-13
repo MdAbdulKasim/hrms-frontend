@@ -106,9 +106,8 @@ const LeaveTracker = () => {
         };
         const colorMap: { [key: string]: { color: string; bgColor: string; gradient: string } } = {
           'AL': { color: 'text-indigo-600', bgColor: 'bg-indigo-50', gradient: 'from-indigo-500 to-blue-600' },
-          'SL_CL': { color: 'text-rose-600', bgColor: 'bg-rose-50', gradient: 'from-rose-500 to-pink-600' },
           'SL': { color: 'text-rose-600', bgColor: 'bg-rose-50', gradient: 'from-rose-500 to-pink-600' },
-          'CL': { color: 'text-rose-600', bgColor: 'bg-rose-50', gradient: 'from-rose-500 to-pink-600' },
+          'CL': { color: 'text-orange-600', bgColor: 'bg-orange-50', gradient: 'from-orange-500 to-amber-600' },
           'EL': { color: 'text-emerald-600', bgColor: 'bg-emerald-50', gradient: 'from-emerald-500 to-teal-600' },
           'LWP': { color: 'text-amber-600', bgColor: 'bg-amber-50', gradient: 'from-amber-500 to-orange-600' },
           'PL': { color: 'text-purple-600', bgColor: 'bg-purple-100', gradient: 'from-purple-500 to-violet-600' },
@@ -128,7 +127,7 @@ const LeaveTracker = () => {
 
           return {
             id: code,
-            name: code === 'SL_CL' || code === 'SL' || code === 'CL' ? 'SL/CL' : (type.name || 'Unknown'),
+            name: type.name || 'Unknown',
             total: totalDays,
             available: isNaN(available) ? 0 : available,
             booked: isNaN(booked) ? 0 : booked,
@@ -252,9 +251,8 @@ const LeaveTracker = () => {
         };
         const colorMap: { [key: string]: { color: string; bgColor: string } } = {
           'AL': { color: 'text-indigo-600', bgColor: 'bg-indigo-100' },
-          'SL_CL': { color: 'text-rose-600', bgColor: 'bg-rose-100' },
           'SL': { color: 'text-rose-600', bgColor: 'bg-rose-100' },
-          'CL': { color: 'text-rose-600', bgColor: 'bg-rose-100' },
+          'CL': { color: 'text-orange-600', bgColor: 'bg-orange-100' },
           'EL': { color: 'text-green-600', bgColor: 'bg-green-100' },
           'LWP': { color: 'text-gray-600', bgColor: 'bg-gray-100' },
           'PL': { color: 'text-purple-600', bgColor: 'bg-purple-100' },

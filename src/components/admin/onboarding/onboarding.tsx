@@ -407,6 +407,10 @@ const EmployeeOnboardingSystem: React.FC = () => {
       appendOptional('emiratesId', candidateForm.eid);
       appendOptional('visaNumber', candidateForm.visaNumber);
       appendOptional('iqamaId', candidateForm.iqamaId);
+      appendOptional('basicSalary', candidateForm.basicSalary);
+      appendOptional('candidateSource', candidateForm.candidateSource);
+      appendOptional('referredById', candidateForm.referredById);
+      appendOptional('sourceSummary', candidateForm.sourceSummary);
       appendOptional('iban', candidateForm.iban);
       appendOptional('teamPosition', candidateForm.teamPosition);
 
@@ -449,6 +453,15 @@ const EmployeeOnboardingSystem: React.FC = () => {
         formData.append('accountNumber', candidateForm.bankDetails.accountNumber || '');
         formData.append('accountHolderName', candidateForm.bankDetails.accountHolderName || '');
         formData.append('ifscCode', candidateForm.bankDetails.ifscCode || '');
+
+        // Also send as JSON array for the bankDetails column
+        formData.append('bankDetails', JSON.stringify([{
+          bankName: candidateForm.bankDetails.bankName,
+          branchName: candidateForm.bankDetails.branchName,
+          accountNumber: candidateForm.bankDetails.accountNumber,
+          accountHolderName: candidateForm.bankDetails.accountHolderName,
+          ifscCode: candidateForm.bankDetails.ifscCode
+        }]));
       }
 
       // Map allowances and deductions
@@ -477,7 +490,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
       if (candidateForm.uidCopy instanceof File) formData.append('uidCopy', candidateForm.uidCopy);
       if (candidateForm.iqamaCopy instanceof File) formData.append('iqamaCopy', candidateForm.iqamaCopy);
       if (candidateForm.ibanCopy instanceof File) formData.append('ibanCopy', candidateForm.ibanCopy);
-      if (candidateForm.profilePicture instanceof File) formData.append('profilePicture', candidateForm.profilePicture);
+      if (candidateForm.profilePicture instanceof File) formData.append('profilePic', candidateForm.profilePicture);
 
       console.log("ONBOARDING DEBUG: Sending FormData");
 
@@ -585,6 +598,147 @@ const EmployeeOnboardingSystem: React.FC = () => {
     }
   };
 
+  const mapEmployeeToForm = (emp: any, activeContract: any): CandidateForm => {
+    const bankData = (emp.bankDetails && Array.isArray(emp.bankDetails) && emp.bankDetails.length > 0)
+      ? emp.bankDetails[0]
+      : (typeof emp.bankDetails === 'object' && emp.bankDetails !== null && !Array.isArray(emp.bankDetails))
+        ? emp.bankDetails
+        : {
+          bankName: emp.bankName || '',
+          branchName: emp.branchName || '',
+          accountNumber: emp.accountNumber || '',
+          accountHolderName: emp.accountHolderName || '',
+          ifscCode: emp.ifscCode || ''
+        };
+
+    const getAllowances = () => {
+      const allowancesSource = activeContract?.allowances || emp.allowances;
+      if (!allowancesSource) return Array.isArray(emp.accommodationAllowances) ? emp.accommodationAllowances : [];
+
+      const list: any[] = [];
+      Object.keys(allowancesSource).forEach(key => {
+        const val = allowancesSource[key];
+        if (typeof val === 'object' && val !== null && val.enabled && !['homeClaimed', 'foodClaimed', 'travelClaimed'].includes(key)) {
+          list.push({ type: key, percentage: String(val.percentage || 0) });
+        }
+      });
+
+      if (list.length === 0) {
+        if (allowancesSource.homeClaimed) list.push({ type: 'house', percentage: String(allowancesSource.homeAllowancePercentage || 0) });
+        if (allowancesSource.foodClaimed) list.push({ type: 'food', percentage: String(allowancesSource.foodAllowancePercentage || 0) });
+        if (allowancesSource.travelClaimed) list.push({ type: 'travel', percentage: String(allowancesSource.travelAllowancePercentage || 0) });
+      }
+
+      return list;
+    };
+
+    const getInsurances = () => {
+      const deductionsSource = activeContract?.deductions || emp.deductions;
+      if (!deductionsSource) {
+        if (Array.isArray(emp.insurances)) return emp.insurances;
+        if (emp.insuranceType) return [{ type: emp.insuranceType, percentage: String(emp.insurancePercentage || '') }];
+        return [];
+      }
+
+      const list: any[] = [];
+      Object.keys(deductionsSource).forEach(key => {
+        const val = deductionsSource[key];
+        if (typeof val === 'object' && val !== null && val.enabled && key !== 'insuranceDeductionPercentage') {
+          list.push({ type: key, percentage: String(val.percentage || 0) });
+        }
+      });
+
+      if (list.length === 0 && deductionsSource.insuranceDeductionPercentage > 0) {
+        list.push({ type: 'health_basic', percentage: String(deductionsSource.insuranceDeductionPercentage) });
+      }
+
+      return list;
+    };
+
+    return {
+      id: emp.id || emp._id,
+      employeeNumber: emp.employeeNumber || emp.employeeId || '',
+      fullName: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
+      email: emp.email || emp.emailId || '',
+      phoneNumber: emp.phoneNumber || emp.mobileNumber || '',
+      role: emp.role || "employee",
+      departmentId: emp.departmentId || emp.department?.id || emp.department?._id || (typeof emp.department === 'string' ? emp.department : ''),
+      designationId: emp.designationId || emp.designation?.id || emp.designation?._id || (typeof emp.designation === 'string' ? emp.designation : ''),
+      locationId: emp.locationId || emp.location?.id || emp.location?._id || (typeof emp.location === 'string' ? emp.location : ''),
+      reportingToId: emp.reportingToId || emp.reportingTo?.id || emp.reportingTo?._id || (typeof emp.reportingTo === 'string' ? emp.reportingTo : ''),
+      dateOfJoining: emp.dateOfJoining ? new Date(emp.dateOfJoining).toISOString().split('T')[0] : '',
+      shiftType: emp.shiftType || emp.shift?.id || emp.shift?._id || emp.shift || 'morning',
+      timeZone: emp.timeZone || 'Asia/Kolkata',
+      empType: emp.empType || 'permanent',
+      employeeStatus: emp.employeeStatus || emp.status || 'Active',
+      siteId: emp.siteId || '',
+      buildingId: emp.buildingId || '',
+      basicSalary: activeContract?.basicSalary || emp.basicSalary || '',
+      contractType: activeContract?.contractType || emp.contractType || '',
+      contractStartDate: activeContract?.startDate ? new Date(activeContract.startDate).toISOString().split('T')[0] : (emp.contractStartDate ? new Date(emp.contractStartDate).toISOString().split('T')[0] : ''),
+      contractEndDate: activeContract?.endDate ? new Date(activeContract.endDate).toISOString().split('T')[0] : (emp.contractEndDate ? new Date(emp.contractEndDate).toISOString().split('T')[0] : ''),
+
+      // Candidate Source
+      candidateSource: emp.candidateSource || '',
+      referredById: emp.referredById || '',
+      sourceSummary: emp.sourceSummary || '',
+      referenceAmount: emp.referenceAmount || '',
+
+      // Contractor
+      contractorId: activeContract?.contractorId || emp.contractorId || '',
+      contractId: activeContract?.id || '',
+      accommodationAllowances: getAllowances(),
+      insurances: getInsurances(),
+      bankDetails: bankData,
+      gender: emp.gender || '',
+      maritalStatus: emp.maritalStatus || '',
+      dateOfBirth: emp.dateOfBirth ? new Date(emp.dateOfBirth).toISOString().split('T')[0] : '',
+      bloodGroup: emp.bloodGroup || '',
+      passportNumber: emp.passportNumber || '',
+      drivingLicenseNumber: emp.drivingLicenseNumber || '',
+      uid: emp.uidNumber || emp.uid || '',
+      labourNumber: emp.labourNumber || '',
+      eid: emp.emiratesId || emp.eid || '',
+      visaNumber: emp.visaNumber || '',
+      iqamaId: emp.iqamaId || '',
+      iban: emp.iban || '',
+      teamPosition: emp.teamPosition || '',
+      presentAddress: {
+        addressLine1: emp.presentAddressLine1 || '',
+        addressLine2: emp.presentAddressLine2 || '',
+        city: emp.presentCity || '',
+        state: emp.presentState || '',
+        country: emp.presentCountry || '',
+        pinCode: emp.presentPinCode || ''
+      },
+      permanentAddress: {
+        addressLine1: emp.permanentAddressLine1 || '',
+        addressLine2: emp.permanentAddressLine2 || '',
+        city: emp.permanentCity || '',
+        state: emp.permanentState || '',
+        country: emp.permanentCountry || '',
+        pinCode: emp.permanentPinCode || ''
+      },
+      emergencyContact: {
+        contactName: emp.emergencyContactName || emp.emergencyContact?.contactName || '',
+        relation: emp.emergencyContactRelation || emp.emergencyContact?.relation || '',
+        contactNumber: emp.emergencyContactNumber || emp.emergencyContact?.contactNumber || ''
+      },
+      education: emp.education || [],
+      experience: emp.experience || [],
+      passportCopy: emp.passportCopyUrl || '',
+      emiratesIdCopy: emp.emiratesIdCopyUrl || '',
+      visaCopy: emp.visaCopyUrl || '',
+      labourCardCopy: emp.labourCardCopyUrl || '',
+      drivingLicenseCopy: emp.drivingLicenseCopyUrl || '',
+      uidCopy: emp.uidCopyUrl || '',
+      iqamaCopy: emp.iqamaCopyUrl || '',
+      ibanCopy: emp.ibanCopyUrl || '',
+      profilePicture: emp.profilePictureUrl || '',
+      contractDocumentUrls: activeContract?.contractDocumentUrls || []
+    };
+  };
+
   const handleViewEmployee = async (id: string) => {
     const orgId = getOrgId();
     const token = getAuthToken();
@@ -593,14 +747,11 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // 1. Fetch Employee Details
       const response = await axios.get(`${apiUrl}/org/${orgId}/employees/${id}`);
       const data = response.data.data || response.data;
       const emp = Array.isArray(data) ? data[0] : data;
-
       if (!emp) throw new Error("Employee not found");
 
-      // 2. Fetch Active Contract Details
       let activeContract = null;
       try {
         const contractRes = await axios.get(`${apiUrl}/org/${orgId}/contracts/employee/${emp.employeeNumber}/active`);
@@ -609,137 +760,7 @@ const EmployeeOnboardingSystem: React.FC = () => {
         console.warn("Failed to fetch active contract for employee:", emp.employeeNumber);
       }
 
-      const bankData = (emp.bankDetails && Array.isArray(emp.bankDetails) && emp.bankDetails.length > 0)
-        ? emp.bankDetails[0]
-        : (typeof emp.bankDetails === 'object' && emp.bankDetails !== null && !Array.isArray(emp.bankDetails))
-          ? emp.bankDetails
-          : {
-            bankName: emp.bankName || '',
-            branchName: emp.branchName || '',
-            accountNumber: emp.accountNumber || '',
-            accountHolderName: emp.accountHolderName || '',
-            ifscCode: emp.ifscCode || ''
-          };
-
-      const getAllowances = () => {
-        // Use contract allowances if available, else employee allowances
-        const allowancesSource = activeContract?.allowances || emp.allowances;
-        if (!allowancesSource) return Array.isArray(emp.accommodationAllowances) ? emp.accommodationAllowances : [];
-
-        const list: any[] = [];
-        Object.keys(allowancesSource).forEach(key => {
-          const val = allowancesSource[key];
-          if (typeof val === 'object' && val !== null && val.enabled && !['homeClaimed', 'foodClaimed', 'travelClaimed'].includes(key)) {
-            list.push({ type: key, percentage: String(val.percentage || 0) });
-          }
-        });
-
-        if (list.length === 0) {
-          if (allowancesSource.homeClaimed) list.push({ type: 'house', percentage: String(allowancesSource.homeAllowancePercentage || 0) });
-          if (allowancesSource.foodClaimed) list.push({ type: 'food', percentage: String(allowancesSource.foodAllowancePercentage || 0) });
-          if (allowancesSource.travelClaimed) list.push({ type: 'travel', percentage: String(allowancesSource.travelAllowancePercentage || 0) });
-        }
-
-        return list;
-      };
-
-      const getInsurances = () => {
-        // Use contract deductions if available, else employee deductions
-        const deductionsSource = activeContract?.deductions || emp.deductions;
-        if (!deductionsSource) {
-          if (Array.isArray(emp.insurances)) return emp.insurances;
-          if (emp.insuranceType) return [{ type: emp.insuranceType, percentage: String(emp.insurancePercentage || '') }];
-          return [];
-        }
-
-        const list: any[] = [];
-        Object.keys(deductionsSource).forEach(key => {
-          const val = deductionsSource[key];
-          if (typeof val === 'object' && val !== null && val.enabled && key !== 'insuranceDeductionPercentage') {
-            list.push({ type: key, percentage: String(val.percentage || 0) });
-          }
-        });
-
-        if (list.length === 0 && deductionsSource.insuranceDeductionPercentage > 0) {
-          list.push({ type: 'health_basic', percentage: String(deductionsSource.insuranceDeductionPercentage) });
-        }
-
-        return list;
-      };
-
-      // Map to CandidateForm
-      const form: CandidateForm = {
-        id: emp.id || emp._id,
-        employeeNumber: emp.employeeNumber || emp.employeeId || '',
-        fullName: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
-        email: emp.email || emp.emailId || '',
-        phoneNumber: emp.phoneNumber || emp.mobileNumber || '',
-        role: emp.role || "employee",
-        departmentId: emp.departmentId || emp.department?.id || emp.department?._id || (typeof emp.department === 'string' ? emp.department : ''),
-        designationId: emp.designationId || emp.designation?.id || emp.designation?._id || (typeof emp.designation === 'string' ? emp.designation : ''),
-        locationId: emp.locationId || emp.location?.id || emp.location?._id || (typeof emp.location === 'string' ? emp.location : ''),
-        reportingToId: emp.reportingToId || emp.reportingTo?.id || emp.reportingTo?._id || (typeof emp.reportingTo === 'string' ? emp.reportingTo : ''),
-        dateOfJoining: emp.dateOfJoining ? new Date(emp.dateOfJoining).toISOString().split('T')[0] : '',
-        shiftType: emp.shiftType || emp.shift?.id || emp.shift?._id || emp.shift || 'morning',
-        timeZone: emp.timeZone || 'Asia/Kolkata',
-        empType: emp.empType || 'permanent',
-        employeeStatus: emp.employeeStatus || emp.status || 'Active',
-        siteId: emp.siteId || '',
-        buildingId: emp.buildingId || '',
-        basicSalary: activeContract?.basicSalary || emp.basicSalary || '',
-        contractStartDate: activeContract?.startDate ? new Date(activeContract.startDate).toISOString().split('T')[0] :
-          (emp.contractStartDate ? new Date(emp.contractStartDate).toISOString().split('T')[0] : ''),
-        contractEndDate: activeContract?.endDate ? new Date(activeContract.endDate).toISOString().split('T')[0] :
-          (emp.contractEndDate ? new Date(emp.contractEndDate).toISOString().split('T')[0] : ''),
-        contractType: activeContract?.contractType || emp.contractType || '',
-        candidateSource: activeContract?.candidateSource || emp.candidateSource || undefined,
-        referredById: activeContract?.referredById || emp.referredById || '',
-        sourceSummary: activeContract?.sourceSummary || emp.sourceSummary || '',
-        accommodationAllowances: getAllowances(),
-        insurances: getInsurances(),
-        bankDetails: bankData,
-        // Personal Details
-        gender: emp.gender || '',
-        maritalStatus: emp.maritalStatus || '',
-        dateOfBirth: emp.dateOfBirth ? new Date(emp.dateOfBirth).toISOString().split('T')[0] : '',
-        bloodGroup: emp.bloodGroup || '',
-        // Identity Information
-        passportNumber: emp.passportNumber || '',
-        drivingLicenseNumber: emp.drivingLicenseNumber || '',
-        uid: emp.uidNumber || '',
-        labourNumber: emp.labourNumber || '',
-        eid: emp.emiratesId || '',
-        visaNumber: emp.visaNumber || '',
-        iqamaId: emp.iqamaId || '',
-        iqamaCopy: emp.iqamaCopyUrl || '',
-        // Address Information
-        presentAddress: {
-          addressLine1: emp.presentAddressLine1 || '',
-          addressLine2: emp.presentAddressLine2 || '',
-          city: emp.presentCity || '',
-          state: emp.presentState || '',
-          country: emp.presentCountry || '',
-          pinCode: emp.presentPinCode || ''
-        },
-        permanentAddress: {
-          addressLine1: emp.permanentAddressLine1 || '',
-          addressLine2: emp.permanentAddressLine2 || '',
-          city: emp.permanentCity || '',
-          state: emp.permanentState || '',
-          country: emp.permanentCountry || '',
-          pinCode: emp.permanentPinCode || ''
-        },
-        // Emergency Contact
-        emergencyContact: {
-          contactName: emp.emergencyContactName || emp.emergencyContact?.contactName || '',
-          relation: emp.emergencyContactRelation || emp.emergencyContact?.relation || '',
-          contactNumber: emp.emergencyContactNumber || emp.emergencyContact?.contactNumber || ''
-        },
-        // Education & Experience
-        education: emp.education || [],
-        experience: emp.experience || [],
-        contractDocumentUrls: activeContract?.contractDocumentUrls || []
-      };
+      const form = mapEmployeeToForm(emp, activeContract);
       setSelectedCandidate(form);
       setCurrentView('viewCandidate');
     } catch (err) {
@@ -758,14 +779,11 @@ const EmployeeOnboardingSystem: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // 1. Fetch Employee Details
       const response = await axios.get(`${apiUrl}/org/${orgId}/employees/${id}`);
       const data = response.data.data || response.data;
       const emp = Array.isArray(data) ? data[0] : data;
-
       if (!emp) throw new Error("Employee not found");
 
-      // 2. Fetch Active Contract Details
       let activeContract = null;
       try {
         const contractRes = await axios.get(`${apiUrl}/org/${orgId}/contracts/employee/${emp.employeeNumber}/active`);
@@ -774,146 +792,8 @@ const EmployeeOnboardingSystem: React.FC = () => {
         console.warn("Failed to fetch active contract for employee edit:", emp.employeeNumber);
       }
 
-      // Handle the case where the API might return an array or a single object
-      const bankData = (emp.bankDetails && Array.isArray(emp.bankDetails) && emp.bankDetails.length > 0)
-        ? emp.bankDetails[0]
-        : (typeof emp.bankDetails === 'object' && emp.bankDetails !== null && !Array.isArray(emp.bankDetails))
-          ? emp.bankDetails
-          : {
-            bankName: emp.bankName || '',
-            branchName: emp.branchName || '',
-            accountNumber: emp.accountNumber || '',
-            accountHolderName: emp.accountHolderName || '',
-            ifscCode: emp.ifscCode || ''
-          };
-
-      const getAllowances = () => {
-        // Use contract allowances if available, else employee allowances
-        const allowancesSource = activeContract?.allowances || emp.allowances;
-        if (!allowancesSource) return Array.isArray(emp.accommodationAllowances) ? emp.accommodationAllowances : [];
-
-        const list: any[] = [];
-        Object.keys(allowancesSource).forEach(key => {
-          const val = allowancesSource[key];
-          if (typeof val === 'object' && val !== null && val.enabled && !['homeClaimed', 'foodClaimed', 'travelClaimed'].includes(key)) {
-            list.push({ type: key, percentage: String(val.percentage || 0) });
-          }
-        });
-
-        if (list.length === 0) {
-          if (allowancesSource.homeClaimed) list.push({ type: 'house', percentage: String(allowancesSource.homeAllowancePercentage || 0) });
-          if (allowancesSource.foodClaimed) list.push({ type: 'food', percentage: String(allowancesSource.foodAllowancePercentage || 0) });
-          if (allowancesSource.travelClaimed) list.push({ type: 'travel', percentage: String(allowancesSource.travelAllowancePercentage || 0) });
-        }
-
-        return list;
-      };
-
-      const getInsurances = () => {
-        // Use contract deductions if available, else employee deductions
-        const deductionsSource = activeContract?.deductions || emp.deductions;
-        if (!deductionsSource) {
-          if (Array.isArray(emp.insurances)) return emp.insurances;
-          if (emp.insuranceType) return [{ type: emp.insuranceType, percentage: String(emp.insurancePercentage || '') }];
-          return [];
-        }
-
-        const list: any[] = [];
-        Object.keys(deductionsSource).forEach(key => {
-          const val = deductionsSource[key];
-          if (typeof val === 'object' && val !== null && val.enabled && key !== 'insuranceDeductionPercentage') {
-            list.push({ type: key, percentage: String(val.percentage || 0) });
-          }
-        });
-
-        if (list.length === 0 && deductionsSource.insuranceDeductionPercentage > 0) {
-          list.push({ type: 'health_basic', percentage: String(deductionsSource.insuranceDeductionPercentage) });
-        }
-
-        return list;
-      };
-
-      setCandidateForm({
-        id: id,
-        employeeNumber: emp.employeeNumber || emp.employeeId || '',
-        fullName: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
-        email: emp.email || emp.emailId || '',
-        phoneNumber: emp.phoneNumber || emp.mobileNumber || '',
-        role: emp.role || "employee",
-        departmentId: emp.departmentId || emp.department?.id || emp.department?._id || (typeof emp.department === 'string' ? emp.department : ''),
-        designationId: emp.designationId || emp.designation?.id || emp.designation?._id || (typeof emp.designation === 'string' ? emp.designation : ''),
-        locationId: emp.locationId || emp.location?.id || emp.location?._id || (typeof emp.location === 'string' ? emp.location : ''),
-        reportingToId: emp.reportingToId || emp.reportingTo?.id || emp.reportingTo?._id || (typeof emp.reportingTo === 'string' ? emp.reportingTo : ''),
-        dateOfJoining: emp.dateOfJoining ? new Date(emp.dateOfJoining).toISOString().split('T')[0] : '',
-        shiftType: emp.shiftType || emp.shift?.id || emp.shift?._id || emp.shift || 'morning',
-        timeZone: emp.timeZone || 'Asia/Kolkata',
-        empType: emp.empType || 'permanent',
-        employeeStatus: emp.employeeStatus || emp.status || 'Active',
-        siteId: emp.siteId || '',
-        buildingId: emp.buildingId || '',
-        basicSalary: activeContract?.basicSalary || emp.basicSalary || '',
-        contractStartDate: activeContract?.startDate ? new Date(activeContract.startDate).toISOString().split('T')[0] :
-          (emp.contractStartDate ? new Date(emp.contractStartDate).toISOString().split('T')[0] : ''),
-        contractEndDate: activeContract?.endDate ? new Date(activeContract.endDate).toISOString().split('T')[0] :
-          (emp.contractEndDate ? new Date(emp.contractEndDate).toISOString().split('T')[0] : ''),
-        contractType: activeContract?.contractType || emp.contractType || '',
-        contractId: activeContract?.id || '',
-        candidateSource: activeContract?.candidateSource || emp.candidateSource || undefined,
-        referredById: activeContract?.referredById || emp.referredById || '',
-        sourceSummary: activeContract?.sourceSummary || emp.sourceSummary || '',
-        accommodationAllowances: getAllowances(),
-        insurances: getInsurances(),
-        bankDetails: bankData,
-        // Add Identity fields for editing
-        passportNumber: emp.passportNumber || '',
-        drivingLicenseNumber: emp.drivingLicenseNumber || '',
-        uid: emp.uidNumber || '',
-        labourNumber: emp.labourNumber || '',
-        eid: emp.emiratesId || '',
-        visaNumber: emp.visaNumber || '',
-        iqamaId: emp.iqamaId || '',
-        // Add Personal fields
-        gender: emp.gender || '',
-        maritalStatus: emp.maritalStatus || '',
-        dateOfBirth: emp.dateOfBirth ? new Date(emp.dateOfBirth).toISOString().split('T')[0] : '',
-        bloodGroup: emp.bloodGroup || '',
-        // Add Address fields
-        presentAddress: {
-          addressLine1: emp.presentAddressLine1 || '',
-          addressLine2: emp.presentAddressLine2 || '',
-          city: emp.presentCity || '',
-          state: emp.presentState || '',
-          country: emp.presentCountry || '',
-          pinCode: emp.presentPinCode || ''
-        },
-        permanentAddress: {
-          addressLine1: emp.permanentAddressLine1 || '',
-          addressLine2: emp.permanentAddressLine2 || '',
-          city: emp.permanentCity || '',
-          state: emp.permanentState || '',
-          country: emp.permanentCountry || '',
-          pinCode: emp.permanentPinCode || ''
-        },
-        // Add Emergency Contact
-        emergencyContact: {
-          contactName: emp.emergencyContactName || emp.emergencyContact?.contactName || '',
-          relation: emp.emergencyContactRelation || emp.emergencyContact?.relation || '',
-          contactNumber: emp.emergencyContactNumber || emp.emergencyContact?.contactNumber || ''
-        },
-        // Education & Experience
-        education: emp.education || [],
-        experience: emp.experience || [],
-        // Document Copies
-        passportCopy: emp.passportCopyUrl || '',
-        emiratesIdCopy: emp.emiratesIdCopyUrl || '',
-        visaCopy: emp.visaCopyUrl || '',
-        labourCardCopy: emp.labourCardCopyUrl || '',
-        drivingLicenseCopy: emp.drivingLicenseCopyUrl || '',
-        uidCopy: emp.uidCopyUrl || '',
-        iqamaCopy: emp.iqamaCopyUrl || '',
-        contractDocumentUrls: activeContract?.contractDocumentUrls || []
-      });
-
+      const form = mapEmployeeToForm(emp, activeContract);
+      setCandidateForm(form);
       setEditingEmployeeId(id);
       setCurrentView('addCandidate');
     } catch (err: any) {
@@ -977,6 +857,14 @@ const EmployeeOnboardingSystem: React.FC = () => {
       appendOptional('visaNumber', candidateForm.visaNumber);
       appendOptional('iqamaId', candidateForm.iqamaId);
 
+      // Add missing fields
+      appendOptional('basicSalary', candidateForm.basicSalary);
+      appendOptional('iban', candidateForm.iban);
+      appendOptional('teamPosition', candidateForm.teamPosition);
+      appendOptional('candidateSource', candidateForm.candidateSource);
+      appendOptional('referredById', candidateForm.referredById);
+      appendOptional('sourceSummary', candidateForm.sourceSummary);
+
       // NOTE: Contract fields removed from employee update - will be updated separately via Contract API
 
       // Append complex objects as JSON strings
@@ -1016,6 +904,15 @@ const EmployeeOnboardingSystem: React.FC = () => {
         formData.append('accountNumber', candidateForm.bankDetails.accountNumber || '');
         formData.append('accountHolderName', candidateForm.bankDetails.accountHolderName || '');
         formData.append('ifscCode', candidateForm.bankDetails.ifscCode || '');
+
+        // Also send as JSON array for the bankDetails column
+        formData.append('bankDetails', JSON.stringify([{
+          bankName: candidateForm.bankDetails.bankName,
+          branchName: candidateForm.bankDetails.branchName,
+          accountNumber: candidateForm.bankDetails.accountNumber,
+          accountHolderName: candidateForm.bankDetails.accountHolderName,
+          ifscCode: candidateForm.bankDetails.ifscCode
+        }]));
       }
 
       // Map allowances and deductions
@@ -1076,6 +973,18 @@ const EmployeeOnboardingSystem: React.FC = () => {
         formData.append('iqamaCopy', candidateForm.iqamaCopy);
       } else if (candidateForm.iqamaCopy === null) {
         formData.append('iqamaCopyUrl', '');
+      }
+
+      if (candidateForm.ibanCopy instanceof File) {
+        formData.append('ibanCopy', candidateForm.ibanCopy);
+      } else if (candidateForm.ibanCopy === null) {
+        formData.append('ibanCopyUrl', '');
+      }
+
+      if (candidateForm.profilePicture instanceof File) {
+        formData.append('profilePic', candidateForm.profilePicture);
+      } else if (candidateForm.profilePicture === null) {
+        formData.append('profilePicUrl', '');
       }
 
       console.log('ONBOARDING UPDATE: Sending FormData');

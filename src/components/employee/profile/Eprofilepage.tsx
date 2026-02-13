@@ -789,9 +789,9 @@ export default function EmployeeProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-white p-2 text-gray-900">
+    <div className="min-h-screen bg-white p-0 text-gray-900">
       {/* Profile Header Banner */}
-      <div className="h-48 bg-gradient-to-r from-blue-600 to-indigo-700 relative">
+      <div className="h-30 bg-gradient-to-r from-blue-600 to-indigo-700 relative">
         <button
           onClick={() => router.back()}
           className="absolute top-6 left-6 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-sm transition-all"
@@ -800,7 +800,7 @@ export default function EmployeeProfilePage() {
         </button>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 -mt-24">
+      <div className="max-w-8xl mx-auto px-4 sm:px-6 -mt-24">
         {/* Profile Info Card */}
         <Card className="border-none shadow-xl shadow-gray-200/50 overflow-hidden mb-8">
           <CardContent className="p-0">

@@ -456,6 +456,7 @@ export default function EProfileForm({
                                     options={genders}
                                     value={formData.gender}
                                     onChange={(value) => handleInputChange({ target: { name: 'gender', value: value as string } } as any)}
+                                    disabled={!isEditing}
                                 />
                             </div>
                         </div>
@@ -469,6 +470,7 @@ export default function EProfileForm({
                                     options={maritalStatuses}
                                     value={formData.maritalStatus}
                                     onChange={(value) => handleInputChange({ target: { name: 'maritalStatus', value: value as string } } as any)}
+                                    disabled={!isEditing}
                                 />
                             </div>
                             <div>
@@ -477,6 +479,7 @@ export default function EProfileForm({
                                     options={bloodGroups}
                                     value={formData.bloodGroup}
                                     onChange={(value) => handleInputChange({ target: { name: 'bloodGroup', value: value as string } } as any)}
+                                    disabled={!isEditing}
                                 />
                             </div>
                         </div>
@@ -1154,6 +1157,7 @@ export default function EProfileForm({
                                     value={formData.address.state}
                                     onChange={(value) => handleInputChange({ target: { value: value as string } } as any, "address", "state")}
                                     placeholder="Select State"
+                                    disabled={!isEditing}
                                 />
                             </div>
                         </div>
@@ -1168,6 +1172,7 @@ export default function EProfileForm({
                                     value={formData.address.country}
                                     onChange={(value) => handleInputChange({ target: { value: value as string } } as any, "address", "country")}
                                     placeholder="Select Country"
+                                    disabled={!isEditing}
                                 />
                             </div>
                             <div>

@@ -123,6 +123,9 @@ const AttendanceTracker: React.FC = () => {
               const hasCheckedOut = !!(r.checkOutTime || r.checkOut);
               const transformedStatus = hasCheckedIn ? (hasCheckedOut ? 'Present' : 'Present') : (r.status || 'Absent');
 
+              // Normalize status
+              const normalizedStatus = transformedStatus.charAt(0).toUpperCase() + transformedStatus.slice(1).toLowerCase();
+
               const transformed: AttendanceRecord = {
                 date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : format(currentDate, 'yyyy-MM-dd'),
                 checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : (r.checkIn ? format(new Date(r.checkIn), 'hh:mm a') : '-'),
@@ -130,7 +133,7 @@ const AttendanceTracker: React.FC = () => {
 
                 hoursWorked: r.totalHours ? `${Math.floor(r.totalHours)}h ${Math.round((r.totalHours % 1) * 60)}m` : (r.hoursWorked ? `${r.hoursWorked}h` : '-'),
                 totalHours: r.totalHours,
-                status: transformedStatus
+                status: normalizedStatus === 'On-leave' ? 'Leave' : normalizedStatus
               };
               setAllAttendanceData([transformed]);
               setLoading(false);
@@ -185,6 +188,9 @@ const AttendanceTracker: React.FC = () => {
             else if (rawStatus === 'weekend') status = 'Weekend';
             else if (rawStatus === 'absent') status = 'Absent';
 
+            // Normalize status
+            const normalizedStatus = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+
             return {
               date: r.date ? (typeof r.date === 'string' && r.date.includes('T') ? format(new Date(r.date), 'yyyy-MM-dd') : r.date) : '-',
               checkIn: r.checkInTime ? format(new Date(r.checkInTime), 'hh:mm a') : (r.checkIn ? format(new Date(r.checkIn), 'hh:mm a') : '-'),
@@ -192,7 +198,7 @@ const AttendanceTracker: React.FC = () => {
 
               hoursWorked: r.totalHours ? `${Math.floor(r.totalHours)}h ${Math.round((r.totalHours % 1) * 60)}m` : (r.hoursWorked ? `${r.hoursWorked}h` : '-'),
               totalHours: r.totalHours,
-              status: status
+              status: normalizedStatus === 'On-leave' ? 'Leave' : normalizedStatus
             };
           });
 
@@ -227,11 +233,10 @@ const AttendanceTracker: React.FC = () => {
     const workingDaysData = filteredData.filter(d => d.status !== 'Holiday' && d.status !== 'Weekend');
     const totalWorkingDays = workingDaysData.length;
 
-    const presentCount = filteredData.filter(d => d.status === 'Present' || d.status === 'Late').length;
-    const lateCount = filteredData.filter(d => d.status === 'Late').length;
-    const leaveCount = filteredData.filter(d => d.status === 'Leave').length;
-    const absentCount = workingDaysData.filter(d => d.status === 'Absent').length;
-    const holidayCount = filteredData.filter(d => d.status === 'Holiday').length;
+    const presentCount = filteredData.filter(d => d.status.toLowerCase() === 'present' || d.status.toLowerCase() === 'late').length;
+    const leaveCount = filteredData.filter(d => d.status.toLowerCase() === 'leave' || d.status.toLowerCase() === 'on-leave').length;
+    const absentCount = workingDaysData.filter(d => d.status.toLowerCase() === 'absent').length;
+    const holidayCount = filteredData.filter(d => d.status.toLowerCase() === 'holiday').length;
 
     // Estimate hours
     let totalMinutes = 0;
@@ -251,7 +256,6 @@ const AttendanceTracker: React.FC = () => {
     return [
       { icon: CalendarIcon, label: 'Working Days', value: totalWorkingDays.toString(), color: 'text-gray-700' },
       { icon: CheckCircle, label: 'Present', value: presentCount.toString(), color: 'text-green-500' },
-      { icon: Clock, label: 'Late', value: lateCount.toString(), color: 'text-yellow-500' },
       { icon: FileText, label: 'Leave', value: leaveCount.toString(), color: 'text-blue-500' },
       { icon: CalendarIcon, label: 'Holiday', value: holidayCount.toString(), color: 'text-orange-500' },
       { icon: XCircle, label: 'Absent', value: absentCount.toString(), color: 'text-red-500' },
@@ -261,8 +265,8 @@ const AttendanceTracker: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Present': return 'bg-green-100 text-green-700';
-      case 'Late': return 'bg-yellow-100 text-yellow-700';
+      case 'Present':
+      case 'Late': return 'bg-green-100 text-green-700';
       case 'Leave': return 'bg-blue-100 text-blue-700';
       case 'Holiday': return 'bg-orange-100 text-orange-700';
       case 'Weekend': return 'bg-gray-100 text-gray-600';
