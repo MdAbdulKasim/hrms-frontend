@@ -287,6 +287,12 @@ interface ReporteesCardProps {
   onMarkAbsentReportees: (employeeIds: string[]) => void;
   checkInLoading: boolean;
   showAlert: (title: string, description: string, variant?: "success" | "error" | "info" | "warning") => void;
+  // Pagination Props
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  entriesPerPage: number;
+  totalEntries: number;
 }
 
 const ReporteesCard = ({
@@ -305,7 +311,12 @@ const ReporteesCard = ({
   onCheckOutReportees,
   onMarkAbsentReportees,
   checkInLoading,
-  showAlert
+  showAlert,
+  currentPage,
+  totalPages,
+  onPageChange,
+  entriesPerPage,
+  totalEntries
 }: ReporteesCardProps) => {
   // Get unchecked-in reportees that are selected
   const selectedUncheckedReportees = reportees.filter(
@@ -572,6 +583,56 @@ const ReporteesCard = ({
         })}
       </div>
 
+      {/* Pagination Footer */}
+      {totalPages > 1 && (
+        <div className="mt-4 pt-3 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-xs text-gray-500">
+            Showing {((currentPage - 1) * entriesPerPage) + 1} to {Math.min(currentPage * entriesPerPage, totalEntries)} of {totalEntries} entries
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="px-3 py-1 text-xs font-medium rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let p = i + 1;
+                if (totalPages > 5) {
+                  if (currentPage > 3) p = currentPage - 2 + i;
+                  if (p > totalPages) p = i + (totalPages - 4);
+                }
+
+                return (
+                  <button
+                    key={p}
+                    onClick={() => onPageChange(p)}
+                    className={`w-7 h-7 flex items-center justify-center rounded-md text-xs font-medium ${currentPage === p
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-600 hover:bg-gray-50'
+                      }`}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 text-xs font-medium rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Footer showing selection count */}
       {selectedReporteeIds.length > 0 && (
         <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
@@ -626,6 +687,10 @@ export default function Dashboard() {
   const [leaveBreakdown, setLeaveBreakdown] = useState<{ name: string, value: number, color: string }[]>([]);
   const [attendanceTrendData, setAttendanceTrendData] = useState<{ name: string, present: number, absent: number }[]>([]);
   const [attendancePeriod, setAttendancePeriod] = useState<string>('Week'); // Default to Week
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 5;
 
   // Alert State
   const [alertState, setAlertState] = useState<{ open: boolean, title: string, description: string, variant: "success" | "error" | "info" | "warning" }>({
@@ -950,15 +1015,27 @@ export default function Dashboard() {
     if (selectAll) {
       let idsToSelect: string[] = [];
       if (type === 'checkout') {
-        idsToSelect = reportees
+        const visibleReportees = reportees.slice(
+          (currentPage - 1) * entriesPerPage,
+          currentPage * entriesPerPage
+        );
+        idsToSelect = visibleReportees
           .filter(r => r.isCheckedIn && !r.isCheckedOut)
           .map(r => r.employeeId);
       } else if (type === 'checkin') {
-        idsToSelect = reportees
+        const visibleReportees = reportees.slice(
+          (currentPage - 1) * entriesPerPage,
+          currentPage * entriesPerPage
+        );
+        idsToSelect = visibleReportees
           .filter(r => !r.isCheckedIn && !r.isCheckedOut && !r.isOnLeave && !r.isAbsent)
           .map(r => r.employeeId);
       } else {
-        idsToSelect = reportees
+        const visibleReportees = reportees.slice(
+          (currentPage - 1) * entriesPerPage,
+          currentPage * entriesPerPage
+        );
+        idsToSelect = visibleReportees
           .filter(r => !r.isCheckedOut && !r.isOnLeave && !r.isAbsent)
           .map(r => r.employeeId);
       }
@@ -1137,19 +1214,24 @@ export default function Dashboard() {
 
   // Team Stats for Managers
   const totalTeam = reportees.length;
-  const teamPresentCount = reportees.filter(r => r.isCheckedIn).length;
-  const teamAbsentCount = reportees.filter(r => (r as any).status === 'absent' || (r as any).status === 'Absent').length;
+  const teamPresentCount = reportees.filter(r => r.isCheckedIn || r.isCheckedOut).length;
 
   const teamSnapshotData = [
     { name: "Present", value: teamPresentCount, color: "#22c55e" },
-    { name: "Absent", value: teamAbsentCount, color: "#ef4444" },
     { name: "On Leave", value: onLeaveCount, color: "#3b82f6" },
+    { name: "Absent", value: Math.max(0, totalTeam - teamPresentCount - onLeaveCount), color: "#ef4444" },
   ];
+
+  // Calculate Paginated Reportees
+  const indexOfLastEntry = currentPage * entriesPerPage;
+  const indexOfFirstEntry = indexOfLastEntry - entriesPerPage;
+  const currentReportees = reportees.slice(indexOfFirstEntry, indexOfLastEntry);
+  const totalPages = Math.ceil(reportees.length / entriesPerPage);
 
   // (Using attendanceTrendData from state)
 
   return (
-    <div className="bg-slate-50 min-h-screen p-4 md:p-8 font-sans transition-colors duration-500">
+    <div className="bg-white min-h-screen p-4 md:p-8 font-sans transition-colors duration-500">
       <div className="max-w-7xl mx-auto space-y-10">
 
         {/* 1. Welcome Card */}
@@ -1229,7 +1311,7 @@ export default function Dashboard() {
             <div className="min-h-[500px]">
               <ReporteesCard
                 onEmployeeClick={handleEmployeeClick}
-                reportees={reportees}
+                reportees={currentReportees}
                 selectedReporteeIds={selectedReporteeIds}
                 reporteeTimes={reporteeTimes}
                 globalCheckInTime={globalCheckInTime}
@@ -1244,6 +1326,12 @@ export default function Dashboard() {
                 onMarkAbsentReportees={handleMarkAbsentReportees}
                 checkInLoading={checkInLoading}
                 showAlert={showAlert}
+                // Pagination Props
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                entriesPerPage={entriesPerPage}
+                totalEntries={reportees.length}
               />
             </div>
           </div>
