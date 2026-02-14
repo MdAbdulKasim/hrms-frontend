@@ -52,7 +52,7 @@ export default function NotificationsView() {
             } else if (['contract_expiry', 'employee_contract_expiry_admin', 'contract_extended'].includes(type)) {
                 router.push('/admin/onboarding');
             } else if (type === 'announcement') {
-                router.push('/admin/home');
+                router.push('/admin/my-space/dashboard');
             }
         } else {
             if (['leave_approved', 'leave_rejected'].includes(type)) {
@@ -60,7 +60,7 @@ export default function NotificationsView() {
             } else if (['employee_contract_expiry', 'contract_extended'].includes(type)) {
                 router.push('/employee/profile');
             } else if (type === 'announcement') {
-                router.push('/employee/home');
+                router.push('/employee/my-space/dashboard');
             }
         }
     };

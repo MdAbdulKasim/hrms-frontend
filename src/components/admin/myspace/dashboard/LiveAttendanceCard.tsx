@@ -68,7 +68,7 @@ export const LiveAttendanceCard = ({
                 <button
                     onClick={isCheckedIn ? onCheckOut : onCheckIn}
                     disabled={loading || isOnLeave}
-                    className={`h-14 px-8 rounded-xl font-bold text-sm transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg flex items-center gap-2 ${loading || isOnLeave ? 'opacity-70 cursor-not-allowed bg-slate-700 text-slate-400' :
+                    className={`h-10 px-6 rounded-lg font-bold text-sm transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg flex items-center gap-2 ${loading || isOnLeave ? 'opacity-70 cursor-not-allowed bg-slate-700 text-slate-400' :
                         isCheckedIn
                             ? 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30'
                             : 'bg-green-500 hover:bg-green-600 text-white shadow-green-500/30'
@@ -78,7 +78,7 @@ export const LiveAttendanceCard = ({
                         <span>Processing...</span>
                     ) : (
                         <>
-                            {isOnLeave ? 'On Leave' : isCheckedIn ? 'Check Out' : 'Check-in Now'}
+                            {isOnLeave ? 'On Leave' : isCheckedIn ? 'Check Out' : 'Check-in'}
                         </>
                     )}
                 </button>

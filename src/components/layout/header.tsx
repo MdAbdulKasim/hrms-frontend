@@ -98,25 +98,7 @@ export default function NavigationHeader({
     }
 
     const role = getUserRole();
-    const type = notification.type;
-
-    if (role === 'admin') {
-      if (['leave_applied'].includes(type)) {
-        router.push('/admin/leavetracker');
-      } else if (['contract_expiry', 'employee_contract_expiry_admin', 'contract_extended'].includes(type)) {
-        router.push('/admin/onboarding');
-      } else if (type === 'announcement') {
-        router.push('/admin/home');
-      }
-    } else {
-      if (['leave_approved', 'leave_rejected'].includes(type)) {
-        router.push('/employee/leavetracker');
-      } else if (['employee_contract_expiry', 'contract_extended'].includes(type)) {
-        router.push('/employee/profile');
-      } else if (type === 'announcement') {
-        router.push('/employee/home');
-      }
-    }
+    router.push(`/${role}/notifications`);
     setShowNotifications(false);
   };
 

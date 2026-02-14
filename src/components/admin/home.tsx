@@ -263,6 +263,13 @@ interface ReporteesCardProps {
   onMarkAbsentReportees: (employeeIds: string[]) => void;
   checkInLoading: boolean;
   showAlert: (title: string, description: string, variant?: "success" | "error" | "info" | "warning") => void;
+
+  // Pagination Props
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  entriesPerPage: number;
+  totalEntries: number;
 }
 
 const ReporteesCard = ({
@@ -281,7 +288,12 @@ const ReporteesCard = ({
   onCheckOutReportees,
   onMarkAbsentReportees,
   checkInLoading,
-  showAlert
+  showAlert,
+  currentPage,
+  totalPages,
+  onPageChange,
+  entriesPerPage,
+  totalEntries
 }: ReporteesCardProps) => {
   // Get unchecked-in reportees that are selected
   const selectedUncheckedReportees = reportees.filter(
@@ -543,21 +555,79 @@ const ReporteesCard = ({
         })}
       </div>
 
+
+
+      {/* Pagination Footer */}
+      {
+        totalPages > 1 && (
+          <div className="mt-4 pt-3 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-xs text-gray-500">
+              Showing {((currentPage - 1) * entriesPerPage) + 1} to {Math.min(currentPage * entriesPerPage, totalEntries)} of {totalEntries} entries
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onPageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1 text-xs font-medium rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  // Logic to show a window of pages around current page could be added here
+                  // For simplicity, showing first 5 or logic to implement sliding window
+                  let p = i + 1;
+                  if (totalPages > 5) {
+                    if (currentPage > 3) p = currentPage - 2 + i;
+                    if (p > totalPages) p = i + (totalPages - 4);
+                  }
+
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => onPageChange(p)}
+                      className={`w-7 h-7 flex items-center justify-center rounded-md text-xs font-medium ${currentPage === p
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-600 hover:bg-gray-50'
+                        }`}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => onPageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 text-xs font-medium rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )
+      }
+
       {/* Footer showing selection count */}
-      {selectedReporteeIds.length > 0 && (
-        <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
-          <p className="text-xs text-gray-500">
-            <span className="font-medium text-gray-700">{selectedReporteeIds.length}</span> employee(s) selected
-          </p>
-          <button
-            onClick={() => onSelectAll(false, 'all')}
-            className="text-xs text-red-500 hover:text-red-600 font-medium"
-          >
-            Clear Selection
-          </button>
-        </div>
-      )}
-    </div>
+      {
+        selectedReporteeIds.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
+            <p className="text-xs text-gray-500">
+              <span className="font-medium text-gray-700">{selectedReporteeIds.length}</span> employee(s) selected
+            </p>
+            <button
+              onClick={() => onSelectAll(false, 'all')}
+              className="text-xs text-red-500 hover:text-red-600 font-medium"
+            >
+              Clear Selection
+            </button>
+          </div>
+        )
+      }
+    </div >
   );
 };
 
@@ -599,6 +669,10 @@ export default function Dashboard() {
   const [leaveBreakdown, setLeaveBreakdown] = useState<{ name: string, value: number, color: string }[]>([]);
   const [attendanceTrendData, setAttendanceTrendData] = useState<{ name: string, present: number, absent: number }[]>([]);
   const [attendancePeriod, setAttendancePeriod] = useState<string>('Week'); // Default to Week
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 5;
 
   // Workforce summary stats from API
   const [totalDepartments, setTotalDepartments] = useState(0);
@@ -769,7 +843,7 @@ export default function Dashboard() {
 
         // 5. Fetch and Set Reportees (Requires initial employee list)
         try {
-          const reporteesRes = await axios.get(`${apiUrl}/org/${authOrgId}/employees`, { headers });
+          const reporteesRes = await axios.get(`${apiUrl}/org/${authOrgId}/employees?limit=1000`, { headers });
           const reporteesData = reporteesRes.data.data || reporteesRes.data || [];
 
           const currentReportees = reporteesData.map((emp: any) => {
@@ -795,6 +869,7 @@ export default function Dashboard() {
               locationId: emp.locationId || emp.location?.id,
               locationName: emp.location?.name || 'Main Office',
               designationId: emp.designationId || emp.designation?.id,
+              employmentStatus: emp.status,
               shiftType: emp.shiftType
             };
           });
@@ -904,19 +979,26 @@ export default function Dashboard() {
   const handleSelectAll = (selectAll: boolean, type?: 'checkin' | 'checkout' | 'all') => {
     if (selectAll) {
       let idsToSelect: string[] = [];
+
+      // Filter based on currently visible reportees (paginated)
+      const visibleReportees = reportees.slice(
+        (currentPage - 1) * entriesPerPage,
+        currentPage * entriesPerPage
+      );
+
       if (type === 'checkout') {
         // Select all checked-in reportees for checkout
-        idsToSelect = reportees
+        idsToSelect = visibleReportees
           .filter(r => r.isCheckedIn && !r.isCheckedOut)
           .map(r => r.employeeId);
       } else if (type === 'checkin') {
         // Select all unchecked-in reportees for check-in
-        idsToSelect = reportees
+        idsToSelect = visibleReportees
           .filter(r => !r.isCheckedIn && !r.isCheckedOut)
           .map(r => r.employeeId);
       } else {
         // Select all non-checked-out reportees
-        idsToSelect = reportees
+        idsToSelect = visibleReportees
           .filter(r => !r.isCheckedOut)
           .map(r => r.employeeId);
       }
@@ -1124,20 +1206,24 @@ export default function Dashboard() {
     return <div className="min-h-screen bg-white flex items-center justify-center">Loading...</div>;
   }
 
-  // Otherwise render the dashboard
   // Calculate stats for EmployeeSummaryCards
+  const allInactive = reportees.filter(r => (r as any).employmentStatus?.toLowerCase() === 'inactive');
+  const allActive = reportees.filter(r => (r as any).employmentStatus?.toLowerCase() !== 'inactive');
+
   const totalEmployees = reportees.length;
-  const inactiveCount = reportees.filter(r => (r as any).status === 'inactive' || (r as any).status === 'Inactive').length;
-  const activeEmployeesCount = reportees.length - inactiveCount;
+  const inactiveCount = allInactive.length;
+  const activeEmployeesCount = allActive.length;
 
-  // Refined Present/Absent counts
-  const presentCount = reportees.filter(r => r.isCheckedIn || r.isCheckedOut).length;
-  const absentCount = reportees.filter(r => r.status === 'absent').length;
-  const onLeaveToday = reportees.filter(r => r.status === 'on-leave').length;
+  // Refined counts based on active workforce
+  const presentCount = allActive.filter(r => r.isCheckedIn || r.isCheckedOut).length;
+  const onLeaveToday = allActive.filter(r => r.status === 'on-leave').length;
+  // "Absent" card shows everyone who hasn't checked in (including those on leave and marked absent)
+  // This ensures the summary cards account for the full active workforce.
+  const absentCount = activeEmployeesCount - presentCount;
 
-  const departmentsCount = new Set(reportees.map(r => r.departmentId).filter(Boolean)).size;
-  const designationsCount = new Set(reportees.map(r => r.designationId).filter(Boolean)).size;
-  const locationsCount = new Set(reportees.map(r => r.locationId).filter(Boolean)).size;
+  const departmentsCount = new Set(allActive.map(r => r.departmentId).filter(Boolean)).size;
+  const designationsCount = new Set(allActive.map(r => r.designationId).filter(Boolean)).size;
+  const locationsCount = new Set(allActive.map(r => r.locationId).filter(Boolean)).size;
 
   // Calculate Department Distribution
   const deptMap = new Map<string, number>();
@@ -1157,16 +1243,23 @@ export default function Dashboard() {
   // Calculate summary stats
   // (Using pre-calculated counts above)
 
-  // Leave Data for Workforce Snapshot
+  // Leave Data for Workforce Snapshot (Pie Chart)
+  // Ensure mutual exclusivity for categorical correctness: Total Active = Present + On Leave + Absent
   const snapshotData = [
     { name: "Present", value: presentCount, color: "#22c55e" },
-    { name: "Absent", value: absentCount, color: "#ef4444" },
     { name: "On Leave", value: onLeaveCount, color: "#3b82f6" },
+    { name: "Absent", value: Math.max(0, activeEmployeesCount - presentCount - onLeaveCount), color: "#ef4444" },
     { name: "Inactive", value: inactiveCount, color: "#9ca3af" },
   ];
 
+  // Calculate Paginated Reportees
+  const indexOfLastEntry = currentPage * entriesPerPage;
+  const indexOfFirstEntry = indexOfLastEntry - entriesPerPage;
+  const currentReportees = allActive.slice(indexOfFirstEntry, indexOfLastEntry);
+  const totalPages = Math.ceil(allActive.length / entriesPerPage);
+
   return (
-    <div className="bg-slate-50 min-h-screen p-4 md:p-8 font-sans transition-colors duration-500">
+    <div className="bg-white min-h-screen p-4 md:p-8 font-sans transition-colors duration-500">
       <div className="max-w-7xl mx-auto space-y-10">
 
         {/* 1. Welcome Card */}
@@ -1255,7 +1348,7 @@ export default function Dashboard() {
           <div className="min-h-[500px]">
             <ReporteesCard
               onEmployeeClick={handleEmployeeClick}
-              reportees={reportees}
+              reportees={currentReportees}
               selectedReporteeIds={selectedReporteeIds}
               reporteeTimes={reporteeTimes}
               globalCheckInTime={globalCheckInTime}
@@ -1270,6 +1363,12 @@ export default function Dashboard() {
               onMarkAbsentReportees={handleMarkAbsentReportees}
               checkInLoading={checkInLoading}
               showAlert={showAlert}
+              // Pagination Props
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              entriesPerPage={entriesPerPage}
+              totalEntries={allActive.length}
             />
           </div>
         </div>
